@@ -19,22 +19,8 @@
 %     wildcard character '*' and optional components will be the empty
 %     string ''.
 %
-%   FNAME = mms_construct_filename(..., TSTART)
-%     Specify the time at which the data begins TSTART. The time is
-%     formatted as 'YYYYMMDD' with optional hour, minute, and second
-%     fields, if necessary.
-%
-%   FNAME = mms_construct_filename(..., VERSION)
-%     Specify the version of the file: 'X.Y.Z'.
-%
-%   FNAME = mms_construct_filename(..., DESC)
-%     Add an optional descriptor. Parts should be separated by the hyphen
-%     '-'.
-%
-%   FNAME = mms_construct_filename(..., DIRECTORY)
-%     Indicate a directory DIRECTORY that should be prepended to the file
-%     name.
-%
+%   FNAME = mms_construct_filename(..., 'ParamName', ParamValue)
+%     Any parameter name and value described below.
 %
 % :Params:
 %   SC:                 in, required, type=char
@@ -74,16 +60,18 @@
 %                           ql
 %                           l2pre
 %                           l2plus
-%   DESC:               in, optional, type=char, default=''
+%   'Directory':        in, required, type=char
+%                       A directory to be appended to the file name.
+%   'OptDesc':          in, optional, type=char, default=''
 %                       Optional data product descriptor. Should be short
 %                           (3-8 characters). Hyphens used to separate
 %                           multiple components.
-%   TSTART:             in, required, type=char
+%   'TStart':           in, required, type=char
 %                       Start time of the data product, formatted as:
 %                           'yyyymmddhhmmss'. Least significant fields can
 %                           be dropped when files start on regular hourly
 %                           or minute boundaries.
-%   VERSION:            in, required, type=char
+%   'Version':          in, required, type=char
 %                       Version number in the form: "vX.Y.Z"
 %                           X - Interface number. Increments represent
 %                               significant changes that will break code or
@@ -96,24 +84,55 @@
 %                               reprocessing of missing data. Dependent
 %                               data products should be reprocessed.
 %
-function fname = mms_construct_filename(sc, instr, mode, level, tstart, version, desc, directory)
-
+function fname = mms_construct_filename(sc, instr, mode, level, varargin)
 
 %------------------------------------%
-% Defaults                           %
+% Inputs                             %
 %------------------------------------%
-	nin = nargin();
-	if nin < 8
-		directory = '';
+	
+	% Defaults
+	tokens    = false;
+	tstart    = '';
+	optDesc   = '';
+	directory = '';
+	version   = '';
+
+	% Check for optional arguments
+	nOptArgs = length(varargin);
+	for ii = 1 : 2 : nOptArgs
+		switch varargin{ii}
+			case 'Directory'
+				directory = varargin{ii+1};
+			case 'OptDesc'
+				optDesc = varargin{ii+1};
+			case 'Tokens'
+				tokens = varargin{ii+1};
+			case 'Version'
+				version = varargin{ii+1};
+			case 'TStart'
+				tstart = varargin{ii+1};
+			otherwise
+				error( ['Unknown parameter "' varargin{ii} '".'] );
+		end
 	end
-	if nin < 7 || isempty(desc)
-		desc = '';
+	
+	% Use MrToken tokens or a wildcard character?
+	if isempty(tstart)
+		if tokens
+			tstart = '%Y%M%d*';
+		else
+			tstart = '*';
+		end
 	end
-	if nin < 6
-		version = '*';
+	
+	% Use a wildcard to represent the version.
+	if isempty(version)
+		version = 'v*';
 	end
-	if nin < 5
-		tstart = '*';
+	
+	% Look for any optional descriptor
+	if isempty(optDesc)
+		optDesc = '*';
 	end
 
 %------------------------------------%
@@ -121,12 +140,12 @@ function fname = mms_construct_filename(sc, instr, mode, level, tstart, version,
 %------------------------------------%
 
 	% Separate the optional descriptor from the start time.
-	if ~isempty(desc)
-		desc = [desc '_'];
+	if ~strcmp(optDesc, '*')
+		optDesc = [optDesc '_'];
 	end
 
 	% Construct the file name.
-	fname = [sc '_' instr '_' mode '_' level '_' desc tstart '_' version '.cdf'];
+	fname = [sc '_' instr '_' mode '_' level '_' optDesc tstart '_' version '.cdf'];
 	
 	% Prepend a directory?
 	if ~isempty(directory)

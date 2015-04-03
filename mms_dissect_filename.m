@@ -72,19 +72,19 @@ function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(
     % Make sure the file name is dissectable.
     assert(isempty(parts) == 0, ['Filename not recognized: "' filename '".']);
 		
-		% Simplify getting retults
+		% Un-nest the cells.
 		parts = vertcat(parts{:});
 		if iscell(filename)
 			parts = vertcat(parts{:});
 			
-			% Extract the parts
-			sc      = parts(:,1);
-			instr   = parts(:,2);
-			mode    = parts(:,3);
-			level   = parts(:,4);
-			desc    = parts(:,5);
-			tstart  = parts(:,6);
-			version = parts(:,7);
+			% Extract the parts as row vectors
+			sc      = parts(:,1)';
+			instr   = parts(:,2)';
+			mode    = parts(:,3)';
+			level   = parts(:,4)';
+			desc    = parts(:,5)';
+			tstart  = parts(:,6)';
+			version = parts(:,7)';
 		
 		% A single file name was given.
 		else
