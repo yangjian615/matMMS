@@ -19,6 +19,9 @@
 %   INSTR           in, required, type = char
 %   MODE            in, required, type = char
 %   LEVEL           in, required, type = char
+%   'Closest'       in, optional, type = boolean, default = false
+%                   Find the file that begins closest to TStart. This
+%                     option is ignored unless TStart is specified.
 %   'Directory'     in, optional, type = char, default = pwd()
 %                   Look in this directory instead of the present working
 %                     directory. The directory path may include tokens
@@ -97,6 +100,7 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 %------------------------------------%
 	
 	% Defaults
+	closest   = false;
 	newest    = false;
 	directory = '';
 	tstart    = '';
@@ -108,6 +112,8 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 	nOptArgs = length(varargin);
 	for ii = 1 : 2: nOptArgs
 		switch varargin{ii}
+			case 'Closest'
+				closest = varargin{ii+1};
 			case 'Newest'
 				newest = varargin{ii+1};
 			case 'Directory'
@@ -137,7 +143,8 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 	
 	% Newest and Version are mutually exclusive.
 	%   - One or both must not be set.
-	assert( isempty(version) || ~newest, 'Cannot specify Version and Newest.' );
+	assert( isempty(version) || ~newest,  'Version and Newest are mutually exclusive.' );
+	assert( isempty(tend)    || ~closest, 'Closest and TEnd are mutually exclusive.' );
 
 %------------------------------------%
 % Find Files                         %
@@ -147,8 +154,8 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 	%   - Use tokens so that all times are found.
 	%   - Do not specify version so all versions are found.
 	fname = mms_construct_filename(sc, instr, mode, level, ...
-		                             'Tokens',  true, ...
-																 'OptDesc', optDesc, ...
+		                             'Tokens',    true, ...
+																 'OptDesc',   optDesc, ...
 																 'Directory', directory);
 	
 	% Search for the files.
@@ -164,10 +171,15 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 	
 	% Breakdown files into parts
 	[allSC, allInstr, allMode, allLevel, allTStart, allVersion, allDesc] = mms_dissect_filename(allFiles);
+	
+	% Separate the optional description from TStart
+	%   - But only if it is not empty
+	iDesc          = ~cellfun(@isempty, allDesc);
+	allDesc(iDesc) = strcat( allDesc(iDesc), {'_'} );
 
 	% Build up the file names again, but without version numbers.
 	%   - TODO: Remove extra '_' when desc = ''
-	base = strcat( allSC, {'_'}, allInstr, {'_'}, allMode, {'_'}, allLevel, {'_'}, allDesc, {'_'}, allTStart );
+	base = strcat( allSC, {'_'}, allInstr, {'_'}, allMode, {'_'}, allLevel, {'_'}, allDesc, allTStart );
 	
 	% Sort the results
 	%   - BASE_UNIQUE(IUNIQ) is the same as BASE, so IUNIQ maps the
@@ -232,7 +244,7 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 				end
 			end
 			
-			% Keep the newest
+			% Keep the matching version
 			files{ii} = thisVersion;
 		end
 	end
@@ -276,13 +288,25 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 			% Find all files such that FILESTART >= TSTART
 			files     = files( fileStart >= tstart );
 			fileStart = fileStart( fileStart >= tstart );
+				
+		%------------------------------------%
+		% Closest Time                       %
+		%------------------------------------%
+			if closest && length(files) > 1
+				% Find the file that starts closest to TSTART
+				[~, iClosest] = min( fileStart - tstart );
+				
+				% Select only that one file
+				files     = files( iClosest );
+				fileStart = fileStart( iClosest );
+			end
 		end
 		
 	%------------------------------------%
 	% End Time                           %
 	%------------------------------------%
 		if ~isempty(tend)
-			% Dissect TSTART and assemble it without delimiters
+			% Dissect TEND and assemble it without delimiters
 			tparts = regexp(tend, regex, 'tokens');
 			tparts = strcat(tparts{:});
 			tend   = strcat(tparts{:});
@@ -295,4 +319,12 @@ function [files] = mms_file_search(sc, instr, mode, level, varargin)
 			fileStart = fileStart( fileStart < tstart );
 		end
 	end
+		
+	%------------------------------------%
+	% Directory                          %
+	%------------------------------------%
+	nFiles      = length(files);
+	dir_cell    = cell(1, nFiles);
+	dir_cell(:) = { directory };
+	files       = cellfun(@fullfile, dir_cell, files, 'UniformOutput', false);
 end

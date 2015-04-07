@@ -23,8 +23,15 @@
 %   'Offset'        in, optional, type=double, default=0.0
 %                   A constant angular offset in radians to be added to the
 %                     despinning rotation.
-%   'Omega'         in, optional, type=double, default=median(diff(T_DSS))
+%   'Omega'         in, optional, type=double, default=mean(diff(T_DSS))
 %                   Spin frequency of the data.
+%   'Smooth'        in, optional, type=double, default=false
+%                   Force T_DSS to step evenly from T_DSS(1) to T_DSS(end)
+%                     in intervals of exactly "Omega".
+%   'Unique'        in, optional, type=double, default=false
+%                   Take only the unique values of T_DSS. Often, the sun
+%                     pulse is reported multiple times per spin. This will
+%                     remove duplicate entries.
 %
 % Returns
 %   DESPUN          out, required, type=3xN double
@@ -34,11 +41,16 @@
 %
 % History:
 %   2015-03-31      Written by Matthew Argall
+%   2015-04-06      Added the 'Unique', and 'Smooth' options. Use the mean, 
+%                     not the median, spin frequency. - MRA
 %
 function despun = mms_dss_despin(t_dss, time, data, varargin)
 
+	% Defaults
 	omega  = [];
 	offset = 0.0;
+	smooth = false;
+	uniq   = false;
 
 	% Check for optional arguments
 	nOptArgs = length(varargin);
@@ -48,32 +60,58 @@ function despun = mms_dss_despin(t_dss, time, data, varargin)
 				omega = varargin{ii+1};
 			case 'Offset'
 				offset = varargin{ii+1};
+			case 'Unique'
+				uniq = varargin{ii+1};
+			case 'Smooth'
+				smooth = varargin{ii+1};
 			otherwise
 				error( ['Unknown parameter "' varargin{ii} '".'] );
 		end
 	end
 	
+	% Number of points to despin
+	npts = length(time);
+	
 %------------------------------------%
-% Find Closest Sun Pulse             %
+% Massage Sun Pulse Time             %
 %------------------------------------%
+	% Take only the unique elements?
+	if uniq
+		t_dss = unique(t_dss);
+	end
+	
 	% Convert time to seconds
 	t_min     = min([time(1) t_dss(1)]);
 	t_sec     = MrCDF_epoch2sse(time,  t_min);
 	t_sec_dss = MrCDF_epoch2sse(t_dss, t_min);
+
+	% Spin frequency
+	if isempty(omega)
+		omega = 2 * pi / mean(diff(t_sec_dss));
+	end
 	
-	% Histogram merged times using sunpulse times as bin edges.
-	[~, inds] = histc(t_sec, t_sec_dss);
+	% Smooth the results
+	%   - Any elements of T_SEC that are before T_SEC_DSS(1) or after
+	%     T_SEC_DSS(end) will return an index of 0 and cause an error.
+	%   - To ensure T_SEC_DSS encompasses all of T_SEC, smooth out to
+	%     T_SEC(end) + OMEGA.
+	if smooth
+		t_sec_dss = t_sec_dss(1) : omega : ( t_sec(end) + (2 * pi / omega) );
+		
+	% Add extra points even if we are not smoothing.
+	elseif t_sec_dss(end) < t_sec(end)
+		t_sec_dss = [ t_sec_dss (t_sec_dss(end)+omega):omega:(t_sec(end)+omega) ];
+	end
 	
 %------------------------------------%
 % Determine Spin Phase               %
 %------------------------------------%
-	% Spin frequency
-	if isempty(omega)
-		omega = 2 * pi / median(diff(t_sec_dss));
-	end
+	
+	% Histogram data times using sunpulse times as bin edges.
+	[~, inds] = histc(t_sec, t_sec_dss);
 	
 	% Radians into the spin
-	phase = omega .* ( t_sec - t_sec_dss(inds)' );
+	phase = omega .* ( t_sec - t_sec_dss(inds) );
 	
 	% Add the offset
 	if offset ~= 0

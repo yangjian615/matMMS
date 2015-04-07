@@ -4,6 +4,12 @@
 %
 % Purpose
 %   Calibrate fluxgate magnetometer data from the MMS mission.
+%     1) Read B, T, and range from mag file
+%     2) Find appropriate calibration file (hi/lo range)
+%     3) Split B into hi- and low-range elements
+%       a. Subtract offset
+%       b. Create othogonalization matrix from calibration parameters.
+%       c. Orthogonalize B
 %
 % Calling Sequence
 %   [B_DATA] = mms_fg_calibrate(FILENAME)
@@ -29,7 +35,7 @@ function [b_fg, t_fg] = mms_fg_calibrate(filename, cal_dir)
 		     ['Calibration file directory does not exist: "' cal_dir '".']);
 
 	% Dissect the FG data file name
-	[sc, instr, ~, ~, tstart] = mms_dissect_filename(filename);
+	[sc, instr] = mms_dissect_filename(filename);
 	
 %------------------------------------%
 % Read Magnetometer Data             %
@@ -61,10 +67,14 @@ function [b_fg, t_fg] = mms_fg_calibrate(filename, cal_dir)
 %------------------------------------%
 	if ~isempty(iHi)
 		% Find the calibration file
-		hical_fname = mms_find_file(sc, instr, 'hirangecal', 'l2pre', tstart, '*', '', cal_dir);
+		hiCal_file = mms_file_search(sc, instr, 'hirangecal', 'l2pre', ...
+			                           'Directory', cal_dir);
+		
+		% Can handle only one file
+		assert( length(hiCal_file) == 1, 'More than one cal file found. Cannot proceed.' );
 		
 		% Calibrate hi-range
-		b_fg(:, iHi) = mms_fg_calibrate_hilo(hical_fname, b_fg(:, iHi), t_fg(1));
+		b_fg(:, iHi) = mms_fg_calibrate_hilo(hiCal_file{1}, b_fg(:, iHi), t_fg(1));
 	end
 	
 %------------------------------------%
@@ -72,10 +82,14 @@ function [b_fg, t_fg] = mms_fg_calibrate(filename, cal_dir)
 %------------------------------------%
 	if ~isempty(iLo)
 		% Find the calibration file
-		local_fname = mms_find_file(sc, instr, 'lorangecal', 'l2pre', tstart, '*', '', cal_dir);
+		loCal_file = mms_file_search(sc, instr, 'lorangecal', 'l2pre', ...
+			                           'Directory', cal_dir);
+		
+		% Can handle only one file
+		assert( length(loCal_file) == 1, 'More than one cal file found. Cannot proceed.' );
 		
 		% Calibrate hi-range
-		b_fg(:, iLo) = mms_fg_calibrate_hilo(local_fname, b_fg(:, iLo), t_fg(1));
+		b_fg(:, iLo) = mms_fg_calibrate_hilo(loCal_file{1}, b_fg(:, iLo), t_fg(1));
 	end
 end
 
@@ -158,8 +172,5 @@ function [b_cal] = mms_fg_calibrate_hilo(filename, b_data, t_fg)
 	[~, orthog_mat] = mms_fg_calparams2matrix(gain_data, theta_data, phi_data, u3_data);
 	
 	% Orthogonalize the data
-	N = length(t_fg);
-	for ii = 1 : N
-		b_cal(:, ii) = orthog_mat(:,:) * b_cal(:, ii);
-	end
+	b_cal = mrvector_rotate(orthog_mat, b_cal);
 end
