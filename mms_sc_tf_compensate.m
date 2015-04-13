@@ -8,8 +8,9 @@
 % Calling Sequence
 %   COMP = mms_sc_tf_compensate(TRANSFR_FN, F, N, DF)
 %     This computes the complex array COMP by interpolation of the
-%     transfer function, TF, at given frequencies, F, and puts the complex
-%     conjugate values in the upper half of the compensation array
+%     transfer function, TRANSFR_FN, at given frequencies, F, and puts
+%     the complex conjugate values in the upper half of the compensation
+%     array
 %
 %   NOTE: N is the number of frequencies to compensate and should be EVEN !
 %

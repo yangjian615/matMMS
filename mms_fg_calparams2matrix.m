@@ -21,20 +21,20 @@
 %    dTheta = [-0.241677,   -0.0810649]';
 %    u3     = [-0.00187507,  0.00423245]';
 %    [sensor_matrix, m] = mms_fg_calparams2matrix(G, dPhi, dTheta, u3)
-% 			sensor_matrix =
-% 						 1.0354   -0.0011907    0.0019465
-% 					0.0013123       1.0017   -0.0042374
-% 					0.0042458    0.0014186       1.0061
-% 			m =
-% 						0.96581    0.0011506   -0.0018637
-% 				 -0.0012825      0.99825    0.0042067
-% 				 -0.0040739   -0.0014124       0.9939
+%    sensor_matrix =
+%                   1.0354     -0.0011907   0.0019465
+%                   0.0013123   1.0017     -0.0042374
+%                   0.0042458   0.0014186   1.0061
+%    m =
+%                   0.96581     0.0011506  -0.0018637
+%                  -0.0012825   0.99825     0.0042067
+%                  -0.0040739  -0.0014124   0.9939
 %
 % Parameters
-%   G             in, required, type=3XN float
-%   dPhi          in, required, type=3XN float
-%   dTheta        in, required, type=3XN float
-%   u3            in, required, type=3XN float
+%   G             in, required, type=3xN float
+%   dPhi          in, required, type=2xN float
+%   dTheta        in, required, type=2xN float
+%   u3            in, required, type=3xN float
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -42,7 +42,7 @@
 % History:
 %   2015-03-21      Written by Matthew Argall
 %
-function [m, sensor_matrix] = mms_fg_calparams2matrix(G, dPhi, dTheta, u3)
+function [sensor_matrix, m] = mms_fg_calparams2matrix(G, dPhi, dTheta, u3)
 
 	% Convert to degrees
 	deg2rad = pi / 180.0;
@@ -79,10 +79,8 @@ function [m, sensor_matrix] = mms_fg_calparams2matrix(G, dPhi, dTheta, u3)
 	
 	% Orthogonalization matrix
 	%   - Only calculate if you are asked.
-	if nargout == 2
-		sensor_matrix = zeros(3, 3, N);
-		for ii = 1 : N
-			sensor_matrix(:, :, ii) = inv( m(:, :, ii) );
-		end
+	sensor_matrix = zeros(3, 3, N);
+	for ii = 1 : N
+		sensor_matrix(:, :, ii) = inv( m(:, :, ii) );
 	end
 end

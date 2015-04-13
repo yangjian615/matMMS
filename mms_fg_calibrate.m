@@ -3,173 +3,194 @@
 %   mms_fg_calibrate
 %
 % Purpose
-%   Calibrate fluxgate magnetometer data from the MMS mission.
-%     1) Read B, T, and range from mag file
-%     2) Find appropriate calibration file (hi/lo range)
-%     3) Split B into hi- and low-range elements
-%       a. Subtract offset
-%       b. Create othogonalization matrix from calibration parameters.
-%       c. Orthogonalize B
+%   Calibrate MMS fluxgate data. This transforms magnetic field from
+%   the uncalibrated sensor frame (123) into the orthogonalized
+%   magnetometer from (OMB).
+%
+%   Process:
+%     1. Separate hi- and lo-range data
+%     2. Calibrate hi- and lo-range data separately
+%       a) Map data to nearest calibration time
+%       b) Apply offsets
+%       c) Create orthogonalization matrix
+%       d) Apply orthogonalization
 %
 % Calling Sequence
-%   [B_DATA] = mms_fg_calibrate(FILENAME)
-%     Read magnetometer data from the file named FILENAME, calibrate it
-%     by applying DC offsets, gain, and orthogonalization matrices, and
-%     return the result as B_DATA.
+%   B_OMB = mms_fg_calibrate(B_123, T, RANGE, T_RANGE, HICAL, LOCAL)
+%     Calibrate and orthogonalize magnetometer data in the non-orthogonal
+%     123 coordinate system B_123. B_123 has cdf_time_tt2000 time tags T
+%     and is in range RANGE at times T_RANGE. The calibration parameters
+%     for hi- and lo-range data are HICAL and LOCAL, respectively, and can
+%     be obtained from mms_fg_read_cal.m. Return results in B_OMB.
+%
+%   [B_OMB, MPA] = mms_fg_calibrate(B_123, T, RANGE, T_RANGE, HICAL, LOCAL)
+%     Also return the z-MPA axis as viewed from BCS.
 %
 % Parameters
-%   FILENAME        in, required, type=char
+%   B_123           in, required, type = 3xN double
+%   T               in, required, type = 1xN int64 (cdf_time_tt2000)
+%   RANGE           in, required, type = 1xN logical
+%   T_RANGE         in, required, type = 1xN int64 (cdf_time_tt2000)
+%   HICAL           in, required, type = struct
+%   LOCAL           in, required, type = struct
+%
+% Returns
+%   B_OMB           out, required, type=3xN double
+%   MPA             out, optional, type=3xN double
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
-%   2015-03-22      Written by Matthew Argall
+%   2015-04-13      Written by Matthew Argall
 %
-function [b_fg, t_fg] = mms_fg_calibrate(filename, cal_dir)
+function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
 
-	% Create file names
-	assert(exist(filename, 'file') == 2, ...
-		     ['Flux gate data file does not exist: "' filename '".']);
-	assert(exist(cal_dir, 'dir') == 7, ...
-		     ['Calibration file directory does not exist: "' cal_dir '".']);
-
-	% Dissect the FG data file name
-	[sc, instr] = mms_dissect_filename(filename);
+	%
+	% Histogram ranges
+	%   - T_RANGE are reported once per packet
+	%   - B_FG times occur multiple times per packet. 
+	%   - T_RANGE will serve as buckets into which
+	%     magnetic field times will fall -- essentially
+	%     rounding T_FG down to the nearest T_RANGE
+	%     and using its range flag.
+	%   - histc() reqires T_FG to fall completely within
+	%     the range of T_RANGE or invalid indices will
+	%     be returned. Extend T_RANGE if need be.
+	%
+	% However, the packet time marks the beginning of the
+	% data capture, so there should be no problem.
+	%
 	
-%------------------------------------%
-% Read Magnetometer Data             %
-%------------------------------------%
-
-	% Create variable names
-	b_name     = mms_construct_varname(sc, instr, '123');
-	range_name = mms_construct_varname(sc, instr, 'range');
+	% histc() does not take int64.
+	t_sse       = MrCDF_epoch2sse(t, t_range(1));
+	t_range_sse = MrCDF_epoch2sse(t_range, t_range(1));
 	
+	% Map each T_FG onto the values of RANGE.
+	[~, range_inds] = histc(t_sse, t_range_sse);
 	
-	% Read the magnetometer data
-	fg_data = spdfcdfread(filename, ...
-		                    'Variables',     {'Epoch' b_name range_name}, ...
-                        'CombineRecords', true, ...
-												'KeepEpochAsIs',  true);
-								
-	% Extract the data
-	t_fg       = fg_data{1}';
-	b_fg       = fg_data{2}';
-	range_data = fg_data{3}';
-	clear fg_data
-	
-	% Hi- and lo-range data
-	iHi = find(range_data);
-	iLo = find(~range_data);
-
-%------------------------------------%
-% Calibrate Hi-Range Data            %
-%------------------------------------%
-	if ~isempty(iHi)
-		% Find the calibration file
-		hiCal_file = mms_file_search(sc, instr, 'hirangecal', 'l2pre', ...
-			                           'Directory', cal_dir);
+	%
+	% Turns out, it is possible for data points to not
+	% have a range flag. At the beginning of the array,
+	% the first point may not. At the end of the array,
+	% all points in the last packet will not because
+	% histc() does not have a right-edge for the last
+	% bin.
+	%
+	if t(1) < t_range(1)
+		% Find the first point with range information.
+		iInRange = find( t >= t_range(1), 1, 'first');
+		wrn_msg  = sprintf('First %d points lack range info.', iInRange-1);
+		warning('mms_fg_calibrate:range', wrn_msg);
 		
-		% Can handle only one file
-		assert( length(hiCal_file) == 1, 'More than one cal file found. Cannot proceed.' );
+		% Set out-of-range values to the first in-range value.
+		range_inds(1:iInRange) = range_inds(iInRange);
+	end
+	if t(end) > t_range(end)
+		% Find the last point with range information.
+		iInRange = find( t <= t_range(end), 1, 'last');
+		wrn_msg  = sprintf('Last %d points may lack range info.', length(t) - iInRange);
+		warning('mms_fg_calibrate:range', wrn_msg);
 		
-		% Calibrate hi-range
-		b_fg(:, iHi) = mms_fg_calibrate_hilo(hiCal_file{1}, b_fg(:, iHi), t_fg(1));
+		% Set out-of-range values to the last in-range value.
+		range_inds(iInRange+1:end) = range_inds(iInRange);
 	end
 	
+	% hirange data -- logical array
+	%   1 if hirange
+	%   0 if lorange
+	hirange = range(range_inds) == 1;
+	lorange = ~hirange;
+	nHi     = sum( hirange );
+	nLo     = sum( lorange );
+
 %------------------------------------%
-% Calibrate Lo-Range Data            %
+% Apply Calibration                  %
 %------------------------------------%
-	if ~isempty(iLo)
-		% Find the calibration file
-		loCal_file = mms_file_search(sc, instr, 'lorangecal', 'l2pre', ...
-			                           'Directory', cal_dir);
-		
-		% Can handle only one file
-		assert( length(loCal_file) == 1, 'More than one cal file found. Cannot proceed.' );
-		
-		% Calibrate hi-range
-		b_fg(:, iLo) = mms_fg_calibrate_hilo(loCal_file{1}, b_fg(:, iLo), t_fg(1));
+	% Allocate memory to output
+	B_omb = B_123;
+	
+	% hirange data
+	if nHi > 0
+		[B_omb(:, hirange), iHiCal] = mms_fg_calibrate_apply( B_123(:, hirange), t(hirange), hiCal );
+	end
+	
+	% lorange data
+	if nLo > 0
+		[B_omb(:, lorange), iLoCal] = mms_fg_calibrate_apply( B_123(:, lorange), t(lorange), loCal );
+	end
+
+%------------------------------------%
+% MPA z-Axis                         %
+%------------------------------------%
+	if nargout > 1
+		mpa = zeros(size(B_omb));
+		if nHi > 0
+			mpa(:, hirange ) = iHiCal.('MPA');
+		end
+		if nLo > 0
+			mpa(:, lorange ) = iLoCal.('MPA');
+		end
 	end
 end
 
 
 %
 % Name
-%   mms_fg_calibrate_hilo
+%   mms_fg_calibrate_apply
 %
 % Purpose
 %   A helper routine for the mms_fg_calibrate function. Will calibrate
 %   either hi-range or lo-range data.
 %
+%   Process:
+%     1. Map data to nearest calibration time
+%     2. Apply offsets
+%     3. Create orthogonalization matrix
+%     4. Apply orthogonalization
+%
 % Calling Sequence
-%   [B_DATA] = mms_fg_calibrate(FILENAME)
-%     Read magnetometer data from the file named FILENAME, calibrate it
-%     by applying DC offsets, gain, and orthogonalization matrices, and
-%     return the result as B_DATA.
+%   B_CAL = mms_fg_calibrate_apply(B, TIME, CAL_PARAMS)
+%     Calibrate MMS fgm data B with time stamps TIME using the
+%     calibration parameters stored in CAL_PARAMS. Return the
+%     calibrated magnetic field B_CAL. CAL_PARAMS can be obtained
+%     from mms_fg_read_cal.m.
+%
+%   [B_CAL, CAL] = mms_fg_calibrate_apply(__)
+%     Also return the interpolated calibration matrix.
 %
 % Parameters
-%   FILENAME        in, required, type=char
+%   B               in, required, type=3xN double
+%   TIME            in, required, type=int64 (cdf_time_tt2000)
+%   CAL_PARAMS      in, required, type=struct
+%
+% Returns
+%   B_CAL           out, required, type=3xN double
+%   CAL             out, optional, type=struct
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
-%   2015-03-22      Written by Matthew Argall
+%   2015-04-13      Written by Matthew Argall
 %
-function [b_cal] = mms_fg_calibrate_hilo(filename, b_data, t_fg)
-
-	% Dissect the file name
-	[sc, instr, mode, level] = mms_dissect_filename(filename);
-
-	% Construct the param name for the cal variables
-	if strcmp(mode, 'lorangecal')
-		name = ['lo_' level];
-	else
-		name = ['hi_' level];
-	end
+function [b_cal, cal] = mms_fg_calibrate_apply(B_123, time, cal_params)
 	
-	% Construct the variable names
-	epoch_name  = mms_construct_varname(sc, instr, name, 'Epoch');
-	gain_name   = mms_construct_varname(sc, instr, name, 'G');
-	theta_name  = mms_construct_varname(sc, instr, name, 'dTheta');
-	phi_name    = mms_construct_varname(sc, instr, name, 'dPhi');
-	u3_name     = mms_construct_varname(sc, instr, name, 'U3');
-	offset_name = mms_construct_varname(sc, instr, name, 'O');
-	
-	% Read data calibration data 
-	cal_data = spdfcdfread(filename, ...
-		                     'Variables',     {epoch_name gain_name theta_name phi_name u3_name offset_name}, ...
-                         'CombineRecords', true, ...
-												 'KeepEpochAsIs',  true);
-	
-	% Extract the data
-	%   - mms_fg_calparams2matrix expects 3xN or 2xN.
-	%   - spdfcdfread reaturns Nx3 or Nx2
-	%  => transpose data
-	t_cal       = cal_data{1}';
-	gain_data   = cal_data{2}';
-	theta_data  = cal_data{3}';
-	phi_data    = cal_data{4}';
-	u3_data     = cal_data{5}';
-	offset_data = cal_data{6}';
-	clear cal_data
-	
-	% Find the closest calibration time and pick those calibration params.
-	iCal       = find(t_cal < t_fg, 1, 'last');
-	gain_data  = gain_data(:, iCal);
-	theta_data = theta_data(:, iCal);
-	phi_data   = phi_data(:, iCal);
-	u3_data    = u3_data(:, iCal);
+	% Interpolate the calibration parameters
+	%   - Always take the last calibrated point (no interpolation).
+	%   - Ken: cal values will always be constant for L1B,
+    %          regardless of how new the cal file is.
+	cal = mms_fg_interp_cal(cal_params, time, true);
 
 	% Subtract DC offsets
-	b_cal      = b_data;
-	b_cal(1,:) = b_data(1,:) - offset_data(1);
-	b_cal(2,:) = b_data(2,:) - offset_data(2);
-	b_cal(3,:) = b_data(3,:) - offset_data(3);
+	b_cal      = B_123;
+	b_cal(1,:) = B_123(1,:) - cal.('Offset')(1,:);
+	b_cal(2,:) = B_123(2,:) - cal.('Offset')(2,:);
+	b_cal(3,:) = B_123(3,:) - cal.('Offset')(3,:);
 	
 	% Create orthogonalization matrix
-	[~, orthog_mat] = mms_fg_calparams2matrix(gain_data, theta_data, phi_data, u3_data);
+	orthog_mat = mms_fg_calparams2matrix( cal.('Gain'), cal.('dTheta'), ...
+	                                      cal.('dPhi'), cal.('U3') );
 	
 	% Orthogonalize the data
 	b_cal = mrvector_rotate(orthog_mat, b_cal);
