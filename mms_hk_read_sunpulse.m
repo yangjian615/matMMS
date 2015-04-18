@@ -6,10 +6,11 @@
 %   Read houskeeping 0x101 sun pulse and related data.
 %
 % Calling Sequence
-%   [HK_TT2000, SUN_PULSE, FLAG, PERIOD] = mms_hk_sunpulse(FILENAME)
-%     Read housekeeping 0x101 packet times HK_TT2000, time of last sun
-%     pulse in tt2000, SUN_PULSE, sun pulse flag, FLAG, and external sun
-%     pulse period in microseconds, PERIOD.
+%   SUNPULSE = mms_hk_sunpulse(FILENAME)
+%     Read housekeeping 0x101 packet times, 'Epoch', time of last sun
+%     pulse in tt2000, 'SunPulse', sun pulse flag, 'Flag', and external sun
+%     pulse period in microseconds, 'Period'. Return a structure SUNPULSE
+%     with those as fields.
 %
 %   [__] = mms_hk_sunpulse(__, 'ParamName', ParamValue)
 %     Any parameter name-value pair given below.
@@ -26,16 +27,18 @@
 %                     'UniqPackets' to true.
 %
 % Returns
-%   HK_TT2000       out, required, type=Nx1 int64/tt2000
-%   SUN_PULSE       out, required, type=Nx1 int64/tt2000
-%   FLAG            out, optional, type=Nx1
-%                   Possible values include:
-%                     0: s/c sun pulse
-%                     1: s/c pseudo sun pulse
-%                     2: s/c CIDP generated speudo sun pulse
-%   PERIOD          out, optional, type=Nx1
-%                   Only returned when FLAG=0 and only on the second and
-%                     subsequent received sun pulses from the s/c.
+%   SUNPULSE        out, required, type=struct
+%                   Fields are:
+%                     'Epoch'    - Packet times
+%                     'SunPulse' - Sun pulse times
+%                     'Period'   - Period (micro-sec) of revolution Only
+%                                    returned when FLAG=0 and only on the
+%                                    second and subsequent received sun
+%                                    pulses from the s/c.
+%                     'Flag'     - Status flag
+%                                    0: s/c sun pulse
+%                                    1: s/c pseudo sun pulse
+%                                    2: s/c CIDP generated speudo sun pulse
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -43,8 +46,9 @@
 % History:
 %   2015-03-25      Written by Matthew Argall
 %   2015-04-12      Added the 'UniqPackets' and 'UniqPulse' parameters. - MRA
+%   2015-04-14      Return a structure. - MRAs
 %
-function [hk_tt2000, sun_pulse, flag, period] = mms_hk_read_sunpulse(filename, varargin)
+function [sunpulse] = mms_hk_read_sunpulse(filename, varargin)
 
 	% Defaults
 	uniq_packets = false;
@@ -114,4 +118,10 @@ function [hk_tt2000, sun_pulse, flag, period] = mms_hk_read_sunpulse(filename, v
 		flag   = flag(iUniq);
 		period = period(iUniq);
 	end
+	
+	% Create a structure of the output.
+	sunpulse = struct( 'Epoch',    hk_tt2000, ...
+	                   'Flag',     flag,      ...
+	                   'Period',   period,    ...
+	                   'SunPulse', sun_pulse );
 end

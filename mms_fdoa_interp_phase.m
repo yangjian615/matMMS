@@ -57,9 +57,11 @@ function phaseOut = mms_fdoa_interp_phase(defatt, timeOut, type)
 
 	% Start by unwrapping the phase
 	phunwrap = MrPhaseUnwrap(defatt.(type)(:,3)', 360.0);
-	
+
 	% Inteprolate the phase
-	%   - First, convert to double
+	%   - interp1 requires floats
+	%   - Will introduce NaN's if any of TIMEOUT falls outside of ATT_TT2000
+	%   - Will throw error if att_tt2000 has repeats.
 	t0 = att_tt2000(1);
 	phaseOut = interp1( double(att_tt2000 - t0), phunwrap, double(timeOut - t0) );
 end

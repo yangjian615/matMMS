@@ -67,16 +67,16 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
 % Find Definitive Attitude File      %
 %------------------------------------%
 	% MMS#_DEFATT_%Y%D_%Y%D.V00
-	fname = MrFile_Search( fullfile(att_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*']), ...
-	                      'VersionRegex', 'V([0-9]{2})', ...
-	                      'TStart',       tstart, ...
-	                      'TEnd',         tend, ...
-	                      'TimeOrder',    '%Y%D' );
+	[fname, nFiles] = MrFile_Search( fullfile(att_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*']), ...
+	                                 'VersionRegex', 'V([0-9]{2})', ...
+	                                 'TStart',       tstart, ...
+	                                 'TEnd',         tend, ...
+	                                 'TimeOrder',    '%Y%D' );
 	nFiles = length(fname);
 	
 	% Make sure the file exists
-	assert( ~isempty( fname ), ...
-	        ['Definitive attitude file not found or does not exist: "' fname '".']);
+	assert( nFiles > 0, ...
+	        'Definitive attitude file not found or does not exist.');
 
 %------------------------------------%
 % Read Header from Each File         %
@@ -139,6 +139,31 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
 	% Get rid of unwanted data
 	for ii = 1 : nFields
 		attitude.( names{ii} ) = attitude.( names{ii} )(irange(1):irange(2), :);
+	end
+
+%------------------------------------%
+% Remove Duplicates                  %
+%------------------------------------%
+	
+	%
+	% Definitive attitude files overlap, meaning if more than
+	% one file is found, it could have repeated data. Since
+	% attitude data will often be interpolated to data sample
+	% times, and MATLAB's interp1() function does not consider
+	% repeated values to be strictly monotonically increasing,
+	% we have to remove repeats.
+	%
+	if nFiles > 1
+		[~, iuniq] = unique(attitude.TAI);
+		attitude.UTC = attitude.UTC( iuniq, 1 );
+		attitude.TAI = attitude.TAI( iuniq, 1 );
+		attitude.q   = attitude.q(   iuniq, : );
+		attitude.w   = attitude.w(   iuniq, : );
+		attitude.z   = attitude.z(   iuniq, : );
+		attitude.L   = attitude.L(   iuniq, : );
+		attitude.P   = attitude.P(   iuniq, : );
+		attitude.Nut = attitude.Nut( iuniq, 1 );
+		attitude.QF  = attitude.QF(  iuniq, 1 );
 	end
 end
 

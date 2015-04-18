@@ -16,14 +16,16 @@
 %     applied.
 %
 % Parameters
-%   EUL             in, required, type=double
-%   SEQUENCE        in, required, type=char, defualt='ZYX'
+%   INSTRUMENT      in, required, type=char
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
 %   2015-03-22      Written by Matthew Argall
+%   2015-04-16      Magnetometer 123 and XYZ systems are now directly
+%                     related to BCS. Removed OMB, as it is with respect
+%                     to SMPA. - MRA
 %
 function [xyz2ocs, angles, sequence] = mms_instr_xxyz2ocs(instrument)
 
@@ -58,12 +60,12 @@ function [xyz2ocs, angles, sequence] = mms_instr_xxyz2ocs(instrument)
 	%             INSTRUMENT            EULER ANGLES           ORDER
 	euler_angles('ADP1')          = { [   0.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('ADP2')          = { [   0.0,  0.0,  180.0 ], 'ZXY' };
-	euler_angles('AFG_XYZ')       = { [ -90.0,  0.0,  -90.0 ], 'ZXY' };     % AFG_XYZ To AFG BOOM
-	euler_angles('AFG_123')       = { [   0.0,  0.0,    0.0 ], 'ZXY' };     % AFG_123 To AFG_BOOM
+	euler_angles('AFG_XYZ')       = { [  45.0,  0.0,  -90.0 ], 'ZXY' };
+	euler_angles('AFG_123')       = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('AFG_BOOM')      = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('BCS')           = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('DFG_XYZ')       = { [ -90.0,  0.0,  -90.0 ], 'ZXY' };     % DFG_XYZ To DFG_BOOM
-	euler_angles('DFG_123')       = { [ 180.0,  0.0,    0.0 ], 'ZXY' };     % DFG_123 To DFG_BOOM
+	euler_angles('DFG_XYZ')       = { [-135.0,  0.0,  -90.0 ], 'ZXY' };
+	euler_angles('DFG_123')       = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('DFG_BOOM')      = { [ -45.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('DSS')           = { [ -76.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('EDI1')          = { [ 221.0,  0.0,  -90.0 ], 'ZXY' };
@@ -73,20 +75,14 @@ function [xyz2ocs, angles, sequence] = mms_instr_xxyz2ocs(instrument)
 	euler_angles('EDI2_GUN')      = { [  41.0,  0.0,  -90.0 ], 'ZXY' };
 	euler_angles('EDI2_DETECTOR') = { [  41.0,  0.0,  -90.0 ], 'ZXY' };
 	euler_angles('OCS')           = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('OMB')           = { [ 225.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('SC')            = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('SCM_XYZ')       = { [ 180.0, 90.0,    0.0 ], 'ZXY' };     % SCM_XYZ To SCM_BOOM
-	euler_angles('SCM_123')       = { [ 180.0, 90.0,    0.0 ], 'ZXY' };     % SCM_123 To SCM_BOOM
+	euler_angles('SCM_XYZ')       = { [ -45.0, 90.0,    0.0 ], 'ZXY' };
+	euler_angles('SCM_123')       = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('SCM_BOOM')      = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
 	euler_angles('SDP1')          = { [ -60.0,  0.0,  180.0 ], 'ZXY' };
 	euler_angles('SDP2')          = { [ 120.0,  0.0,  180.0 ], 'ZXY' };
 	euler_angles('SDP3')          = { [  30.0,  0.0,  180.0 ], 'ZXY' };
 	euler_angles('SDP4')          = { [ 210.0,  0.0,  180.0 ], 'ZXY' };
-
-	% This is how the rotations are given in the instrument manual.
-% 	euler_angles('AFG123')     = {  0.0,  -90.0,  -90.0, [3,2,1] };     % AFG-to-AFG123
-% 	euler_angles('DFG123')     = {  0.0,  -90.0,   90.0, [3,2,1] };     % DFG-to-DFG123
-% 	euler_angles('SCM123')     = { 90.0,    0.0,  180.0, [3,1,2] };     % SCM-to-SCM123
 
 %-------------------------------------------------------
 % Names ////////////////////////////////////////////////
@@ -113,34 +109,4 @@ function [xyz2ocs, angles, sequence] = mms_instr_xxyz2ocs(instrument)
 	
 	% Get the rotation matrix that rotates XYZ into OCS.
 	xyz2ocs = mreul2rotm(angles, sequence, 'Degrees', true);
-	
-%-------------------------------------------------------
-% Finish Rotation to OCS ///////////////////////////////
-%-------------------------------------------------------
-
-	% Magnetometer mechanical and sensor frames must be rotated from MAG_BOOM to OCS.
-	%    - e.g. 'AFG_123' and 'AFG_XYZ' must be rotated from 'AFG_BOOM' to 'OCS'
-	%    - The process is the same for all three.
-	if ~isempty(regexp(instr, '(AFG|DFG|SCM)_(XYZ|123)', 'once'))
-		% Extract the instrument
-		mag_name = regexp(instr, '^(AFG|DFG|SCM)', 'tokens');
-		mag_name = mag_name{1}{1};
-		
-		% What we really have is the transformation to the MAG_BOOM system
-		mag2mag_boom = xyz2ocs;
-				
-		% Finish rotation to OCS
-		eulCell   = euler_angles( [mag_name '_BOOM'] );
-		angles2   = eulCell{1};
-		sequence2 = eulCell{2};
-		
-		mag_boom2ocs = mreul2rotm(angles2, sequence2, 'Degrees', true);
-		xyz2ocs      = mag_boom2ocs * mag2mag_boom;
-		
-		% The booms lie in the OCS XY-plane, and this extra rotation is about
-		% only the z-axis. Futhermore, since the rotation about Z is always
-		% last, the final set of rotations is the orignal (from mag2mag_boom)
-		% plus the rotation about z from mag_boom2ocs.
-		angles(1) = angles(1) + angles2(1);
-	end
 end

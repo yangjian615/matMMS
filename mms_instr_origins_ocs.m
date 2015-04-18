@@ -8,19 +8,19 @@
 %
 % Calling Sequence
 %   NAMES = mms_instr_origins_ocs();
-%			Return a cell array of strings NAME containing the names of the
-%			instruments for which the origins are known.
+%     Return a cell array of strings NAME containing the names of the
+%     instruments for which the origins are known.
 %
 %   ORIGIN = mms_instr_origins_ocs(INSTRUMENT);
-%			Return the cartesian coordinates of an instrument's origin ORIGIN in
-%			OCS.
+%     Return the cartesian coordinates of an instrument's origin ORIGIN in
+%     OCS.
 %
 %   ORIGIN = mms_instr_origins_ocs(__, 'Spherical', TF);
-%			Specify whether the origin should be returned in spherical or
-%			cartesian coordinates. If spherical coordinate are returned, ORIGIN
-%			is [azimuth, elevation, radius], where azimuth is the angle from
-%			the OCS x-axis, elevation is the angle up from the OCS xy-plane, and
-%			radius is the radial distance from the OCS origin.
+%     Specify whether the origin should be returned in spherical or
+%     cartesian coordinates. If spherical coordinate are returned, ORIGIN
+%     is [azimuth, elevation, radius], where azimuth is the angle from
+%     the OCS x-axis, elevation is the angle up from the OCS xy-plane, and
+%     radius is the radial distance from the OCS origin.
 %
 % Parameters
 %   INSTRUMENT      in, optional, type=char
@@ -39,7 +39,7 @@ function origin = mms_instr_origins_ocs(instrument, varargin)
 	if nargin > 0
 		% Ensure only one instrument name was given
 		assert(ischar(instrument) && isrow(instrument), ...
-					 'Input instrument must be a scalar string.');
+		       'Input instrument must be a scalar string.');
 		
 		% Case insensitive -- all uppercase
 		instr = upper(instrument);
@@ -62,15 +62,16 @@ function origin = mms_instr_origins_ocs(instrument, varargin)
 		end
 	end
 
-  % Instrument list
+	% Instrument list
 	instr_map                  = containers.Map('KeyType', 'char', 'ValueType', 'any');
 	%                                    X           Y            Z
 	instr_map('ADP1')          = [  0.0,       -0.161925,    15.745      ];
 	instr_map('ADP2')          = [  0.0,       -0.161925,   -15.185      ];
 	instr_map('AFG_BOOM')      = [ -0.99147,   -0.99147,     -0.0771     ];
-	instr_map('AFG_MECH')      = [  5.18785,   -0.0080,       0.0021262  ];    % From AFG_BOOM origin
-	instr_map('DFG_BOOM')      = [ -0.99147,    0.99147,     -0.0771     ];
-	instr_map('DFG_MECH')      = [  5.18785,   -0.0080,       0.0021262  ];    % From DFG_BOOM origin
+	instr_map('AFG_MECH')      = [  5.18785,   -0.0080,       0.0021262  ];    % In AFG_BOOM CS
+	instr_map('BCS')           = [  0.0,        0.0,          0.0        ];    % z translation from OCS to BCS unknown/variable
+	instr_map('DFG_BOOM')      = [  0.99147,    0.99147,     -0.0771     ];
+	instr_map('DFG_MECH')      = [  5.18785,   -0.0080,       0.0021262  ];    % In DFG_BOOM CS
 	instr_map('EDI1')          = [ -1.332748,   0.889069,     1.051      ];
 	instr_map('EDI1_GUN')      = [ -1.45598,    1.11837,      0.0        ];
 	instr_map('EDI1_DETECTOR') = [ -1.35885,    1.03395,      0.0        ];
@@ -82,20 +83,29 @@ function origin = mms_instr_origins_ocs(instrument, varargin)
 	instr_map('OCS')           = [  0.0,        0.0,          0.0        ];
 	instr_map('SC')            = [  0.0,        0.0,          0.1670     ];
 	instr_map('SCM_BOOM')      = [ -0.99147,   -0.99147,     -0.0771     ];
-	instr_map('SCM_MECH')      = [  4.14785,   -0.00479899,  -0.0332010  ];    % From SCM_BOOM origin
+	instr_map('SCM_MECH')      = [  4.14785,   -0.00479899,  -0.0332010  ];    % In SCM_BOOM CS
 	instr_map('SDP1')          = [  1.342598,   0.865542,     1.050      ];
 	instr_map('SDP2')          = [ -1.342598,  -0.865542,     1.050      ];
 	instr_map('SDP3')          = [ -0.865542,   1.342598,     1.050      ];
 	instr_map('SDP4')          = [  0.865542,  -1.342598,     1.050      ];
 	
-	% Convert to OCS origin
+	% Must convert the *_MECH coordinate systems to be relative to the
+	% OCS origin. This means rotating from AFG_BOOM to OCS.
+	afgboom2ocs = mms_instr_xxyz2ocs('AFG_BOOM');
+	dfgboom2ocs = mms_instr_xxyz2ocs('DFG_BOOM');
+	scmboom2ocs = mms_instr_xxyz2ocs('SCM_BOOM');
+	instr_map('AFG_MECH') = ( afgboom2ocs * instr_map('AFG_MECH')' )';
+	instr_map('DFG_MECH') = ( dfgboom2ocs * instr_map('DFG_MECH')' )';
+	instr_map('SCM_MECH') = ( scmboom2ocs * instr_map('SCM_MECH')' )';
+	
+	% Add offset to *_BOOM origin.
 	instr_map('AFG_123') = instr_map('AFG_MECH') + instr_map('AFG_BOOM');
 	instr_map('AFG_XYZ') = instr_map('AFG_MECH') + instr_map('AFG_BOOM');
 	instr_map('DFG_123') = instr_map('DFG_MECH') + instr_map('DFG_BOOM');
 	instr_map('DFG_XYZ') = instr_map('DFG_MECH') + instr_map('DFG_BOOM');
 	instr_map('SCM_XYZ') = instr_map('SCM_MECH') + instr_map('SCM_BOOM');
 	instr_map('SCM_123') = instr_map('SCM_MECH') + instr_map('SCM_BOOM');
-	
+
 	% Remove non-OCS origins
 	instr_map.remove({'AFG_MECH' 'DFG_MECH' 'SCM_MECH'});
 

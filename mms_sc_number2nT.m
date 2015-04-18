@@ -8,8 +8,8 @@
 %
 % Calling Sequence
 %   B_NT = mms_sc_number2nT(B_SC);
-%			Convert searchcoil magnetometer data from a number B_SC to
-%			nano-tesla, B_nT.
+%     Convert searchcoil magnetometer data from a number B_SC to
+%     nano-tesla, B_nT.
 %
 % Parameters
 %   B_SC            in, required, type=3xN int32

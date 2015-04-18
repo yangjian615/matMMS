@@ -44,7 +44,7 @@
 % History:
 %   2015-04-13      Written by Matthew Argall
 %
-function [b_bcs, t] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
+function [b_bcs, t, b_smpa, b_omb] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
 
 	% Defaults
 	cal_dir   = '';
@@ -80,8 +80,12 @@ function [b_bcs, t] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
 	                                     'Tokens',    true);
 
 	% Find the calibration file
-	hiCal_file = MrFile_Search(hical_fname);
-	loCal_file = MrFile_Search(local_fname);
+	[hiCal_file, nHiCal] = MrFile_Search(hical_fname);
+	[loCal_file, nLoCal] = MrFile_Search(local_fname);
+
+	% Make sure the files exist
+	assert( nHiCal > 0, 'HiCal file not found.' );
+	assert( nLoCal > 0, 'LoCal file not found.' );
 
 	% Calibrate hi-range
 	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend);
@@ -105,8 +109,12 @@ function [b_bcs, t] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
 
 	% Create variable names
 	b_name     = mms_construct_varname(sc, instr, '123');
-	range_name = mms_construct_varname(sc, instr, 'range');
-	
+	if strcmp(instr, 'afg')
+		range_name = mms_construct_varname(sc, instr, 'hirange');
+	else
+		range_name = mms_construct_varname(sc, instr, 'range');
+	end
+
 	% Read the magnetometer data
 	[b_123,  t]      = MrCDF_Read(files, b_name,     'sTime', tstart, 'eTime', tend);
 	[range, t_range] = MrCDF_Read(files, range_name, 'sTime', tstart, 'eTime', tend);
@@ -120,12 +128,7 @@ function [b_bcs, t] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
 %------------------------------------%
 % Calibrate Mag Data                 %
 %------------------------------------%
-	%
-	% The orthogonalized magnetometer coordinate syste,
-	% (OMB), is a fixed 225 degree rotation from SMPA.
-	% See section 7.2.2.5 of the MMS coordinate system
-	% handbook for more details.
-	%
+	% Calibrate
 	[b_omb, mpa] = mms_fg_calibrate(b_123, t, range, t_range, hiCal, loCal);
 
 %------------------------------------%
@@ -135,16 +138,21 @@ function [b_bcs, t] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
 	% OMB -> SMPA
 	omb2smpa = mms_fg_xomb2smpa();
 	b_smpa   = mrvector_rotate(omb2smpa, b_omb);
+	
+	if strcmp(instr, 'afg')
+		b_smpa(1,:) = -b_smpa(1,:);
+		b_smpa(2,:) = -b_smpa(2,:);
+		b_smpa(3,:) = -b_smpa(3,:);
+	end
 
 %------------------------------------%
 % Transform from SMPA to BCS         %
 %------------------------------------%
 
-	% Find rotation from source to destination.
-	origin   = [upper(instr) '_123'];
+	% Build transformation from SMPA to BCS
 	bcs2smpa = mms_fg_xbcs2smpa(mpa);
 	smpa2bcs = permute(bcs2smpa, [2 1 3]);
-	
-	% Rotate to new system
+
+	% Rotate to SMPA
 	b_bcs = mrvector_rotate(smpa2bcs, b_smpa);
 end

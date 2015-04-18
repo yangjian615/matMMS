@@ -40,7 +40,7 @@
 % History:
 %   2015-03-22      Written by Matthew Argall
 %
-function [comp] = mms_sc_tf_compensate(transfr_fn, f, N, df)
+function comp = mms_sc_tf_compensate(transfr_fn, f, N, df)
 
 	% Pivot at the Nyquist frequency. The resulting array will
 	% have real frequency components from 1 to N/2 and complex
@@ -48,14 +48,14 @@ function [comp] = mms_sc_tf_compensate(transfr_fn, f, N, df)
 	pivot = N/2;
 	
 	% Frequencies at which to interpolate
-	freq_out = df * (1:pivot);
+	f_out = df * (1:pivot);
 	
 	% Create the compensation array
 	%   - Frequency range extends from f0 to fN
-	comp           = zeros(3, length(freq_out));
-	comp(1, :)     = interp1(f(1, :), transfr_fn(1, :), freq_out, 'linear');
-	comp(2, :)     = interp1(f(2, :), transfr_fn(2, :), freq_out, 'linear');
-	comp(3, :)     = interp1(f(3, :), transfr_fn(3, :), freq_out, 'linear');
+	comp           = zeros(3, length(f_out));
+	comp(1, :)     = interp1(f(1, :), transfr_fn(1, :), f_out, 'linear');
+	comp(2, :)     = interp1(f(2, :), transfr_fn(2, :), f_out, 'linear');
+	comp(3, :)     = interp1(f(3, :), transfr_fn(3, :), f_out, 'linear');
 	comp(:, pivot) = abs( comp(:, pivot));
 	
 	% Complete teh compensation array
@@ -63,6 +63,6 @@ function [comp] = mms_sc_tf_compensate(transfr_fn, f, N, df)
 	%  - Reflect the complex component beyond N/2
 	%  - do not duplicate the Nyquist
 	%  - Real and imaginary frequencies have the same spectral components
-	comp(isnan(comp)) = 0;
+	comp(isnan(comp)) = inf;
 	comp              = [ ones(3,1) comp conj( fliplr( comp(:, 1:end-1) ) )];
 end

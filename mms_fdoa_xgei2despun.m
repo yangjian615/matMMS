@@ -7,17 +7,10 @@
 %   body coordinate system (BCS) to a despun coordinate system.
 %
 %   Process:
-%     0. Find and read attitude data.
-%     1. Interpolate the right ascension and declination.
+%     1. Interpolate right ascension and declination.
 %     2. Build transformation matrix.
 %
 % Calling Sequence
-%   BSCS2DESPUN = mms_fdoa_xdespun2gei(SC, TSTART, TEND, TYPE, TIME, ATT_DIR)
-%     Create a transformation matrix BSCS2DESPUN using attitude
-%     data from MMS satellite SC in the time interval [TSTART,TEND].
-%     Despin using the phase angle of type TYPE and interpolate to
-%     times TIME. Attitude data can be found in directory ATT_DIR.
-%
 %   BSCS2DESPUN = mms_fdoa_xdespun2gei(ATTITUDE, TIME)
 %     Create the transformation matrix using a structure of attitude
 %     data returned by mms_fdoa_read_defatt.m. The right ascension
@@ -34,21 +27,10 @@
 %   [..., RA, DEC] = mms_fdoa_xbcs2despun(__)
 %     Also return the interpolated right ascension and declination.
 %
-%   [..., ATTITUDE] = mms_fdoa_xbcs2despun(__)
-%     Also return all of the attitude data.
-%
 % Parameters
 %   ATTITUDE        in, required, type=struct
 %   TIME            in, required, type=1xN int64 (cdf_time_tt2000)
-%
-%           --OR--
-%
-%   SC              in, required, type=char
-%   TSTART          in, required, type=char
-%   TEND            in, required, type=char
 %   TYPE            in, required, type=char
-%   TIME            in, required, type=1xN int64 (cdf_time_tt2000)
-%   ATT_DIR         in, required, type=char
 %
 % Returns
 %   BCS2DESPUN      out, required, type=3x3xN double
@@ -62,28 +44,15 @@
 % History:
 %   2015-04-13      Written by Matthew Argall
 %
-function [gei2despun, ra, dec, attitude] = mms_fdoa_xgei2despun(arg1, arg2, arg3, type, time, att_dir)
-	
-	% Attitude data given?
-	if (nargin == 2 || nargin == 3) && isa(arg1, 'struct')
-		attitude = arg1;
-		time     = arg2;
-		
-		if nargin == 3
-			type = arg3;
-		else
-			type = 'L';
-		end
-	% Read the attitude data
-	elseif nargin == 6 && isa(arg1, 'char')
-		sc     = arg1;
-		tstart = arg2;
-		tend   = arg3;
-		attitude = mms_fdoa_read_defatt(sc, tstart, tend, att_dir);
-	else
-		error( 'Unexpected inputs.' );
+function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
+
+	if nargin < 3
+		type = 'L';
 	end
-	
+
+%------------------------------------%
+% Interpolate                        %
+%------------------------------------%
 	% Extract the right ascension and declination
 	ra  = attitude.(type)(:,1)';
 	dec = attitude.(type)(:,2)';
@@ -100,7 +69,10 @@ function [gei2despun, ra, dec, attitude] = mms_fdoa_xgei2despun(arg1, arg2, arg3
 	time_sse  = double(time      - att_epoch(1)) * 1e-9;
 	ra        = interp1(att_sse, ra,  time_sse);
 	dec       = interp1(att_sse, dec, time_sse);
-	
+
+%------------------------------------%
+% Create Transformation Matrix       %
+%------------------------------------%
 	% Dissect the time
 	timevec = MrCDF_Epoch_Breakdown(time);
 

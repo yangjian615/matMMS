@@ -35,11 +35,13 @@
 %
 % History:
 %   2015-04-12      Written by Matthew Argall
+%   2015-04-17      Finding exprapoled indices incorrectly. Now use
+%                     MrValue_Locate to do so. - MRA.
 %
 function cal = mms_fg_interp_cal(cal_params, time, lastval)
 
 	if nargin < 3
-		lastval = false;
+		tf_lastval = false;
 	end
 
 	% Number of points in the output
@@ -72,13 +74,10 @@ function cal = mms_fg_interp_cal(cal_params, time, lastval)
 	t_cal_sse = MrCDF_epoch2sse(cal_params.('Epoch'), cal_params.('Epoch')(1));
 	
 	% Map times to closest calibration time.
-	ilast_val            = zeros(1, npts);
-	[~, inds]            = histc(time_sse, t_cal_sse);
-	ilast_val(tf_interp) = inds(tf_interp);
-	ilast_val(tf_extrap) = inds(end);
+	ilast_val = MrValue_Locate(t_cal_sse, time_sse);
 
 	% Extrapolation
-	if sum(tf_extrap) > 0 || lastval
+	if sum(tf_extrap) > 0 || tf_lastval
 		% Use the last value
 		for ii = 1 : 3
 			cal.('Gain')(ii, :)   = cal_params.('Gain')(ii, ilast_val);
@@ -93,7 +92,7 @@ function cal = mms_fg_interp_cal(cal_params, time, lastval)
 	end
 	
 	% Interpolation
-	if sum(tf_interp) > 0 && ~lastval
+	if sum(tf_interp) > 0 && ~tf_lastval
 		t_interp = times(tf_interp);
 
 		% Use the last value
