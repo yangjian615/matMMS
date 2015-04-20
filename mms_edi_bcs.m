@@ -44,7 +44,11 @@
 % History:
 %   2015-04-18      Written by Matthew Argall
 %
-function [edi1_bcs, edi2_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, edi_dir)
+function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, edi_dir)
+
+	if nargin < 7
+		edi_dir = pwd();
+	end
 	
 %------------------------------------%
 % Get EDI Data                       %
@@ -56,8 +60,12 @@ function [edi1_bcs, edi2_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	det2_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
 	
 	% Read EDI efield data
-	[t_gd12, t_gd21, g1fa, g2fa] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
+	[t_gd12, t_gd21, g1fa_deg, g2fa_deg] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
 	
+	% Convert to radians
+	g1fa(1:2, :) = g1fa_deg(1:2, :) * pi/180.0;
+	g2fa(1:2, :) = g2fa_deg(1:2, :) * pi/180.0;
+
 	% Convert to cartesian coordinates
 	%   - sph2cart requires the elevation angle, measured up from the xy-plane,
 	%     not down from the z-axis.
@@ -84,15 +92,15 @@ function [edi1_bcs, edi2_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	
 	% EDI1 output structure
 	%   - EDI1 contains gun1 and detector2
-	edi1_bcs = struct( 't_gd12',      t_gd12,   ...
-	                   'pos_g1_bcs',  gun1_bcs, ...
-	                   'pos_d2_bcs',  det1_bcs, ...
-	                   'fv_gd12_bcs', g1fv_bcs );
+	gd12_bcs = struct( 't_gd12',        t_gd12,   ...
+	                   'gun_gd12_bcs',  gun1_bcs, ...
+	                   'det_gd12_bcs',  det1_bcs, ...
+	                   'fv_gd12_bcs',   g1fv_bcs );
 	
 	% EDI2 output structure
 	%   - EDI2 contains gun1 and detector2
-	edi2_bcs = struct( 't_gd21',        t_gd12,   ...
+	gd21_bcs = struct( 't_gd21',        t_gd12,   ...
 	                   'gun_gd21_bcs',  gun2_bcs, ...
 	                   'det_gd21_bcs',  det2_bcs, ...
-	                   'fv_gd21_bcs',   g2fa_bcs );
+	                   'fv_gd21_bcs',   g2fv_bcs );
 end

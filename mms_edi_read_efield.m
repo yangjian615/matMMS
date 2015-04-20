@@ -118,7 +118,7 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efiled(sc, instr, mod
 	% Order as [phi, theta] to pass directly to sph2cart
 	fa_gd12 = [g1_phi; g1_theta];
 	fa_gd21 = [g2_phi; g2_theta];
-	
+
 %------------------------------------%
 % Create the Output Structure        %
 %------------------------------------%

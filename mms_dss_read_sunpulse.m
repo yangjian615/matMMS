@@ -16,11 +16,15 @@
 %     Any parameter name-value pair given below.
 %
 % Parameters
-%   FILENAME        in, required, type=char
-%   'UniqPackets'   in, optional, type=boolean, default=false
+%   SC              in, required, type=char
+%   TSTART          in, required, type=char
+%   TEND            in, required, type=char
+%   'Directory'     in, optional, type=boolean, default=pwd();
+%                   Directory in which to find sun pulse data.
+%   'UniquePackets' in, optional, type=boolean, default=false
 %                   If set, information from unique packets is returned.
 %                     Packets can can contain overlapping data.
-%   'UniqPulse'     in, optional, type=boolean, default=false
+%   'UniquePulse'   in, optional, type=boolean, default=false
 %                   Return unique sun pulse times. Sun pulse times are
 %                     reported multiple times per packet, even if unchanged.
 %                     Setting this parameter true automatically sets
@@ -31,7 +35,7 @@
 %                   Fields are:
 %                     'Epoch'    - Packet times
 %                     'SunPulse' - Sun pulse times
-%                     'Period'   - Period (micro-sec) of revolution Only
+%                     'Period'   - Period (micro-sec) of revolution. Only
 %                                    returned when FLAG=0 and only on the
 %                                    second and subsequent received sun
 %                                    pulses from the s/c.
@@ -40,25 +44,43 @@
 %                                    1: s/c pseudo sun pulse
 %                                    2: s/c CIDP generated speudo sun pulse
 %
+% Examples
+%   Read data from mms3 on 2015-04-18 between 13:00 and 15:00:
+%     >> sc       = 'mms3';
+%     >> tstart   = '2015-04-18T13:00:00';
+%     >> tend     = '2015-04-18T15:00:00';
+%     >> sunpulse = mms_hk_read_sunpulse(sc, tstart, tend, 'UniquePackets', true);
+%        sunpulse = Epoch: [1x7200 int64]
+%                    Flag: [1x7200 uint8]
+%                  Period: [1x7200 uint8]
+%                SunPulse: [1x7200 int64]
+%
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
 %   2015-03-25      Written by Matthew Argall
 %   2015-04-12      Added the 'UniqPackets' and 'UniqPulse' parameters. - MRA
-%   2015-04-14      Return a structure. - MRAs
+%   2015-04-14      Return a structure. - MRA
+%   2015-04-19      Inputs are more general. Search for file on file system.
+%                     Removed call to cdflib.inquireVar, as it does not like
+%                     CDF_TIME_TT2000 variables. - MRA
 %
-function [sunpulse] = mms_hk_read_sunpulse(filename, varargin)
+function [sunpulse] = mms_hk_read_sunpulse(sc, tstart, tend, varargin)
 
 	% Defaults
 	uniq_packets = false;
+	uniq_pulse   = false;
+	sunpulse_dir = pwd();
 
-	nOptArgs = length(varargin)
+	nOptArgs = length(varargin);
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
-			case 'UniqPackets'
+			case 'Directory'
+				sunpulse_dir = varargin{ii+1};
+			case 'UniquePackets'
 				uniq_packets = varargin{ii+1};
-			case 'UniqPulse'
+			case 'UniquePulse'
 				uniq_pulse   = varargin{ii+1};
 			otherwise
 				error( ['Parameter name not recognized: "' varargin{ii} '".'] );
@@ -70,32 +92,50 @@ function [sunpulse] = mms_hk_read_sunpulse(filename, varargin)
 		uniq_packets = true;
 	end
 
-	% Ensure the file exists
-	assert( exist(filename, 'file') == 2, ['HK file does not exist ' filename '".']);
+%------------------------------------%
+% Find the File                      %
+%------------------------------------%
+	% Create a file pattern
+	fpattern = mms_construct_filename(sc, 'fields', 'hk', 'l1b_101', ...
+	                                  'Tokens',    true, ...
+	                                  'Directory', sunpulse_dir);
+
+	% MMS#_DEFATT_%Y%D_%Y%D.V00
+	[filename, nFiles] = MrFile_Search( fpattern, ...
+	                                    'TStart',    tstart, ...
+	                                    'TEnd',      tend, ...
+	                                    'TimeOrder', '%Y%M%d');
 	
-	% Get the spacecraft identifier
-	[~, name] = fileparts(filename);
-	sc        = name(1:4);
-	assert( ~isempty(regexp(sc, 'mms[1-4]', 'once')), ['Unknown observatory "' sc '".']);
+	% Make sure the file exists
+	assert( nFiles > 0, ...
+	        'Sunpulse file not found or does not exist.');
+
+%------------------------------------%
+% Read the Data                      %
+%------------------------------------%
 	
 	% Variable names
-	epoch_name     = 'Epoch';
 	sunpulse_name  = [sc '_101_sunpulse'];
 	flag_name      = [sc '_101_sunssps'];
 	period_name    = [sc '_101_iifsunper'];
 	
 	% Read the data
-	hk_data = spdfcdfread(filename, ...
-	                      'Variables',    {epoch_name sunpulse_name flag_name period_name}, ...
-	                      'KeepEpochAsIs', true, ...
-	                      'CombineRecords', true);
-	
-	% Extract the data
-	hk_tt2000 = hk_data{1};
-	sun_pulse = hk_data{2};
-	flag      = hk_data{3};
-	period    = hk_data{4};
-	
+	[sun_pulse, hk_tt2000] = MrCDF_nRead(filename, sunpulse_name, ...
+	                                     'sTime',       tstart, ...
+	                                     'eTime',       tend, ...
+	                                     'ColumnMajor', true);
+	flag = MrCDF_nRead(filename, flag_name, ...
+	                   'sTime',       tstart, ...
+	                   'eTime',       tend, ...
+	                   'ColumnMajor', true);
+	period = MrCDF_nRead(filename, period_name, ...
+	                     'sTime',       tstart, ...
+	                     'eTime',       tend, ...
+	                     'ColumnMajor', true);
+
+%------------------------------------%
+% Unique Data                        %
+%------------------------------------%
 	% Return only the unique packets?
 	%   - Can be overlap with hk packets
 	if uniq_packets
@@ -118,7 +158,10 @@ function [sunpulse] = mms_hk_read_sunpulse(filename, varargin)
 		flag   = flag(iUniq);
 		period = period(iUniq);
 	end
-	
+
+%------------------------------------%
+% Output                             %
+%------------------------------------%
 	% Create a structure of the output.
 	sunpulse = struct( 'Epoch',    hk_tt2000, ...
 	                   'Flag',     flag,      ...
