@@ -30,6 +30,9 @@
 %                     'Offset' -  DC offset for each axis.
 %                     'MPA'    -  Major principal axis of inertia.
 %
+% See Also
+%   mms_fg_calibrate.m
+%
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %

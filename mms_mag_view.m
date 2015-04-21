@@ -14,7 +14,7 @@
 %   2015-04-14      Written by Matthew Argall
 %
 
-get_data = false;
+get_data = true;
 
 if get_data
 %------------------------------------%

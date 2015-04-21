@@ -6,6 +6,11 @@
 %   Create an orthogonalization matrix from the fluxgate calibration
 %   parameters.
 %
+%   NOTE:
+%     Because of the differences between how IDL and MATLAB store matrices,
+%     this program must produce the transpose of the matrix produced by
+%     Ken Bromund's mms_fg_calparams2matrix in IDL.
+%
 % Calling Sequence
 %   [SENSOR_MATRIX, M] = mms_fg_calparams2matrix(G, DPHI, DTHETA, U3)
 %     Use the instrument gain correction G, angular offset of 123 from the
@@ -41,6 +46,8 @@
 %
 % History:
 %   2015-03-21      Written by Matthew Argall
+%   2015-04-21      Interchanged rows and columns. Calibrated data now
+%                     agrees with l1b data from SDC. - MRA
 %
 function [sensor_matrix, m] = mms_fg_calparams2matrix(G, dPhi, dTheta, u3)
 
@@ -64,17 +71,17 @@ function [sensor_matrix, m] = mms_fg_calparams2matrix(G, dPhi, dTheta, u3)
 	
 	% Row1
 	m(1, 1, :) = G(1, :) .* sin(theta1) .* cos(phi1);
-	m(2, 1, :) = G(1, :) .* sin(theta1) .* sin(phi1);
-	m(3, 1, :) = G(1, :) .* cos(theta1);
+	m(1, 2, :) = G(1, :) .* sin(theta1) .* sin(phi1);
+	m(1, 3, :) = G(1, :) .* cos(theta1);
 	
 	% Row2
-	m(1, 2, :) = G(2, :) .* sin(theta2) .* cos(phi2);
+	m(2, 1, :) = G(2, :) .* sin(theta2) .* cos(phi2);
 	m(2, 2, :) = G(2, :) .* sin(theta2) .* sin(phi2);
-	m(3, 2, :) = G(2, :) .* cos(theta2);
+	m(2, 3, :) = G(2, :) .* cos(theta2);
 	
 	% Row3
-	m(1, 3, :) = G(3, :) .* a;
-	m(2, 3, :) = G(3, :) .* b;
+	m(3, 1, :) = G(3, :) .* a;
+	m(3, 2, :) = G(3, :) .* b;
 	m(3, 3, :) = G(3, :) .* sqrt(1 - (a.^2 + b.^2));
 	
 	% Orthogonalization matrix

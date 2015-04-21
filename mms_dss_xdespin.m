@@ -29,7 +29,7 @@ function spin2despun = mms_dss_xdespin( sunpulse, times, instr, arg4 )
 
 	tf_spinup = false;
 	if nargin < 3
-		instr = 'BCS'
+		instr = 'BCS';
 	end
 	if nargin > 3
 		assert( ischar(arg4) && strcmp(arg4, 'SpinUp'), 'Unknown parameter in position 4.')
@@ -38,12 +38,18 @@ function spin2despun = mms_dss_xdespin( sunpulse, times, instr, arg4 )
 
 	% Build matrix
 	spin_phase = mms_dss_sunpulse2phase( sunpulse, times );
-	spin_phase = spin_phase * pi/180.0;
+	
+	% The spin phase is the angle of rotation away from the s/c-sun
+	% line. To despin, we want to rotate against the phase. To spin-
+	% up, we rotate with the phase.
+	if ~tf_spinup
+		spin_phase = -spin_phase * pi/180.0;
+	end
 
-	% Get the [azimuth, elevation, radial] position of the instrument.
-	%   - We care only about the azimuth offset. Units are radians.
-	offset = mms_instr_origins_ocs(instr, 'Spherical', true);
-	offset = offset(1);
+	% The DSS requires a -76 degree rotation about the z-axis to align
+	% with BCS. Aligning BCS with the sun sensor requires a +76 degree
+	% rotation.
+	offset = 76 * pi/180;
 	
 	% Sine and Cosine of phase
 	sinPhase = sin(spin_phase + offset);
@@ -57,5 +63,6 @@ function spin2despun = mms_dss_xdespin( sunpulse, times, instr, arg4 )
 	spin2despun(1,1,:) =  cosPhase;
 	spin2despun(1,2,:) =  sinPhase;
 	spin2despun(2,1,:) = -sinPhase;
+	spin2despun(2,2,:) =  cosPhase;
 	spin2despun(3,3,:) =  1;
 end

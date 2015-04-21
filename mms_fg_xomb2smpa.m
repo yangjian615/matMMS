@@ -19,6 +19,7 @@
 %
 % History:
 %   2015-04-13      Written by Matthew Argall
+%   2015-04-21      Needed to rotate cw (-225), not ccw. - MRA
 %
 function omb2smpa = mms_fg_xomb2smpa()
 
@@ -37,7 +38,7 @@ function omb2smpa = mms_fg_xomb2smpa()
 	% 
 
 	% Constants
-	theta    = 225.0 * pi / 180.0;
+	theta    = -225.0 * pi / 180.0;
 	cosTheta = cos(theta);
 	sinTheta = sin(theta);
 	

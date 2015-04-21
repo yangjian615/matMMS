@@ -27,7 +27,7 @@
 % Returns
 %   EDI1_BCS        out, required, type=structure
 %                   Fields are:
-%                     't_gd12_gd12'   -  TT2000 Epoch time for gun 1 and detector 2.
+%                     't_gd12'        -  TT2000 Epoch time for gun 1 and detector 2.
 %                     'gun_gd12_bcs'  -  Gun1 position in BCS.
 %                     'det_gd12_bcs'  -  Detector2 position in BCS.
 %                     'fv_gd12_bcs'   -  Firing vectors from gun1 in BCS.
@@ -54,25 +54,25 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 % Get EDI Data                       %
 %------------------------------------%
 	% Gun positions and detectors in BCS
-	gun1_bcs = mms_instr_origins_ocs('EDI1_GUN');
-	gun2_bcs = mms_instr_origins_ocs('EDI2_GUN');
-	det1_bcs = mms_instr_origins_ocs('EDI1_DETECTOR');
-	det2_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
+	gun_gd12_bcs = mms_instr_origins_ocs('EDI1_GUN');
+	det_gd12_bcs = mms_instr_origins_ocs('EDI1_DETECTOR');
+	gun_gd21_bcs = mms_instr_origins_ocs('EDI2_GUN');
+	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
 	
 	% Read EDI efield data
-	[t_gd12, t_gd21, g1fa_deg, g2fa_deg] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
+	[t_gd12, t_gd21, fa_gd12_deg, fa_gd21_deg] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
 	
 	% Convert to radians
-	g1fa(1:2, :) = g1fa_deg(1:2, :) * pi/180.0;
-	g2fa(1:2, :) = g2fa_deg(1:2, :) * pi/180.0;
+	fa_gd12(1:2, :) = fa_gd12_deg(1:2, :) * pi/180.0;
+	fa_gd21(1:2, :) = fa_gd21_deg(1:2, :) * pi/180.0;
 
 	% Convert to cartesian coordinates
 	%   - sph2cart requires the elevation angle, measured up from the xy-plane,
 	%     not down from the z-axis.
-	[g1fv_x, g1fv_y, g1fv_z] = sph2cart( g1fa(1,:), pi/2 - g1fa(2,:), ones(1, length(t_gd12)) );
-	[g2fv_x, g2fv_y, g2fv_z] = sph2cart( g2fa(1,:), pi/2 - g2fa(2,:), ones(1, length(t_gd21)) );
-	g1fv_edi1 = [g1fv_x; g1fv_y; g1fv_z];
-	g2fv_edi2 = [g2fv_x; g2fv_y; g2fv_z];
+	[fv_gd12_x, fv_gd12_y, fv_gd12_z] = sph2cart( fa_gd12(1,:), pi/2 - fa_gd12(2,:), ones(1, length(t_gd12)) );
+	[fv_gd21_x, fv_gd21_y, fv_gd21_z] = sph2cart( fa_gd21(1,:), pi/2 - fa_gd21(2,:), ones(1, length(t_gd21)) );
+	g1fv_edi1 = [fv_gd12_x; fv_gd12_y; fv_gd12_z];
+	g2fv_edi2 = [fv_gd21_x; fv_gd21_y; fv_gd21_z];
 	
 %------------------------------------%
 % Transform to BCS                   %
@@ -93,14 +93,16 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	% EDI1 output structure
 	%   - EDI1 contains gun1 and detector2
 	gd12_bcs = struct( 't_gd12',        t_gd12,   ...
-	                   'gun_gd12_bcs',  gun1_bcs, ...
-	                   'det_gd12_bcs',  det1_bcs, ...
+	                   'gun_gd12_bcs',  gun_gd12_bcs, ...
+	                   'det_gd12_bcs',  det_gd12_bcs, ...
+	                   'gun1_bcs',      gun_gd12_bcs - det_gd21_bcs, ...
 	                   'fv_gd12_bcs',   g1fv_bcs );
 	
 	% EDI2 output structure
 	%   - EDI2 contains gun1 and detector2
 	gd21_bcs = struct( 't_gd21',        t_gd12,   ...
-	                   'gun_gd21_bcs',  gun2_bcs, ...
-	                   'det_gd21_bcs',  det2_bcs, ...
+	                   'gun_gd21_bcs',  gun_gd21_bcs, ...
+	                   'det_gd21_bcs',  det_gd21_bcs, ...
+	                   'gun2_bcs',      gun_gd21_bcs - det_gd12_bcs, ...
 	                   'fv_gd21_bcs',   g2fv_bcs );
 end

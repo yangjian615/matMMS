@@ -74,7 +74,7 @@ function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
 % Create Transformation Matrix       %
 %------------------------------------%
 	% Dissect the time
-	timevec = MrCDF_Epoch_Breakdown(time);
+	timevec = MrCDF_Epoch_Breakdown(time)';
 
 	% Seconds since midnight
 	ssm = timevec(4,:) * 3600.0 + ...

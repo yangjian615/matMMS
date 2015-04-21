@@ -101,11 +101,14 @@ function [b_bcs, t, b_smpa, b_omb] = mms_fg_bcs(sc, instr, mode, tstart, tend, v
 	                                  'Tokens',    true);
 	
 	% Find the files
-	files = MrFile_Search(fpattern,              ...
-	                      'TStart',    tstart,   ...
-	                      'TEnd',      tend,     ...
-	                      'TimeOrder', '%Y%M%d', ...
-	                      'Closest',   true);
+	[files, nFiles] = MrFile_Search(fpattern,              ...
+	                                'TStart',    tstart,   ...
+	                                'TEnd',      tend,     ...
+	                                'TimeOrder', '%Y%M%d', ...
+	                                'Closest',   true);
+	if nFiles == 0
+		error( ['No files found matching "' fpattern '".'] );
+	end
 
 	% Create variable names
 	b_name     = mms_construct_varname(sc, instr, '123');
@@ -138,12 +141,6 @@ function [b_bcs, t, b_smpa, b_omb] = mms_fg_bcs(sc, instr, mode, tstart, tend, v
 	% OMB -> SMPA
 	omb2smpa = mms_fg_xomb2smpa();
 	b_smpa   = mrvector_rotate(omb2smpa, b_omb);
-	
-	if strcmp(instr, 'afg')
-		b_smpa(1,:) = -b_smpa(1,:);
-		b_smpa(2,:) = -b_smpa(2,:);
-		b_smpa(3,:) = -b_smpa(3,:);
-	end
 
 %------------------------------------%
 % Transform from SMPA to BCS         %

@@ -120,7 +120,7 @@ function [t, b_gse, b_dsl, b_smpa, b_bcs] = mms_sc_gse(sc, instr, mode, tstart, 
 	% Transform matrix GEI -> GSE
 	%   - Modified Julian Date (mjd).
 	%   - UTC seconds since midnight (ssm).
-	timevec = MrCDF_Epoch_Breakdown(t);
+	timevec = MrCDF_Epoch_Breakdown(t)';
 	mjd     = date2mjd(timevec(1,:), timevec(2,:), timevec(3,:));
 	ssm = timevec(4,:) * 3600.0 + ...
 		  timevec(5,:) * 60.0   + ...

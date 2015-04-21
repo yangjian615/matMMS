@@ -100,7 +100,6 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	% Insert a pseudo sun pulse before each big gap
 	%   - The first period is a valid value, so can be used to create
 	%     an epoch time just prior to the end of a gap.
-	if nBigGaps > 0
 	for ii = 1 : nBigGaps
 		% Index at which to add a pseudo pulse
 		%   - We already took care of the first interval
@@ -139,6 +138,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	istart   = 1;
 	for ii = 1 : nBigGaps + 1
 		if ii == nBigGaps + 1
+			igap = [];
 			iend = length(dPulse);
 		else
 			igap = iFill(ii);
@@ -329,7 +329,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	
 	% Warn if excessive extrapolation
 	if iBefore > 0
-		if 360.0 * (pulse(1) - epoch(1)) / period(1) > 3.0 * 360.0
+		if 360.0 * (pulse(1) - times(1)) / period(1) > 3.0 * 360.0
 			warning('SunPulse:Phase', 'Extrapolating more than 3 spins before first point.');
 		end
 	end
@@ -340,7 +340,4 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			warning('SunPulse:Phase', 'Extrapolating more than 3 spins after last point.');
 		end
 	end
-	
-	
-	
 end

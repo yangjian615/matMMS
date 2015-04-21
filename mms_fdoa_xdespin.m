@@ -69,15 +69,14 @@ function bcs2despun = mms_fdoa_xdespin(attitude, time, type, instr, arg5)
 	% The spin phase reported by FDOA is relative to the physical
 	% BCS x-axis. In order to despin instrument data properly, we
 	% must offset the FDOA phase by the phase difference between
-	% when the instrument crosses the s/c-sun line and when x-BCS
-	% crosses the s/c-sun line. This offset is equal to the angular
-	% displacement of the instrument origin from the x-BCS axis.
+	% when the instrument x-axis points along the s/c-sun line and
+	% when x-BCS points along the s/c-sun line.
 	%
-	
-	% Get the [azimuth, elevation, radial] position of the instrument.
-	%   - We care only about the azimuth offset. Units are radians.
-	offset = mms_instr_origins_ocs(instr, 'Spherical', true);
-	offset = offset(1);
+	% If the instrument is in BCS already, no phase offset needs to
+	% be applied. The offset is the angle between the original CS
+	% x-axis and the x-axis of BCS.
+	%
+	offset = 0;
 
 	% Interpolate the phase
 	%   - Returned in degrees
