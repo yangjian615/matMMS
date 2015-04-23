@@ -148,7 +148,7 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 	if isempty(sunpulse_dir)
 		% Build matrix
 		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI1_GUN');
-		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI2_GUN');
+		smpa2dmpa_gd21 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI2_GUN');
 	
 	% Despin using sun pulse times.
 	else

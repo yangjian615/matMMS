@@ -51,11 +51,16 @@
 %
 function phase = mms_dss_sunpulse2phase(sunpulse, times)
 
+	% Extract for ease of access
 	period   = int64( sunpulse.('Period') ) * int64(1e3);
 	hk_epoch = sunpulse.('Epoch');
 	pulse    = sunpulse.('SunPulse');
 	flag     = sunpulse.('Flag');
 	nPts     = length(period);
+	
+	% Check if there are sunpulse times
+	assert(~isempty(pulse), 'SunPulse array is empty. Cannot determine phase.');
+	
 
 	% A period is valid if FLAG = 0 & 2 < PERIOD < 50 seconds.
 	valid_period = flag == 0 & period < 50e9 & period > 2e9;

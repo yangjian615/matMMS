@@ -90,7 +90,6 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efield(sc, instr, mod
 	% Firing vectors in [x,y,z] are not filled yet.
 	% Convert analog voltages to firing vectors outside.
 	%
-
 	[g1_theta, t_gd12] = MrCDF_Read(fname, g1_theta_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 	g1_phi             = MrCDF_Read(fname, g1_phi_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 %	g1pos_x          = MrCDF_Read(fname, g1pos_x_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);

@@ -43,6 +43,7 @@
 %
 % History:
 %   2015-04-18      Written by Matthew Argall
+%   2015-04-23      Assigned time from gd12 to output gd21 structure. Fixed. - MRA
 %
 function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, edi_dir)
 
@@ -61,7 +62,7 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	
 	% Read EDI efield data
 	[t_gd12, t_gd21, fa_gd12_deg, fa_gd21_deg] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
-	
+
 	% Convert to radians
 	fa_gd12(1:2, :) = fa_gd12_deg(1:2, :) * pi/180.0;
 	fa_gd21(1:2, :) = fa_gd21_deg(1:2, :) * pi/180.0;
@@ -71,8 +72,8 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	%     not down from the z-axis.
 	[fv_gd12_x, fv_gd12_y, fv_gd12_z] = sph2cart( fa_gd12(1,:), pi/2 - fa_gd12(2,:), ones(1, length(t_gd12)) );
 	[fv_gd21_x, fv_gd21_y, fv_gd21_z] = sph2cart( fa_gd21(1,:), pi/2 - fa_gd21(2,:), ones(1, length(t_gd21)) );
-	g1fv_edi1 = [fv_gd12_x; fv_gd12_y; fv_gd12_z];
-	g2fv_edi2 = [fv_gd21_x; fv_gd21_y; fv_gd21_z];
+	fv_gd12 = [fv_gd12_x; fv_gd12_y; fv_gd12_z];
+	fv_gd21 = [fv_gd21_x; fv_gd21_y; fv_gd21_z];
 	
 %------------------------------------%
 % Transform to BCS                   %
@@ -83,8 +84,8 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	edi22bcs = mms_instr_xxyz2ocs('EDI2_GUN');
 
 	% Transform firing vectors
-	g1fv_bcs = mrvector_rotate( edi12bcs, g1fv_edi1 );
-	g2fv_bcs = mrvector_rotate( edi22bcs, g2fv_edi2 );
+	fv_gd12_bcs = mrvector_rotate( edi12bcs, fv_gd12 );
+	fv_gd21_bcs = mrvector_rotate( edi22bcs, fv_gd21 );
 	
 %------------------------------------%
 % Output                             %
@@ -96,13 +97,13 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	                   'gun_gd12_bcs',  gun_gd12_bcs, ...
 	                   'det_gd12_bcs',  det_gd12_bcs, ...
 	                   'gun1_bcs',      gun_gd12_bcs - det_gd21_bcs, ...
-	                   'fv_gd12_bcs',   g1fv_bcs );
+	                   'fv_gd12_bcs',   fv_gd12_bcs );
 	
 	% EDI2 output structure
 	%   - EDI2 contains gun1 and detector2
-	gd21_bcs = struct( 't_gd21',        t_gd12,   ...
+	gd21_bcs = struct( 't_gd21',        t_gd21,   ...
 	                   'gun_gd21_bcs',  gun_gd21_bcs, ...
 	                   'det_gd21_bcs',  det_gd21_bcs, ...
 	                   'gun2_bcs',      gun_gd21_bcs - det_gd12_bcs, ...
-	                   'fv_gd21_bcs',   g2fv_bcs );
+	                   'fv_gd21_bcs',   fv_gd21_bcs );
 end
