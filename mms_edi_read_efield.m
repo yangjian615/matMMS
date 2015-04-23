@@ -39,7 +39,7 @@
 % History:
 %   2015-04-18      Written by Matthew Argall
 %
-function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efiled(sc, instr, mode, level, tstart, tend, edi_dir)
+function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir)
 	
 	if nargin < 7
 		edi_dir = pwd();
@@ -61,13 +61,13 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efiled(sc, instr, mod
 	                      'Closest',   true);
 	
 	% Gun positions with respect to GDU1 coordinate system
-	g1pos_x_vname = mms_construct_varname(sc, instr, 'v1xg1');
-	g1pos_y_vname = mms_construct_varname(sc, instr, 'v1xg1');
-	g1pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
-	g2pos_x_vname = mms_construct_varname(sc, instr, 'v1xg1');
-	g2pos_y_vname = mms_construct_varname(sc, instr, 'v1xg1');
-	g2pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
-	g2pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g1pos_x_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g1pos_y_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g1pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g2pos_x_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g2pos_y_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g2pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
+%	g2pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
 	
 	% Gun analog voltages
 	%   - My version of mms_edi_avoltage2angles does not convert properly
@@ -107,8 +107,8 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efiled(sc, instr, mod
 %	g2pos = [g2pos_x; g2pos_y; g2pos_z];
 
 	% Firing angles
-	%   - Phi is the angle measured from x, in the xy-plane, positive toward y
-	%   - Theta is the angle measured down from the z-axis
+	%   - Phi is the azimuth angle
+	%   - Theta is the polar angle
 	%
 	% From Hans Vaith
 	%   gx = cos(phi) * sin(theta)
