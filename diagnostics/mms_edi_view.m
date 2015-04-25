@@ -6,6 +6,15 @@
 %   Take l1a EDI  data, despin, and rotate into GSE. Then, plot the 
 %   firing vectors and gun positions in BPP.
 %
+%   Operational Notes:
+%     Gun positions are plotted for each 5s interval. Once the first
+%     plot is displayed, click on the plot to advance to the next 5s
+%     interval. Close the window to return to normal MATLAB operations.
+%
+%   Options:
+%     BPP_AVG = true  - Project all beams in the average BPP.
+%     BPP_AVG = false - Project all beam into their instantaneous BPP.
+%
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
@@ -27,8 +36,8 @@ if get_data
 	instr        = 'edi';
 	mode         = 'slow';
 	level        = 'l1a_efield';
-	tstart       = '2015-04-18T14:00:00';
-	tend         = '2015-04-18T15:00:00';
+	tstart       = '2015-04-22T17:03:15';
+	tend         = '2015-04-22T15:03:30';
 
 %------------------------------------%
 % Get DFG and EDI Data in DSL        %
@@ -41,7 +50,6 @@ if get_data
 
 	% Read EDI data in DSL
 	[gd12_dmpa, gd21_dmpa] = mms_edi_gse(sc, 'edi', 'slow', 'l1a_efield', tstart, tend, ...
-	                                    'AttDir',      att_dir, ...
 	                                    'SunPulseDir', sunpulse_dir, ...
 	                                    'DataDir',     edi_data_dir);
 
@@ -49,16 +57,16 @@ if get_data
 % Average B                          %
 %------------------------------------%
 	% Find the average magnetic field
-	b_struct = mms_edi_bavg(t, b_dmpa, gd12_dmpa.t_gd12, gd21_dmpa.t_gd21);
+	b_struct = mms_edi_bavg(t, b_dmpa, gd12_dmpa.epoch_gd12, gd21_dmpa.epoch_gd21);
 end
 
 %------------------------------------%
 % Pick One Segment of Data           %
 %------------------------------------%
-% All indices
-ii = 1;
-count = 1;
+% Define quality
+quality = 1;
 
+% Step through each 5 second interval
 for ib = 1 : length(b_struct.t_avg)
 
 	% Pick the data we will use
@@ -72,17 +80,42 @@ for ib = 1 : length(b_struct.t_avg)
 	b_gd12 = b_struct.b_gd12(:, inds_gd12);
 	b_gd21 = b_struct.b_gd21(:, inds_gd21);
 
-	t_gd12   = gd12_dmpa.t_gd12(inds_gd12);
+	t_gd12   = gd12_dmpa.epoch_gd12(inds_gd12);
 	fv_gd12  = gd12_dmpa.fv_gd12_dmpa(:,inds_gd12);
 	gun_gd12 = gd12_dmpa.gun_gd12_dmpa(:,inds_gd12);
 	det_gd12 = gd12_dmpa.det_gd12_dmpa(:,inds_gd12);
 	pos_gun1 = gd12_dmpa.gun1_dmpa(:,inds_gd12);
+	q_gd12   = gd12_dmpa.q_gd12(:,inds_gd12);
 
-	t_gd21   = gd21_dmpa.t_gd21(inds_gd21);
+	t_gd21   = gd21_dmpa.epoch_gd21(inds_gd21);
 	fv_gd21  = gd21_dmpa.fv_gd21_dmpa(:,inds_gd21);
 	gun_gd21 = gd21_dmpa.gun_gd21_dmpa(:,inds_gd21);
 	det_gd21 = gd21_dmpa.det_gd21_dmpa(:,inds_gd21);
 	pos_gun2 = gd21_dmpa.gun2_dmpa(:,inds_gd21);
+	q_gd21   = gd21_dmpa.q_gd21(:,inds_gd21);
+
+%------------------------------------%
+% Filter by Quality                  %
+%------------------------------------%
+	if ~isempty(quality)
+		% Pick out quality
+		iq_gd12  = find(q_gd12 == quality);
+		iq_gd21  = find(q_gd21 == quality);
+		
+		if length(iq_gd12) == 0 && length(iq_gd21) == 0
+			continue
+		end
+		
+		% EDI1
+		fv_gd12  = fv_gd12(:,iq_gd12);
+		pos_gun1 = pos_gun1(:,iq_gd12);
+		b_gd12   = b_gd12(:,iq_gd12);
+		
+		% EDI2
+		fv_gd21  = fv_gd21(:,iq_gd21);
+		pos_gun2 = pos_gun2(:,iq_gd21);
+		b_gd21   = b_gd21(:,iq_gd21);
+	end
 
 %------------------------------------%
 % View in Bavg Plane                 %
@@ -156,6 +189,11 @@ for ib = 1 : length(b_struct.t_avg)
 	nGood_gd21   = length(iGood);
 	fv_gd21_bpp  = fv_gd21_bpp(:,iGood);
 	pos_gun2_bpp = pos_gun2_bpp(:,iGood);
+	
+	% Skip this round
+	if nGood_gd12 == 0 && nGood_gd21 == 0
+		continue
+	end
 
 	%
 	% Beam slope, y-intercept, (x1,x2) and (y1,y2)
@@ -170,14 +208,14 @@ for ib = 1 : length(b_struct.t_avg)
 	b_gd12 = pos_gun1_bpp(2,:) - pos_gun1_bpp(1,:) .* m_gd12;
 	x_gd12 = repmat( range', 1, nGood_gd12);
 	y_gd12 = [m_gd12 .* x_gd12(1,:) + b_gd12; ...
-			  m_gd12 .* x_gd12(2,:) + b_gd12];
+	          m_gd12 .* x_gd12(2,:) + b_gd12];
 
 	% GD21
 	m_gd21 = fv_gd21_bpp(2,:) ./ fv_gd21_bpp(1,:);
 	b_gd21 = pos_gun2_bpp(2,:) - pos_gun2_bpp(1,:) .* m_gd21;
 	x_gd21 = repmat( range', 1, nGood_gd21);
 	y_gd21 = [m_gd21 .* x_gd21(1,:) + b_gd21; ...
-			  m_gd21 .* x_gd21(2,:) + b_gd21];
+	          m_gd21 .* x_gd21(2,:) + b_gd21];
 
 	% Clear
 	clear b_gd21 m_gd21 b_gd12 m_gd12 range
@@ -193,11 +231,16 @@ for ib = 1 : length(b_struct.t_avg)
 	ttl_tstart = ttl_tstart{1}(12:19);
 	ttl_tend   = ttl_tend{1}(12:19);
 	ttl = sprintf( ['EDI eField Mode\n' ...
-					'Time Interval: %s  %s - %s\n' ...
-					'nBeams: GD12 = %d, GD21 = %d\n' ...
-					'Bavg = [%0.2f, %0.2f, %0.2f] +/- [%0.2f, %0.2f, %0.2f]'], ...
-				  ttl_date, ttl_tstart, ttl_tend, nGood_gd12, nGood_gd21, ...
-				  b_avg, b_std );
+	                'Time Interval: %s  %s - %s\n' ...
+	                'nBeams: GD12 = %d, GD21 = %d\n' ...
+	                'Bavg = [%0.2f, %0.2f, %0.2f] +/- [%0.2f, %0.2f, %0.2f]'], ...
+	              ttl_date, ttl_tstart, ttl_tend, nGood_gd12, nGood_gd21, ...
+	              b_avg, b_std );
+	              
+	% Append quality to title
+	if ~isempty(quality)
+		ttl = sprintf('%s\nQuality = %d', ttl, quality);
+	end
 
 	% S/C Outline
 	plot( sc_bpp(1,:), sc_bpp(2,:) );
@@ -215,6 +258,8 @@ for ib = 1 : length(b_struct.t_avg)
 	s_gd21 = scatter(pos_gun2_bpp(1,:), pos_gun2_bpp(2,:), [], 'red');
 
 	% Create lines
+	l_gd12 = [];
+	l_gd21 = [];
 	for ii = 1 : nGood_gd12
 		l_gd12 = line(x_gd12(:,ii), y_gd12(:,ii), 'Color', 'blue');
 	end
@@ -231,6 +276,4 @@ for ib = 1 : length(b_struct.t_avg)
 % Move On                               %
 %---------------------------------------%
 	waitforbuttonpress;
-	ii = ii + length(inds_gd12);
-	count = count + 1;
 end

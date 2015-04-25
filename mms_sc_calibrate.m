@@ -145,5 +145,5 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 	
 	% Must multiply all components by -1.
 	%   - MagCon Minutes 2015-03-25
-%	B_out = -B_out;
+	B_out = -B_out;
 end

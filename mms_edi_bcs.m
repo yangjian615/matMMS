@@ -22,7 +22,12 @@
 %   LEVEL           in, required, type=char
 %   TSTART          in, required, type=char
 %   TEND            in, required, type=char
-%   EDI_DIR         in, required, type=char
+%   'DataDir'       in, optional, type=char, default=pwd()
+%                   Directory in which to find EDI data.
+%   'Quality'       in, optional, type=integer, default=[]
+%                   Quality of beams to select. Can be a scalar or array with
+%                     values of 0, 1, 2, or 3. The default is to select all
+%                     beams.
 %
 % Returns
 %   EDI1_BCS        out, required, type=structure
@@ -31,12 +36,16 @@
 %                     'gun_gd12_bcs'  -  Gun1 position in BCS.
 %                     'det_gd12_bcs'  -  Detector2 position in BCS.
 %                     'fv_gd12_bcs'   -  Firing vectors from gun1 in BCS.
+%                     'q_gd12'        -  Quality flag.
+%                     'tof_gd12'      -  Time of flight.
 %   EDI2_BCS        out, required, type=structure
 %                   Fields are:
 %                     't_gd21'        -  TT2000 Epoch time for gun 2 and detector 1.
 %                     'gun_gd21_bcs'  -  Gun2 position in BCS.
 %                     'det_gd21_bcs'  -  Detector1 position in BCS.
 %                     'fv_gd21_bcs'   -  Firing vectors from gun2 in BCS.
+%                     'q_gd21'        -  Quality flag.
+%                     'tof_gd21'      -  Time of flight.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -44,11 +53,24 @@
 % History:
 %   2015-04-18      Written by Matthew Argall
 %   2015-04-23      Assigned time from gd12 to output gd21 structure. Fixed. - MRA
+%   2015-04-24      Renamed EDI_DIR to DATADIR and made a name-value pair.
+%                     Added "Quality" parameter. - MRA
 %
-function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, edi_dir)
+function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, varargin)
 
-	if nargin < 7
-		edi_dir = pwd();
+	quality = [];
+	edi_dir = pwd();
+	
+	nOptArg = length(varargin);
+	for ii = 1 : 2 : nOptArg
+		switch varargin{ii}
+			case 'DataDir'
+				edi_dir = varargin{ii+1};
+			case 'Quality'
+				quality = varargin{ii+1};
+			otherwise
+				error( ['Optional parameter not recognized: "' varargin{ii+1} '".'] );
+		end
 	end
 	
 %------------------------------------%
@@ -61,19 +83,43 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
 	
 	% Read EDI efield data
-	[t_gd12, t_gd21, fa_gd12_deg, fa_gd21_deg] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
+	[gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
 
 	% Convert to radians
-	fa_gd12(1:2, :) = fa_gd12_deg(1:2, :) * pi/180.0;
-	fa_gd21(1:2, :) = fa_gd21_deg(1:2, :) * pi/180.0;
+	fa_gd12(1:2, :) = gd12.fa_gd12(1:2, :) * pi/180.0;
+	fa_gd21(1:2, :) = gd21.fa_gd21(1:2, :) * pi/180.0;
 
 	% Convert to cartesian coordinates
 	%   - sph2cart requires the elevation angle, measured up from the xy-plane,
 	%     not down from the z-axis.
-	[fv_gd12_x, fv_gd12_y, fv_gd12_z] = sph2cart( fa_gd12(1,:), pi/2 - fa_gd12(2,:), ones(1, length(t_gd12)) );
-	[fv_gd21_x, fv_gd21_y, fv_gd21_z] = sph2cart( fa_gd21(1,:), pi/2 - fa_gd21(2,:), ones(1, length(t_gd21)) );
+	[fv_gd12_x, fv_gd12_y, fv_gd12_z] = sph2cart( fa_gd12(1,:), pi/2 - fa_gd12(2,:), ones(1, size(fa_gd12, 2) ) );
+	[fv_gd21_x, fv_gd21_y, fv_gd21_z] = sph2cart( fa_gd21(1,:), pi/2 - fa_gd21(2,:), ones(1, size(fa_gd21, 2) ) );
 	fv_gd12 = [fv_gd12_x; fv_gd12_y; fv_gd12_z];
 	fv_gd21 = [fv_gd21_x; fv_gd21_y; fv_gd21_z];
+	
+%------------------------------------%
+% Filter by Quality                  %
+%------------------------------------%
+	if ~isempty(quality)
+		if length(quality) > 4 || max(quality) > 3 || min(quality) < 0
+			error('Quality can have only these unique values: 0, 1, 2, 3.');
+		end
+		
+		% Find quality
+		iq_gd12 = ismember(gd12.q_gd12, quality);
+		iq_gd21 = ismember(gd21.q_gd21, quality);
+		
+		% Select data
+		fv_gd12         = fv_gd12(:, iq_gd12);
+		gd12.epoch_gd12 = gd12.epoch_gd12(iq_gd12);
+		gd12.q_gd12     = gd12.q_gd12(iq_gd12);
+		gd12.tof_gd12   = gd12.tof_gd12(iq_gd12);
+		
+		fv_gd21         = fv_gd21(:, iq_gd21);
+		gd21.epoch_gd21 = gd21.epoch_gd21(iq_gd21);
+		gd21.q_gd21     = gd21.q_gd21(iq_gd21);
+		gd21.tof_gd21   = gd21.tof_gd21(iq_gd21);
+	end
 	
 %------------------------------------%
 % Transform to BCS                   %
@@ -90,20 +136,26 @@ function [gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend
 %------------------------------------%
 % Output                             %
 %------------------------------------%
+	%
+	% I would like to create a new structure GD12_BCS and copy fields from
+	% GD12 into it. I do not see a simple way of doing this in MATLAB, so
+	% resort to appending new fields to the old structure. This means having
+	% to do away with old fields.
+	%
+
+	% Remove fields from the structures
+	gd12 = rmfield(gd12, 'fa_gd12');
+	gd21 = rmfield(gd21, 'fa_gd21');
 	
 	% EDI1 output structure
-	%   - EDI1 contains gun1 and detector2
-	gd12_bcs = struct( 't_gd12',        t_gd12,   ...
-	                   'gun_gd12_bcs',  gun_gd12_bcs, ...
-	                   'det_gd12_bcs',  det_gd12_bcs, ...
-	                   'gun1_bcs',      gun_gd12_bcs - det_gd21_bcs, ...
-	                   'fv_gd12_bcs',   fv_gd12_bcs );
+	gd12.('gun_gd12_bcs') = gun_gd12_bcs;
+	gd12.('det_gd12_bcs') = det_gd12_bcs;
+	gd12.('gun1_bcs')     = gun_gd12_bcs - det_gd21_bcs;
+	gd12.('fv_gd12_bcs')  = fv_gd12_bcs;
 	
 	% EDI2 output structure
-	%   - EDI2 contains gun1 and detector2
-	gd21_bcs = struct( 't_gd21',        t_gd21,   ...
-	                   'gun_gd21_bcs',  gun_gd21_bcs, ...
-	                   'det_gd21_bcs',  det_gd21_bcs, ...
-	                   'gun2_bcs',      gun_gd21_bcs - det_gd12_bcs, ...
-	                   'fv_gd21_bcs',   fv_gd21_bcs );
+	gd21.('gun_gd21_bcs') = gun_gd21_bcs;
+	gd21.('det_gd21_bcs') = det_gd21_bcs;
+	gd21.('gun2_bcs')     = gun_gd21_bcs - det_gd12_bcs;
+	gd21.('fv_gd21_bcs')  = fv_gd21_bcs;
 end

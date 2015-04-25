@@ -6,13 +6,16 @@
 %   Read MMS EDI electric field mode data files.
 %
 % Calling Sequence
-%   EDI_STRUCT = mms_edi_read_efield(SC, INSTR, MODE, LEVEL, TSTART, TEND, EDI_DIR)
+%   [GD12, GD21] = mms_edi_read_efield(SC, INSTR, MODE, LEVEL, TSTART, TEND)
 %     Read EDI electric field mode data captured by spacecraft SC
 %     (e.g. 'mms3'), instrument INSTR (e.g. 'edi'), from telemetry
 %     mode MODE and data product level LEVEL between the time
-%     interval of [TSTART, TEND]. Data can be found in directory
-%     EDI_DIR. Times should be provided in ISO format:
+%     interval of [TSTART, TEND]. Data is search for in the present
+%     working directory. Times should be provided in ISO format:
 %     'yyyy-mm-ddThh:mm_ss'.
+%
+%   [__] = mms_edi_read_efield(__, edi_dir)
+%     Specify the directory in which to look for EDI data.
 %
 % Parameters
 %   SC              in, required, type=char/cell
@@ -21,29 +24,30 @@
 %   LEVEL           in, required, type=char
 %   TSTART          in, required, type=char
 %   TEND            in, required, type=char
-%   EDI_DIR         in, required, type=char
+%   EDI_DIR         in, optional, type=char
 %
 % Returns
-%   EDI_STRUCT      out, required, type=structure
+%   gd12            out, required, type=structure
 %                   Fields are:
-%                     'epoch_gd12' -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'epoch_gd21' -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'g1aV'       -  Firing angle for gun 1.
-%                     'g2aV'       -  Firing angle for gun 2.
-%                     'g1pos'      -  Position of gun 1 in EDI_GUN system
-%                     'g2pos'      -  Position of gun 2 in EDI_GUN system
+%                     'epoch_gd12' -  TT2000 Epoch time.
+%                     'fa_gd12'    -  [azimuth, polar] firing angles.
+%                     'q_gd12'     -  Quality flag.
+%                     'tof_gd12'   -  Time of flight.
+%   gd12            out, required, type=structure
+%                   Fields are:
+%                     'epoch_gd21' -  TT2000 Epoch time.
+%                     'fa_gd21'    -  [azimuth, polar] firing angles.
+%                     'q_gd21'     -  Quality flag.
+%                     'tof_gd21'   -  Time of flight.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
 %   2015-04-18      Written by Matthew Argall
+%   2015-04-23      Cleaned up code. Return structure for each gun.
 %
-function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir)
-	
-	if nargin < 7
-		edi_dir = pwd();
-	end
+function [gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir)
 	
 %------------------------------------%
 % File and Variable Names            %
@@ -60,28 +64,17 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efield(sc, instr, mod
 	                      'TimeOrder', '%Y%M%d', ...
 	                      'Closest',   true);
 	
-	% Gun positions with respect to GDU1 coordinate system
-%	g1pos_x_vname = mms_construct_varname(sc, instr, 'v1xg1');
-%	g1pos_y_vname = mms_construct_varname(sc, instr, 'v1xg1');
-%	g1pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
-%	g2pos_x_vname = mms_construct_varname(sc, instr, 'v1xg1');
-%	g2pos_y_vname = mms_construct_varname(sc, instr, 'v1xg1');
-%	g2pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
-%	g2pos_z_vname = mms_construct_varname(sc, instr, 'v1xg1');
+	% GDU1 variable names
+	phi_gd12_vname   = mms_construct_varname(sc, instr, 'phi_gd12');
+	theta_gd12_vname = mms_construct_varname(sc, instr, 'theta_gd12');
+	q_gd12_vname     = mms_construct_varname(sc, instr, 'sq_gd12');
+	tof_gd12_vname   = mms_construct_varname(sc, instr, 'tof1_us');
 	
-	% Gun analog voltages
-	%   - My version of mms_edi_avoltage2angles does not convert properly
-	%   - Read Theta and Phi angles instead
-%	g1aV_x_vname = mms_construct_varname(sc, instr, 'vax_gd12');
-%	g1aV_y_vname = mms_construct_varname(sc, instr, 'vay_gd12');
-%	g2aV_x_vname = mms_construct_varname(sc, instr, 'vax_gd21');
-%	g2aV_y_vname = mms_construct_varname(sc, instr, 'vay_gd21');
-	
-	% Gun firing angles in EDI1 EDI2 coordinates
-	g1_theta_vname = mms_construct_varname(sc, instr, 'theta_gd12');
-	g2_theta_vname = mms_construct_varname(sc, instr, 'theta_gd21');
-	g1_phi_vname   = mms_construct_varname(sc, instr, 'phi_gd12');
-	g2_phi_vname   = mms_construct_varname(sc, instr, 'phi_gd21');
+	%GDU2 variable names
+	phi_gd21_vname   = mms_construct_varname(sc, instr, 'phi_gd21');
+	theta_gd21_vname = mms_construct_varname(sc, instr, 'theta_gd21');
+	q_gd21_vname     = mms_construct_varname(sc, instr, 'sq_gd21');
+	tof_gd21_vname   = mms_construct_varname(sc, instr, 'tof2_us');
 	
 %------------------------------------%
 % Read Data                          %
@@ -90,24 +83,19 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efield(sc, instr, mod
 	% Firing vectors in [x,y,z] are not filled yet.
 	% Convert analog voltages to firing vectors outside.
 	%
-	[g1_theta, t_gd12] = MrCDF_Read(fname, g1_theta_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	g1_phi             = MrCDF_Read(fname, g1_phi_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-%	g1pos_x          = MrCDF_Read(fname, g1pos_x_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-%	g1pos_y          = MrCDF_Read(fname, g1pos_y_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-%	g1pos_z          = MrCDF_Read(fname, g1pos_z_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	[g2_theta, t_gd21] = MrCDF_Read(fname, g2_theta_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	g2_phi             = MrCDF_Read(fname, g2_phi_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-%	g2pos_x          = MrCDF_Read(fname, g2pos_x_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-%	g2pos_y          = MrCDF_Read(fname, g2pos_y_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-%	g2pos_z          = MrCDF_Read(fname, g2pos_z_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	
-	% Combine into 3- and 2-vectors to get firing vectors
-%	g1pos = [g1pos_x; g1pos_y; g1pos_z];
-%	g2pos = [g2pos_x; g2pos_y; g2pos_z];
+	[theta_gd12, epoch_gd12] = MrCDF_Read(fname, theta_gd12_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd12                 = MrCDF_Read(fname, phi_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd12                   = MrCDF_Read(fname, q_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd12                 = MrCDF_Read(fname, tof_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+
+	[theta_gd21, epoch_gd21] = MrCDF_Read(fname, theta_gd21_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd21                 = MrCDF_Read(fname, theta_gd21_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd21                   = MrCDF_Read(fname, q_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd21                 = MrCDF_Read(fname, tof_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
 	% Firing angles
-	%   - Phi is the azimuth angle
-	%   - Theta is the polar angle
+	%   - Phi is the polar angle
+	%   - Theta is the azimuth angle
 	%
 	% From Hans Vaith
 	%   gx = cos(phi) * sin(theta)
@@ -115,19 +103,21 @@ function [t_gd12, t_gd21, fa_gd12, fa_gd21] = mms_edi_read_efield(sc, instr, mod
 	%   gz = cos(theta)
 	%
 	% Order as [phi, theta] to pass directly to sph2cart
-	fa_gd12 = [g1_phi; g1_theta];
-	fa_gd21 = [g2_phi; g2_theta];
+	fa_gd12 = [phi_gd12; theta_gd12];
+	fa_gd21 = [phi_gd21; theta_gd21];
 
 %------------------------------------%
 % Create the Output Structure        %
 %------------------------------------%
-%	edi_struct = struct( 'epoch_gd12', epoch_gd12, ...
-%	                     'epoch_gd21', epoch_gd21, ...
-%	                     'g1aV',   g1aV,           ...
-%	                     'g2aV',   g2aV            ...
-%	                   );
-%	                     'g1pos',  g1pos,      ...
-%	                     'g2pos',  g2pos );
+	gd12 = struct( 'epoch_gd12', epoch_gd12, ...
+	               'fa_gd12',    fa_gd12,    ...
+	               'q_gd12',     q_gd12,     ...
+	               'tof_gd12',   tof_gd12 );
+	
+	gd21 = struct( 'epoch_gd21', epoch_gd21, ...
+	               'fa_gd21',    fa_gd21,    ...
+	               'q_gd21',     q_gd21,     ...
+	               'tof_gd21',   tof_gd21 );
 end
 
 
