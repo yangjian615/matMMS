@@ -29,16 +29,18 @@
 % Returns
 %   gd12            out, required, type=structure
 %                   Fields are:
-%                     'epoch_gd12' -  TT2000 Epoch time.
-%                     'fa_gd12'    -  [azimuth, polar] firing angles.
-%                     'q_gd12'     -  Quality flag.
-%                     'tof_gd12'   -  Time of flight.
+%                     'epoch_gd12'    -  TT2000 Epoch time.
+%                     'polar_gd12'    -  polar firing angle.
+%                     'azimuth_gd12'  -  azimuth firing angles.
+%                     'q_gd12'        -  Quality flag.
+%                     'tof_gd12'      -  Time of flight.
 %   gd12            out, required, type=structure
 %                   Fields are:
-%                     'epoch_gd21' -  TT2000 Epoch time.
-%                     'fa_gd21'    -  [azimuth, polar] firing angles.
-%                     'q_gd21'     -  Quality flag.
-%                     'tof_gd21'   -  Time of flight.
+%                     'epoch_gd21'    -  TT2000 Epoch time.
+%                     'polar_gd21'    -  polar firing angle.
+%                     'azimuth_gd21'  -  azimuth firing angles.
+%                     'q_gd21'        -  Quality flag.
+%                     'tof_gd21'      -  Time of flight.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -70,7 +72,7 @@ function [gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend
 	q_gd12_vname     = mms_construct_varname(sc, instr, 'sq_gd12');
 	tof_gd12_vname   = mms_construct_varname(sc, instr, 'tof1_us');
 	
-	%GDU2 variable names
+	% GDU2 variable names
 	phi_gd21_vname   = mms_construct_varname(sc, instr, 'phi_gd21');
 	theta_gd21_vname = mms_construct_varname(sc, instr, 'theta_gd21');
 	q_gd21_vname     = mms_construct_varname(sc, instr, 'sq_gd21');
@@ -93,31 +95,31 @@ function [gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend
 	q_gd21                   = MrCDF_Read(fname, q_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 	tof_gd21                 = MrCDF_Read(fname, tof_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
+	%
 	% Firing angles
-	%   - Phi is the polar angle
-	%   - Theta is the azimuth angle
+	%   - Theta is the polar angle
+	%   - Phi is the azimuth angle
 	%
 	% From Hans Vaith
 	%   gx = cos(phi) * sin(theta)
 	%   gy = sin(phi) * sin(theta)
 	%   gz = cos(theta)
 	%
-	% Order as [phi, theta] to pass directly to sph2cart
-	fa_gd12 = [phi_gd12; theta_gd12];
-	fa_gd21 = [phi_gd21; theta_gd21];
 
 %------------------------------------%
 % Create the Output Structure        %
 %------------------------------------%
-	gd12 = struct( 'epoch_gd12', epoch_gd12, ...
-	               'fa_gd12',    fa_gd12,    ...
-	               'q_gd12',     q_gd12,     ...
-	               'tof_gd12',   tof_gd12 );
+	gd12 = struct( 'epoch_gd12',    epoch_gd12, ...
+	               'polar_gd12',    theta_gd12, ...
+	               'azimuth_gd12',  phi_gd12,   ...
+	               'q_gd12',        q_gd12,     ...
+	               'tof_gd12',      tof_gd12 );
 	
-	gd21 = struct( 'epoch_gd21', epoch_gd21, ...
-	               'fa_gd21',    fa_gd21,    ...
-	               'q_gd21',     q_gd21,     ...
-	               'tof_gd21',   tof_gd21 );
+	gd21 = struct( 'epoch_gd21',    epoch_gd21, ...
+	               'polar_gd21',    theta_gd21, ...
+	               'azimuth_gd21',  phi_gd21,   ...
+	               'q_gd21',        q_gd21,     ...
+	               'tof_gd21',      tof_gd21 );
 end
 
 

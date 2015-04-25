@@ -86,16 +86,24 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 	[gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
 
 	% Convert to radians
-	fa_gd12(1:2, :) = gd12.fa_gd12(1:2, :) * pi/180.0;
-	fa_gd21(1:2, :) = gd21.fa_gd21(1:2, :) * pi/180.0;
+	deg2rad      = pi / 180.0;
+	polar_gd12   = gd12.polar_gd12   * deg2rad;
+	azimuth_gd12 = gd12.azimuth_gd12 * deg2rad;
+	polar_gd21   = gd21.polar_gd21   * deg2rad;
+	azimuth_gd21 = gd21.azimuth_gd21 * deg2rad;
 
 	% Convert to cartesian coordinates
 	%   - sph2cart requires the elevation angle, measured up from the xy-plane,
 	%     not down from the z-axis.
-	[fv_gd12_x, fv_gd12_y, fv_gd12_z] = sph2cart( fa_gd12(1,:), pi/2 - fa_gd12(2,:), ones(1, size(fa_gd12, 2) ) );
-	[fv_gd21_x, fv_gd21_y, fv_gd21_z] = sph2cart( fa_gd21(1,:), pi/2 - fa_gd21(2,:), ones(1, size(fa_gd21, 2) ) );
-	fv_gd12 = [fv_gd12_x; fv_gd12_y; fv_gd12_z];
-	fv_gd21 = [fv_gd21_x; fv_gd21_y; fv_gd21_z];
+	fv_gd12      = zeros( [3, length(polar_gd12)] );
+	fv_gd12(1,:) = sin( polar_gd12 ) .* cos( azimuth_gd12 );
+	fv_gd12(2,:) = sin( polar_gd12 ) .* sin( azimuth_gd12 );
+	fv_gd12(3,:) = cos( polar_gd12 );
+	
+	fv_gd21      = zeros( [3, length(polar_gd21)] );
+	fv_gd21(1,:) = sin( polar_gd21 ) .* cos( azimuth_gd21 );
+	fv_gd21(2,:) = sin( polar_gd21 ) .* sin( azimuth_gd21 );
+	fv_gd21(3,:) = cos( polar_gd21 );
 	
 %------------------------------------%
 % Filter by Quality                  %
@@ -120,7 +128,7 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 		gd21.q_gd21     = gd21.q_gd21(iq_gd21);
 		gd21.tof_gd21   = gd21.tof_gd21(iq_gd21);
 	end
-	
+keyboard
 %------------------------------------%
 % Transform to BCS                   %
 %------------------------------------%
@@ -144,8 +152,8 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 	%
 
 	% Remove fields from the structures
-	gd12 = rmfield(gd12, 'fa_gd12');
-	gd21 = rmfield(gd21, 'fa_gd21');
+	gd12 = rmfield(gd12, {'polar_gd12', 'azimuth_gd12'});
+	gd21 = rmfield(gd21, {'polar_gd21', 'azimuth_gd21'});
 	
 	% EDI1 output structure
 	gd12.('gun_gd12_bcs') = gun_gd12_bcs;
