@@ -40,30 +40,26 @@
 %                     used.
 %
 % Returns
-%   GD12_DSL        out, required, type=structure
+%   GD12_DMPA       out, required, type=structure
 %                   Fields are:
-%                     't_gd12'       -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'gun_gd12_dsl' -  Position of the gun for gd12 pair.
-%                     'det_gd12_dsl' -  Position of the detector for gd12 pair.
-%                     'fv_gd12_dsl'  -  Firing vector for gd12 pair.
-%   GD21_DSL        out, required, type=structure
+%                     'epoch_gd12'     -  TT2000 Epoch time for gun 1 and detector 2.
+%                     'gun_gd12_dmpa'  -  Gun1 position in DMPA.
+%                     'det_gd12_dmpa'  -  Detector2 position in DMPA.
+%                     'gun1_gd12_dmpa' -  Gun1 position on virtual spacecraft in DMPA.
+%                     'fv_gd12_dmpa'   -  Firing vectors from gun1 in DMPA.
+%                     'q_gd12'         -  Quality flag.
+%                     'tof_gd12'       -  Time of flight.
+%   GD21_DMPA       out, required, type=structure
 %                   Fields are:
-%                     't_gd21'       -  TT2000 Epoch time for gun 2 and detector 1.
-%                     'gun_gd21_dsl' -  Position of the gun for gd21 pair.
-%                     'det_gd21_dsl' -  Position of the detector for gd21 pair.
-%                     'fv_gd21_dsl'  -  Firing vector for gd21 pair.
+%                     'epoch_gd21'     -  TT2000 Epoch time for gun 2 and detector 1.
+%                     'gun_gd21_dmpa'  -  Gun2 position in DMPA.
+%                     'det_gd21_dmpa'  -  Detector1 position in DMPA.
+%                     'gun1_gd21_dmpa' -  Gun2 position on virtual spacecraft in DMPA.
+%                     'fv_gd21_dmpa'   -  Firing vectors from gun1 in DMPA.
+%                     'q_gd21'         -  Quality flag.
+%                     'tof_gd21'       -  Time of flight.
 %   GD12_BCS        out, optional, type=structure
-%                   Fields are:
-%                     't_gd12'       -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'gun_gd12_bcs' -  Position of the gun for gd12 pair.
-%                     'det_gd12_bcs' -  Position of the detector for gd12 pair.
-%                     'fv_gd12_bcs'  -  Firing vector for gd12 pair.
 %   GD21_BCS        out, optional, type=structure
-%                   Fields are:
-%                     't_gd21'       -  TT2000 Epoch time for gun 2 and detector 1.
-%                     'gun_gd21_bcs' -  Position of the gun for gd21 pair.
-%                     'det_gd21_bcs' -  Position of the detector for gd21 pair.
-%                     'fv_gd21_bcs'  -  Firing vector for gd21 pair.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None

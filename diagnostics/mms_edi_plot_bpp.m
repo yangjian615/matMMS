@@ -17,7 +17,7 @@
 %   2015-04-14      Written by Matthew Argall
 %
 
-get_data = true;
+get_data = false;
 quality  = 3;
 
 % Inputs
@@ -158,7 +158,7 @@ if ~isempty(quality)
 end
 
 % S/C Outline
-plot( sc_bpp(1,:), sc_bpp(2,:) );
+plot3( sc_bpp(1,:), sc_bpp(2,:), sc_bpp(3,:) );
 hold on
 grid on;
 title(ttl);
@@ -169,17 +169,17 @@ ylabel('y (m)');
 % Plot Gun Positions & Firing Vectors   %
 %---------------------------------------%
 % Create a scatter plot of gun positions
-s_gd12 = scatter(pos_gun1_bpp(1,:), pos_gun1_bpp(2,:), [], 'blue');
-s_gd21 = scatter(pos_gun2_bpp(1,:), pos_gun2_bpp(2,:), [], 'red');
+s_gd12 = scatter3(pos_gun1_bpp(1,:), pos_gun1_bpp(2,:), pos_gun1_bpp(3,:), [], 'blue');
+s_gd21 = scatter3(pos_gun2_bpp(1,:), pos_gun2_bpp(2,:), pos_gun2_bpp(3,:), [], 'red');
 
 % Create lines
 l_gd12 = [];
 l_gd21 = [];
 for ii = 1 : nGood_gd12
-	l_gd12 = line(x_gd12(:,ii), y_gd12(:,ii), 'Color', 'blue');
+	l_gd12 = line(x_gd12(:,ii), y_gd12(:,ii), z_gd12(:,ii), 'Color', 'blue');
 end
 for ii = 1 : nGood_gd21
-	l_gd21 = line(x_gd21(:,ii), y_gd21(:,ii), 'Color', 'red');
+	l_gd21 = line(x_gd21(:,ii), y_gd21(:,ii), z_gd21(:,ii), 'Color', 'red');
 end
 legend([l_gd12, l_gd21], 'GD12', 'GD21');
 

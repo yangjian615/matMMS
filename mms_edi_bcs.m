@@ -128,7 +128,7 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 		gd21.q_gd21     = gd21.q_gd21(iq_gd21);
 		gd21.tof_gd21   = gd21.tof_gd21(iq_gd21);
 	end
-keyboard
+
 %------------------------------------%
 % Transform to BCS                   %
 %------------------------------------%
