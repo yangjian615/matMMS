@@ -85,15 +85,15 @@ function [gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend
 	% Firing vectors in [x,y,z] are not filled yet.
 	% Convert analog voltages to firing vectors outside.
 	%
-	[theta_gd12, epoch_gd12] = MrCDF_Read(fname, theta_gd12_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	phi_gd12                 = MrCDF_Read(fname, phi_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	q_gd12                   = MrCDF_Read(fname, q_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	tof_gd12                 = MrCDF_Read(fname, tof_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	[theta_gd12, epoch_gd12] = MrCDF_Read(fname, theta_gd12_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd12                 = MrCDF_Read(fname, phi_gd12_vname,   'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd12                   = MrCDF_Read(fname, q_gd12_vname,     'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd12                 = MrCDF_Read(fname, tof_gd12_vname,   'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
-	[theta_gd21, epoch_gd21] = MrCDF_Read(fname, theta_gd21_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	phi_gd21                 = MrCDF_Read(fname, theta_gd21_vname,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	q_gd21                   = MrCDF_Read(fname, q_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	tof_gd21                 = MrCDF_Read(fname, tof_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	[theta_gd21, epoch_gd21] = MrCDF_Read(fname, theta_gd21_vname, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd21                 = MrCDF_Read(fname, phi_gd21_vname,   'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd21                   = MrCDF_Read(fname, q_gd21_vname,     'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd21                 = MrCDF_Read(fname, tof_gd21_vname,   'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
 	%
 	% Firing angles

@@ -50,7 +50,7 @@ function spin2despun = mms_dss_xdespin( sunpulse, times, instr, arg4 )
 	% with BCS. Aligning BCS with the sun sensor requires a +76 degree
 	% rotation.
 	offset = 76 * pi/180;
-	
+
 	% Sine and Cosine of phase
 	sinPhase = sin(spin_phase + offset);
 	cosPhase = cos(spin_phase + offset);

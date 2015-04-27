@@ -3,12 +3,7 @@
 %   mms_edi_tutorial
 %
 % Purpose
-%   Plot all EDI beams in the given time interval in BPP using the average
-%   magnetic field for that interval. All beams are projected into the same
-%   BPP.
-%
-% See Also
-%   mms_edi_view
+%   Demonstrate how to use the primary EDI functions.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None

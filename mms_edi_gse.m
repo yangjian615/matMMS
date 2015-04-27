@@ -166,8 +166,8 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 		                                 'Directory', sunpulse_dir);
 
 		% Build matrix
-		smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12, 'EDI1_GUN' );
-		smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21, 'EDI2_GUN' );
+		smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12 );
+		smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21 );
 	end
 
 	% Transform
@@ -182,20 +182,20 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 	% Spin up using definitive attitude
 	if isempty(sunpulse_dir)
 		% Build matrix
-		smpa2dmpa_gun1 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI1_GUN');
-		smpa2dmpa_det2 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI1_DETECTOR');
+		smpa2dmpa_gun1 = mms_fdoa_xdespin( attitude, t, 'L' );
+		smpa2dmpa_det2 = mms_fdoa_xdespin( attitude, t, 'L' );
 
-		smpa2dmpa_gun2 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI2_GUN');
-		smpa2dmpa_det1 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI2_DETECTOR');
+		smpa2dmpa_gun2 = mms_fdoa_xdespin( attitude, t, 'L' );
+		smpa2dmpa_det1 = mms_fdoa_xdespin( attitude, t, 'L' );
 	
 	% Spin up using sunpulse
 	else
 		% Build rotation matrices
-		smpa2dmpa_gun1 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12, 'EDI1_GUN');
-		smpa2dmpa_det2 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12, 'EDI1_DETECTOR');
+		smpa2dmpa_gun1 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12 );
+		smpa2dmpa_det2 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12 );
 	
-		smpa2dmpa_gun2 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21, 'EDI2_GUN' );
-		smpa2dmpa_det1 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21, 'EDI2_DETECTOR' );
+		smpa2dmpa_gun2 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21 );
+		smpa2dmpa_det1 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21 );
 	end
 	
 	% Transform
