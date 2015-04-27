@@ -48,6 +48,7 @@
 %   2015-03-25      Written by Matthew Argall
 %   2015-04-12      Added the 'UniqPackets' and 'UniqPulse' parameters. - MRA
 %   2015-04-14      Return a structure. - MRAs
+%   2015-04-27      Corrected check of extrapolation at end of array. - MRAs
 %
 function phase = mms_dss_sunpulse2phase(sunpulse, times)
 
@@ -60,7 +61,6 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	
 	% Check if there are sunpulse times
 	assert(~isempty(pulse), 'SunPulse array is empty. Cannot determine phase.');
-	assert(~isempty(times), 'Input time array cannot be empty.');
 
 	% A period is valid if FLAG = 0 & 2 < PERIOD < 50 seconds.
 	valid_period = flag == 0 & period < 50e9 & period > 2e9;
@@ -324,7 +324,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	% Were there times after the last sun pulse?
 	iAfter = find(times <= pulse(end), 1, 'last');
 	if isempty(iAfter)
-		iAfter = length(pulse) + 1;
+		iAfter = length(times) + 1;
 	else
 		iAfter = iAfter + 1;
 	end
@@ -335,9 +335,9 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			warning('SunPulse:Phase', 'Extrapolating more than 3 spins before first point.');
 		end
 	end
-	
+
 	% Warn if excessive extrapolation
-	if iAfter > 0
+	if iAfter < length(times)
 		if 360.0 * (times(end) - pulse(end)) / period(1) > 3.0 * 360.0
 			warning('SunPulse:Phase', 'Extrapolating more than 3 spins after last point.');
 		end
