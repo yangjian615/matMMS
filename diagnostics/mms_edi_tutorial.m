@@ -29,6 +29,7 @@ if get_data
 	%        mms_edi_bcs -- see below
 	%      Rotate from BCS to SMPA
 	%        mms_fdoa_read_defatt -- get attitude data and z-MPA axis
+	%        mms_fdoa_xbcs2dmpa -- create rotation matrix from BCS to DMPA
 	%      Despin
 	%        a) mms_fdoa_xdespin -- use attitude data to despin
 	%        b) mms_dss_read_sunpulse -- read sunpulse data
@@ -36,11 +37,10 @@ if get_data
 	%      Rotate to GSE
 	%        mms_fdoa_xgei2despun -- Use attitude data to get transformation to GEI
 	%        gei2gse -- Hapgood rotation from GEI to GSE
-	%      
 	%
 	%   mms_edi_bcs
 	%     Read data
-	%       mms_edi_efield
+	%       mms_edi_efield -- see below
 	%     Get gun positions
 	%       mms_instr_origins_ocs -- get gun & detector positions
 	%     Convert firing angles to firing vectors
@@ -106,7 +106,6 @@ if get_data
 	[gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, 'edi', 'slow', 'l1a_efield', tstart, tend, ...
 	                                   'DataDir',     edi_data_dir, ...
 	                                   'Quality',     quality);
-	
 	
 %------------------------------------%
 % Get Data in DMPA and GSE           %

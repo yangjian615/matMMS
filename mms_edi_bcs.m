@@ -116,6 +116,14 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 		% Find quality
 		iq_gd12 = ismember(gd12.q_gd12, quality);
 		iq_gd21 = ismember(gd21.q_gd21, quality);
+
+		% Make sure something was found
+		if sum(iq_gd12) == 0
+			warning('EDI_BCS:Quality', 'No beams of selected quality found for Gun1');
+		end
+		if sum(iq_gd21) == 0
+			warning('EDI_BCS:Quality', 'No beams of selected quality found for Gun2');
+		end
 		
 		% Select data
 		fv_gd12         = fv_gd12(:, iq_gd12);

@@ -15,9 +15,10 @@
 %
 % History:
 %   2015-04-14      Written by Matthew Argall
+%   2015-04-26      Changed to plot beams in 3D
 %
 
-get_data = false;
+get_data = true;
 quality  = 3;
 
 % Inputs
@@ -32,7 +33,7 @@ if get_data
 	mode         = 'slow';
 	level        = 'l1a_efield';
 	tstart       = '2015-04-22T17:03:15';
-	tend         = '2015-04-22T17:03:28';
+	tend         = '2015-04-22T17:03:30';
 	
 	%------------------------------------%
 	% Get DFG and EDI Data in DSL        %
@@ -91,7 +92,7 @@ clear sc_radius sc_nps sc_sph sc_x sc_y sc_z
 % Firing Vectors                     %
 %------------------------------------%
 
-range = [-22.5, 22.5];
+range = [-10, 10];
 
 % Remove NaNs
 
@@ -111,29 +112,71 @@ if nGood_gd12 == 0 && nGood_gd21 == 0
 end
 
 %
-% Beam slope, y-intercept, (x1,x2) and (y1,y2)
-%    - slope (m)       = rise / run
-%    - y-intercept (b) = y1 - m * x1
-%    - (x1,x2)         = range
-%    - (y1,y2)         = m*x + b
+% Knowing two vectors that point from the origin to two points in space
+%   r0 = (x0, y0, z0)
+%   r1 = (x1, y1, z1)
+%
+% A vector, v, parallel to the vector a, which connects r0 to r1, can be formed
+%   v = r1 - r0
+%     = (x1 - x0, y1 - y0, z1 - z0)
+%     = (a, b, c)
+%
+% A vector from the origin to any other point on the line  can be formed by adding some
+% multiplicative factor, t, of v to r0
+%   r = r0 + vt
+%
+% It follows that
+%   x = x0 + at
+%   y = y0 + bt
+%   z = z0 + ct
+%
+% Or
+%   t = (x - x0) / a
+%     = (y - y0) / b
+%     = (z - z0) / c
+%
+% Using the x-component of the firing vectors and gun positions, we can determine t
+% for the range of the plot
+%   t(1) = ( pos_gun(1) - range(1) ) / fv(1)
+%   t(1) = ( pos_gun(2) - range(2) ) / fv(2)
+%
+% Then, we can find the (x,y,z) coordinates that define the end points of our line.
+%   x = gun_pos(1) + fv(1) * t
+%   y = gun_pos(2) + fv(2) * t
+%   z = gun_pos(3) + fv(3) * t
 %
 
 % GD12
-m_gd12 = fv_gd12_bpp(2,:) ./ fv_gd12_bpp(1,:);
-b_gd12 = pos_gun1_bpp(2,:) - pos_gun1_bpp(1,:) .* m_gd12;
-x_gd12 = repmat( range', 1, nGood_gd12);
-y_gd12 = [m_gd12 .* x_gd12(1,:) + b_gd12; ...
-          m_gd12 .* x_gd12(2,:) + b_gd12];
+%   - find (x0,x1), (y0,y1), and (z0,z1) for each beam.
+t_gd12      = zeros(2, nGood_gd12);
+x_gd12      = zeros(2, nGood_gd12);
+y_gd12      = zeros(2, nGood_gd12);
+z_gd12      = zeros(2, nGood_gd12);
+t_gd12(1,:) = ( pos_gun1_bpp(1,:) - range(1) ) ./ fv_gd12_bpp(1,:);
+t_gd12(2,:) = ( pos_gun1_bpp(1,:) - range(2) ) ./ fv_gd12_bpp(1,:);
+x_gd12(1,:) = pos_gun1_bpp(1,:) + fv_gd12_bpp(1,:) .* t_gd12(1,:);
+x_gd12(2,:) = pos_gun1_bpp(1,:) + fv_gd12_bpp(1,:) .* t_gd12(2,:);
+y_gd12(1,:) = pos_gun1_bpp(2,:) + fv_gd12_bpp(2,:) .* t_gd12(1,:);
+y_gd12(2,:) = pos_gun1_bpp(2,:) + fv_gd12_bpp(2,:) .* t_gd12(2,:);
+z_gd12(1,:) = pos_gun1_bpp(3,:) + fv_gd12_bpp(3,:) .* t_gd12(1,:);
+z_gd12(2,:) = pos_gun1_bpp(3,:) + fv_gd12_bpp(3,:) .* t_gd12(2,:);
 
 % GD21
-m_gd21 = fv_gd21_bpp(2,:) ./ fv_gd21_bpp(1,:);
-b_gd21 = pos_gun2_bpp(2,:) - pos_gun2_bpp(1,:) .* m_gd21;
-x_gd21 = repmat( range', 1, nGood_gd21);
-y_gd21 = [m_gd21 .* x_gd21(1,:) + b_gd21; ...
-          m_gd21 .* x_gd21(2,:) + b_gd21];
+t_gd21      = zeros(2, nGood_gd21);
+x_gd21      = zeros(2, nGood_gd21);
+y_gd21      = zeros(2, nGood_gd21);
+z_gd21      = zeros(2, nGood_gd21);
+t_gd21(1,:) = ( pos_gun2_bpp(1,:) - range(1) ) ./ fv_gd21_bpp(1,:);
+t_gd21(2,:) = ( pos_gun2_bpp(1,:) - range(2) ) ./ fv_gd21_bpp(1,:);
+x_gd21(1,:) = pos_gun2_bpp(1,:) + fv_gd21_bpp(1,:) .* t_gd21(1,:);
+x_gd21(2,:) = pos_gun2_bpp(1,:) + fv_gd21_bpp(1,:) .* t_gd21(2,:);
+y_gd21(1,:) = pos_gun2_bpp(2,:) + fv_gd21_bpp(2,:) .* t_gd21(1,:);
+y_gd21(2,:) = pos_gun2_bpp(2,:) + fv_gd21_bpp(2,:) .* t_gd21(2,:);
+z_gd21(1,:) = pos_gun2_bpp(3,:) + fv_gd21_bpp(3,:) .* t_gd21(1,:);
+z_gd21(2,:) = pos_gun2_bpp(3,:) + fv_gd21_bpp(3,:) .* t_gd21(2,:);
 
 % Clear
-clear b_gd21 m_gd21 b_gd12 m_gd12
+clear t_gd12 t_gd21
 
 %------------------------------------%
 % Plot Spacecraft Outline            %
@@ -185,4 +228,5 @@ legend([l_gd12, l_gd21], 'GD12', 'GD21');
 
 xlim(range)
 ylim(range)
+zlim(range)
 hold off

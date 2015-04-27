@@ -60,7 +60,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	
 	% Check if there are sunpulse times
 	assert(~isempty(pulse), 'SunPulse array is empty. Cannot determine phase.');
-	
+	assert(~isempty(times), 'Input time array cannot be empty.');
 
 	% A period is valid if FLAG = 0 & 2 < PERIOD < 50 seconds.
 	valid_period = flag == 0 & period < 50e9 & period > 2e9;
@@ -86,7 +86,6 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 %------------------------------------%
 % Intervals and Gaps                 %
 %------------------------------------%
-
 	% Find data gaps by examining the period
 	T_median        = median( double( dPulse ) );
 	[iGaps, nInGap] = MrGapsX( pulse, T_median);
@@ -151,7 +150,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 		end
 
 		% Median smooth if we can
-		if iend - istart >= nMedFilt
+		if (iend - istart) >= nMedFilt
 			% Median smooth the period during this interval
 			medT = medfilt1( dPulse(istart:iend), nMedFilt );
 
@@ -159,16 +158,15 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			medT( 1:halfWin )       = medT( halfWin+1 );
 			medT( end-halfWin:end ) = medT( end-halfWin-1 );
 		else
-			medT    = zeros( iend - istart );
+			medT    = zeros(1, iend - istart + 1);
 			medT(:) = median( dPulse(istart:iend) );
 		end
-			
-	
+
 		% Number of spins between each pulse
 		%   - Recall, T is the time between sun pulses, not the reported period
 		%   - There could still be gaps smaller than NMINGAP periods
 		nSpins = medT / T_median;
-		
+
 		% NSPINS should be roughly an integer. If not, the sun pulse is
 		% changing in an unexpected manner.
 		iNotIntSpin = find( abs( nSpins - round(nSpins) ) >= 0.25 );
@@ -301,7 +299,6 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 %------------------------------------%
 % Compuate the Spin Phase            %
 %------------------------------------%
-
 	% Determine where TIMES is located within the sun pulse array.
 	sp_sse = MrCDF_epoch2sse( pulse );
 	t_sse  = MrCDF_epoch2sse( times, pulse(1) );
