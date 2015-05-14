@@ -40,33 +40,34 @@
 %                     used.
 %
 % Returns
-%   GD12_DMPA       out, required, type=structure
-%                   Fields are:
-%                     'epoch_gd12'     -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'gun_gd12_dmpa'  -  Gun1 position in DMPA.
-%                     'det_gd12_dmpa'  -  Detector2 position in DMPA.
-%                     'gun1_gd12_dmpa' -  Gun1 position on virtual spacecraft in DMPA.
-%                     'fv_gd12_dmpa'   -  Firing vectors from gun1 in DMPA.
-%                     'q_gd12'         -  Quality flag.
-%                     'tof_gd12'       -  Time of flight.
-%   GD21_DMPA       out, required, type=structure
-%                   Fields are:
-%                     'epoch_gd21'     -  TT2000 Epoch time for gun 2 and detector 1.
-%                     'gun_gd21_dmpa'  -  Gun2 position in DMPA.
-%                     'det_gd21_dmpa'  -  Detector1 position in DMPA.
-%                     'gun1_gd21_dmpa' -  Gun2 position on virtual spacecraft in DMPA.
-%                     'fv_gd21_dmpa'   -  Firing vectors from gun1 in DMPA.
-%                     'q_gd21'         -  Quality flag.
-%                     'tof_gd21'       -  Time of flight.
-%   GD12_BCS        out, optional, type=structure
-%   GD21_BCS        out, optional, type=structure
+%   GD12_DMPA  out, required, type=structure
+%     Fields are:
+%     'epoch_gd12'     -  [1xn int64]   TT2000 Epoch time for gun 1 and detector 2.
+%     'gun_gd12_dmpa'  -  [3xn double]  Gun1 position in DMPA.
+%     'det_gd12_dmpa'  -  [3xn double]  Detector2 position in DMPA.
+%     'gun1_gd12_dmpa' -  [3xn double]  Gun1 position on virtual spacecraft in DMPA.
+%     'fv_gd12_dmpa'   -  [3xn double]  Firing vectors from gun1 in DMPA.
+%     'q_gd12'         -  [1xn uint8]   Quality flag.
+%     'tof_gd12'       -  [1xn uint 32] Time of flight.
+%   GD21_DMPA  out, required, type=structure
+%     Fields are:
+%     'epoch_gd21'     -  [1xn int64]   TT2000 Epoch time for gun 2 and detector 1.
+%     'gun_gd21_dmpa'  -  [3xn double]  Gun2 position in DMPA.
+%     'det_gd21_dmpa'  -  [3xn double]  Detector1 position in DMPA.
+%     'gun1_gd21_dmpa' -  [3xn double]  Gun2 position on virtual spacecraft in DMPA.
+%     'fv_gd21_dmpa'   -  [3xn double]  Firing vectors from gun1 in DMPA.
+%     'q_gd21'         -  [1xn uint8]   Quality flag.
+%     'tof_gd21'       -  [1xn uint 32] Time of flight.
+%   GD12_BCS   out, optional, type=structure
+%   GD21_BCS   out, optional, type=structure
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
-%   2015-04-19      Written by Matthew Argall
-%   2015-04-20      Data is despun with attitude data unless SunPulseDir is given. - MRA
+%   2015-05-14  Added detail to header. rlm
+%   2015-04-20  Data is despun with attitude data unless SunPulseDir is given. - MRA
+%   2015-04-19  Written by Matthew Argall
 %
 function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mode, level, tstart, tend, varargin)
 
