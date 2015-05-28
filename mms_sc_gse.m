@@ -21,8 +21,8 @@
 %     transform into GSE. Return the data and its time tags B_GSE
 %     and T.
 %
-%   [..., B_DSL] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
-%     Also return the magnetic field in DSL.
+%   [..., B_DMPA] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
+%     Also return the magnetic field in DMPA.
 %
 %   [..., B_SMPA] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
 %     Also return the magnetic field in SMPA.
@@ -47,11 +47,15 @@
 %                   Directory in which to find search coil data.
 %   'Duration'      in, optional, type = char default = 'DataDir'
 %                   Time duration over which to calibrate data.
+%   'SunPulseDir'   in, optional, type = char default = 'DataDir'
+%                   Data in which to find HK 0x101 sunpulse data. If given, the
+%                     magnetic field will be despun using sunpulse, not attitude
+%                     data.
 %
 % Returns
 %   T               out, required, type=1xN int64
 %   B_GSE           out, required, type=3xN double
-%   B_DSL           out, optional, type=3xN double
+%   B_DMPA          out, optional, type=3xN double
 %   B_SMPA          out, optional, type=3xN double
 %   B_BCS           out, optional, type=3xN double
 %
@@ -60,41 +64,60 @@
 %
 % History:
 %   2015-04-15      Written by Matthew Argall
+%   2015-05-07      Added 'SunPulseDir'. - MRA
 %
-function [t, b_gse, b_dsl, b_smpa, b_bcs] = mms_sc_gse(sc, instr, mode, tstart, tend, varargin)
+function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_gse(sc_files, cal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-	% Check if the attitude directory was given.
-	%   - All others are passed to mms_sc_bcs.m
-	%   - ismember requires all strings
-	iChar = find( [ cellfun(@ischar, varargin) ] );
-	[tf_att, iAtt] = ismember('AttDir', varargin(iChar));
-	if tf_att
-		idx                 = iChar(iAtt);
-		att_dir             = varargin{idx+1};
-		varargin(idx:idx+1) = [];
-	else
-		att_dir = pwd();
+	% Defaults
+	duration = 600;
+	attitude = [];
+	sunpulse = [];
+	zMPA     = [];
+
+	nOptArg = length(varargin)
+	for ii = 1 : 2 : nOptArg
+		switch varargin{ii}
+			case 'Attitude'
+				attitude = varargin{ii+1};
+			case 'SunPulse'
+				sunpulse = varargin{ii+1};
+			case 'Duration'
+				duration = varargin{ii+1};
+			case 'zMPA'
+				zMPA     = varargin{ii+1};
+			otherwise
+				error( ['Unknown input "' varargin{ii+1} '".'] );
+		end
 	end
+	
+	% Must have attitude or sunpulse to at least despin
+	assert(~isempty(sunpulse) && ~isempty(attitude), 'Sunpulse and/or attitude data must be given.')
 
 %------------------------------------%
-% Calibrated Mag in BCS              %
+% Calibrated & Rotate to BCS         %
 %------------------------------------%
-	[b_bcs, t] = mms_sc_bcs(sc, instr, mode, tstart, tend, varargin{:});
+	[t, b_bcs, b_cal, b_123] = mms_sc_bcs(sc_files, cal_file, tstart, tend, duration);
 
 %------------------------------------%
-% Rotate to SMPA                     %
+% BCS --> SMPA                       %
 %------------------------------------%
-	% Read attitude data
-	[attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir);
+	if isempty(zMPA)
+		% Attitude data
+		warning('MMS_SC_GSE:SMPA', 'MPA axis not given. Cannot transform BCS -> SMPA.');
+		
+		% Cannot transform to SMPA, so copy variables
+		b_smpa = b_bcs;
+	else
+		% Build matrix
+		bcs2smpa = mms_fdoa_xbcs2smpa( zMPA );
+		smpa2bcs = permute(bcs2smpa, [2, 1, 3]);
 
-	% Build matrix
-	bcs2smpa = mms_fdoa_xbcs2smpa( att_hdr.('zMPA')(:,1)' );
-
-	% Transform
-	b_smpa = mrvector_rotate(bcs2smpa, b_bcs);
+		% Transform
+		b_smpa  = mrvector_rotate(smpa2bcs, b_bcs);
+	end
 
 %------------------------------------%
 % Despin                             %
@@ -104,32 +127,43 @@ function [t, b_gse, b_dsl, b_smpa, b_bcs] = mms_sc_gse(sc, instr, mode, tstart, 
 	% Assume the principle axis of inertia (z-MPA)
 	% is the same as the angular momentum vector (L)
 	%
-	smpa2dsl = mms_fdoa_xdespin(attitude, t, 'L', [ instr '_123' ]);
+	
+	% Despin sunpulse or attitude
+	if isempty(attitude)
+		smpa2dmpa = mms_dss_xdespin( sunpulse, t );
+	else
+		smpa2dmpa = mms_fdoa_xdespin( attitude, t, 'L' );
+	end
 
-	% Rotate to DSL
-	b_dsl = mrvector_rotate(smpa2dsl, b_smpa);
+	% Rotate to DMPA
+	b_dmpa = mrvector_rotate(smpa2dmpa, b_smpa);
 
 %------------------------------------%
 % Rotate to GSE                      %
 %------------------------------------%
-	% Transform into GEI
-	gei2despun = mms_fdoa_xgei2despun(attitude, t, 'L');
-	despun2gei = permute(gei2despun, [2, 1, 3]);
-	b_gei      = mrvector_rotate(despun2gei, b_dsl);
+	if ~isempty(attitude)
+		% Transform into GEI
+		gei2despun = mms_fdoa_xgei2despun(attitude, t, 'L');
+		despun2gei = permute(gei2despun, [2, 1, 3]);
+		b_gei      = mrvector_rotate(despun2gei, b_dmpa);
 
-	% Transform matrix GEI -> GSE
-	%   - Modified Julian Date (mjd).
-	%   - UTC seconds since midnight (ssm).
-	timevec = MrCDF_Epoch_Breakdown(t)';
-	mjd     = date2mjd(timevec(1,:), timevec(2,:), timevec(3,:));
-	ssm = timevec(4,:) * 3600.0 + ...
-		  timevec(5,:) * 60.0   + ...
-		  timevec(6,:)          + ...
-		  timevec(7,:) * 1e-3   + ...
-		  timevec(8,:) * 1e-6   + ...
-		  timevec(9,:) * 1e-9;
-	GEI2GSE = gei2gse(mjd, ssm);
+		% Transform matrix GEI -> GSE
+		%   - Modified Julian Date (mjd).
+		%   - UTC seconds since midnight (ssm).
+		timevec = MrCDF_Epoch_Breakdown(t)';
+		mjd     = date2mjd(timevec(1,:), timevec(2,:), timevec(3,:));
+		ssm = timevec(4,:) * 3600.0 + ...
+			  timevec(5,:) * 60.0   + ...
+			  timevec(6,:)          + ...
+			  timevec(7,:) * 1e-3   + ...
+			  timevec(8,:) * 1e-6   + ...
+			  timevec(9,:) * 1e-9;
+		GEI2GSE = gei2gse(mjd, ssm);
 
-	% Transform to GSE
-	b_gse = mrvector_rotate(GEI2GSE, b_gei);
+		% Transform to GSE
+		b_gse = mrvector_rotate(GEI2GSE, b_gei);
+	else
+		warning('FG:GSE', 'No attitude data. Cannot transform into GSE.');
+		b_gse = zeros(size(b_smpa));
+	end
 end

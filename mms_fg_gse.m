@@ -12,51 +12,40 @@
 %     3. Transform to GSE
 %
 % Calling Sequence
-%   [T, B_GSE] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
-%     Find and read search coil magnetometer and transfer function
-%     data from MMS scacecraft SC (e.g. 'mms1') from instrument
-%     INSTR (i.e. 'scm') in telemetry mode MODE (e.g. 'comm') during
-%     the time interval [TSTART, TEND]. Calibrate the data and
-%     transform into the spacecraft body frame (BCS), despin, and
-%     transform into GSE. Return the data and its time tags B_GSE
-%     and T.
+%   [T, B_GSE] = mms_fg_bcs(FILES, HICAL_FILE, LOCAL_FILE)
+%     Read, calibrate and rotate into GSE level 1A fluxgate data
+%     from files with names FILES, using hi- and lo-range
+%     calibration data found in files HICAL_FILE and LOCAL_FILE.
 %
-%   [..., B_DSL] = mms_fg_bcs(SC, INSTR, MODE, TSTART, TEND)
-%     Also return the magnetic field in DSL.
+%   [T, B_GSE] = mms_fg_bcs(__, TSTART, TEND)
+%     Return data within the time interval beginning at TSTART and
+%     ending at TEND.
 %
-%   [..., B_SMPA] = mms_fg_bcs(SC, INSTR, MODE, TSTART, TEND)
-%     Also return the magnetic field in SMPA.
+%   [__, B_DMPA, B_SMPA, B_OMB, B_123] = mms_fg_bcs(__)
+%     Also return data in the DMPA, SMPA, OMB, and 123 coordinate systems.
 %
-%   [..., B_BCS] = mms_fg_bcs(SC, INSTR, MODE, TSTART, TEND)
-%     Also return the magnetic field in BCS.
-%
-%   [__] = mms_fg_bcs(__, 'ParamName', ParamValue)
+%   [__] = mms_fg_bcs(..., 'ParamName', ParamValue)
 %     Any parameter name-value pair found below.
 %
 % Parameters
-%   SC              in, required, type = char
-%   INSTR           in, required, type = char
-%   MODE            in, required, type = char
-%   TSTART          in, optional, type = char
-%   TEND            in, optional, type = char
-%   'AttDir'        in, optional, type = char default = 'DataDir'
-%                   Directory in which to find attitude data.
-%   'CalDir'        in, optional, type = char default = 'DataDir'
-%                   Directory in which to find calibration data.
-%   'DataDir'       in, optional, type = char default = 'DataDir'
-%                   Directory in which to find fluxgate data.
-%   'SunPulseDir'   in, optional, type=char, default='DataDir'
-%                   Directory in which to find sun pulse data. If provided,
-%                     sun pulse times will be used to depsin data. Otherwise,
-%                     spin phase data from the devinitive attitude files is
-%                     used.
+%   FILES           in, required, type = char/cell
+%   HICAL_FILE      in, required, type = char
+%   LOCAL_FILE      in, required, type = char
+%   TSTART          in, optional, type = char, default = ''
+%   TEND            in, optional, type = char, default = ''
+%   'Attitude'      in, optional, type = struct, default = []
+%                   Structure of definitive attitude data returned by mms_fdoa_read_defatt.m
+%   'SunPulse'      in, optional, type=struct, default=[]
+%                   Structure of HK 101 sunpulse data returned by mms_dss_read_sunpulse.m
 %
 % Returns
 %   T               out, required, type=1xN int64
 %   B_GSE           out, required, type=3xN double
-%   B_DSL           out, optional, type=3xN double
-%   B_SMPA          out, optional, type=3xN double
+%   B_DMPA          out, optional, type=3xN double
 %   B_BCS           out, optional, type=3xN double
+%   B_SMPA          out, optional, type=3xN double
+%   B_OMB           out, optional, type=3xN double
+%   B_123           out, optional, type=3xN double
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -64,41 +53,46 @@
 % History:
 %   2015-04-15      Written by Matthew Argall
 %   2015-04-20      Added 'SunPulseDir' parameter.
+%   2015-05-21      Take filenames as input, not pieces of filenames.
 %
-function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb] = mms_fg_gse(sc, instr, mode, tstart, tend, varargin)
+function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_gse(files, hiCal_file, loCal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-	% Check if the attitude directory was given.
-	%   - All others are passed to mms_fg_bcs.m
-	[tf_dir, iDir] = ismember({'SunPulseDir', 'AttDir'}, varargin);
+	attitude = [];
+	sunpulse = [];
+	nOptArgs = length(varargin);
 	
-	% Sun Pulse directory
-	if tf_dir(1)
-		sunpulse_dir = varargin{iDir(1) + 1};
-		varargin(iDir(1):iDir(1)+1) = [];
-	else
-		sunpulse_dir = '';
-	end
-	
-	% Attitude directory
-	if tf_dir(2)
-		att_dir = varargin{iDir(2) + 1};
-		varargin(iDir(2):iDir(2)+1) = [];
-	else
-		att_dir = '';
+	for ii = 1 : 2 : nOptArgs
+		switch varargin{ii}
+			case 'Attitude'
+				attitude = varargin{ii+1};
+			case 'SunPulse'
+				sunpulse = varargin{ii+1};
+			otherwise
+				error(['Parameter name not recognized: "' varargin{ii+1} '".']);
+		end
 	end
 	
 	% Must have attitude or sunpulse to at least despin
-	if isempty(sunpulse_dir) && isempty(att_dir)
-		attitude = pwd();
+	if isempty(sunpulse) && isempty(attitude)
+		error( 'Attitude and/or Sunpulse data must be given.' );
 	end
 
 %------------------------------------%
 % Calibrated Mag in BCS              %
 %------------------------------------%
-	[b_bcs, t, b_smpa, b_omb] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin{:});
+	switch nargout()
+		case 7
+			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+		case 6
+			[t, b_bcs, b_smpa, b_omb] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+		case 5
+			[t, b_bcs, b_smpa] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+		otherwise
+			[t, ~, b_smpa] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+	end
 
 %------------------------------------%
 % Despin                             %
@@ -108,32 +102,16 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb] = mms_fg_gse(sc, instr, mode, 
 	% is the same as the angular momentum vector (L)
 	%
 	
-	% Read attitude data?
-	%   - We need it to despin and to rotate into GSE.
-	%   - If attitude data not available, cannot rotate into GSE
-	if ~isempty(att_dir)
-		attitude = mms_fdoa_read_defatt(sc, tstart, tend, att_dir);
-	else
-		attitude = [];
-	end
-	
 	% Despin using attitude data
-	if isempty(sunpulse_dir)
-		% Build matrix
+	if isempty(sunpulse)
 		smpa2dmpa = mms_fdoa_xdespin( attitude, t, 'L', [upper(instr) '_123'] );
 	
 	% Despin using sunpulse directory
 	else
-		% Read sun pulse data
-		sunpulse = mms_dss_read_sunpulse(sc, tstart, tend, ...
-		                                 'UniquePulse', true, ...
-		                                 'Directory', sunpulse_dir);
-
-		% Build matrix
 		smpa2dmpa = mms_dss_xdespin( sunpulse, t );
 	end
 
-	% Rotate to DSL
+	% Rotate to DMPA
 	b_dmpa = mrvector_rotate(smpa2dmpa, b_smpa);
 
 %------------------------------------%

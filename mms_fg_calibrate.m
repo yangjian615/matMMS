@@ -235,11 +235,11 @@ function [b_cal, zmpa] = mms_fg_calibrate_apply(B_123, time, cal_params)
 	b_cal(3,:) = B_123(3,:) - cal_params.('Offset')(3,cal_inds);
 	
 	% Create orthogonalization matrix
-	orthog_mat = mms_fg_calparams2matrix( cal_params.('Gain'), cal_params.('dTheta'), ...
-	                                      cal_params.('dPhi'), cal_params.('U3') );
-	
+	x123toOMB = mms_fg_calparams2matrix( cal_params.('Gain'), cal_params.('dTheta'), ...
+	                                     cal_params.('dPhi'), cal_params.('U3') );
+
 	% Orthogonalize the data
-	b_cal = mrvector_rotate( orthog_mat(:,:,cal_inds), b_cal );
+	b_cal = mrvector_rotate( x123toOMB(:,:,cal_inds), b_cal );
 
 	% Major principle axis
 	zmpa = cal_params.('MPA')(:,cal_inds);

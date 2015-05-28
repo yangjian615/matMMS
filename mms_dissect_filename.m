@@ -23,13 +23,13 @@
 %     >> filename = 'mms3_dfg_hr_l2p_duration-1h1m_20010704_v1.0.0.cdf'
 %     >> [sc, instr, mode, level, desc, tstart, version] = mms_dissect_filename(filename);
 %     >> fprintf('SC: %s\nINSTR: %s\nMODE: %s\nLEVEL: %s\nDESC: %s\nTSTART: %s\nVERSION: %s\n', sc, instr, mode, level, desc, tstart, version);
-% 				SC: mms3
-% 				INSTR: dfg
-% 				MODE: hr
-% 				LEVEL: l2p
-% 				DESC: duration-1h1m
-% 				TSTART: 20010704
-% 				VERSION: v1.0.0
+%         SC: mms3
+%         INSTR: dfg
+%         MODE: hr
+%         LEVEL: l2p
+%         DESC: duration-1h1m
+%         TSTART: 20010704
+%         VERSION: v1.0.0
 %
 %   Dissect two file names:
 %     >> filenames = {'mms3_dfg_hr_l2p_duration-1h1m_20010704_v1.0.0.cdf' ...
@@ -57,44 +57,47 @@
 %   2015-03-22      Written by Matthew Argall
 %
 function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(filename)
-    
-    % Form a recular expression to take apart the file name.
-    parts = regexp(filename, ['(mms[1-4])_', ...                % Spacecraft ID
-                              '([a-z-]+)_', ...                 % Instrument ID
-                              '([a-z0-9]+)_', ...               % Instrument Mode
-															'([a-z0-4]+)_', ...               % Data Level
-                              '([a-zA-Z0-9-]*)_?', ...          % Optional Descriptor
-                              '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_', ...  % Start Time
-                              '(v[0-9]+\.[0-9]+\.[0-9]+)', ...  % Version
-                              '\.cdf'], ...                     % Extension
-                              'tokens');
-    
-    % Make sure the file name is dissectable.
-    assert(isempty(parts) == 0, ['Filename not recognized: "' filename '".']);
-		
-		% Un-nest the cells.
+	
+	% Extract the directory
+	[path, fname, ext] = fileparts(filename);
+	fname              = [fname ext];
+	
+	% Form a recular expression to take apart the file name.
+	parts = regexp(fname, ['(mms[1-4])_', ...                % Spacecraft ID
+	                       '([a-z-]+)_', ...                 % Instrument ID
+	                       '([a-z0-9]+)_', ...               % Instrument Mode
+	                       '([a-z0-4]+)_', ...               % Data Level
+	                       '([a-zA-Z0-9-]*)_?', ...          % Optional Descriptor
+	                       '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_', ...  % Start Time
+	                       '(v[0-9]+\.[0-9]+\.[0-9]+)', ...  % Version
+	                       '\.cdf'], ...                     % Extension
+	                       'tokens');
+	
+	% Make sure the file name is dissectable.
+	assert(isempty(parts) == 0, ['Filename not recognized: "' filename '".']);
+	
+	% Un-nest the cells.
+	parts = vertcat(parts{:});
+	if iscell(filename)
 		parts = vertcat(parts{:});
-		if iscell(filename)
-			parts = vertcat(parts{:});
-			
-			% Extract the parts as row vectors
-			sc      = parts(:,1)';
-			instr   = parts(:,2)';
-			mode    = parts(:,3)';
-			level   = parts(:,4)';
-			desc    = parts(:,5)';
-			tstart  = parts(:,6)';
-			version = parts(:,7)';
-		
-		% A single file name was given.
-		else
-			sc      = parts{1};
-			instr   = parts{2};
-			mode    = parts{3};
-			level   = parts{4};
-			desc    = parts{5};
-			tstart  = parts{6};
-			version = parts{7};
-		end
-    
+	
+		% Extract the parts as row vectors
+		sc      = parts(:,1)';
+		instr   = parts(:,2)';
+		mode    = parts(:,3)';
+		level   = parts(:,4)';
+		desc    = parts(:,5)';
+		tstart  = parts(:,6)';
+		version = parts(:,7)';
+	
+	% A single file name was given.
+	else
+		sc      = parts{1};
+		instr   = parts{2};
+		mode    = parts{3};
+		level   = parts{4};
+		desc    = parts{5};
+		tstart  = parts{6};
+		version = parts{7};
+	end
 end

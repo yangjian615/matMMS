@@ -14,78 +14,54 @@
 %   body coordinate system (BCS).
 %
 % Calling Sequence
-%   [B_BCS, T] = mms_fg_calibrate(SC, INSTR, TSTART, TEND)
-%     Look in the present working directory for fgm magnetic field
-%     and calibration data associated with MMS spacecraft SC,
-%     instrument INSTR, and time interval [TSTART, TEND]. Read and
-%     calibrate the data, then return the results, B_BCS and T_OUT.
-%     TSTART and TEND should be ISO-8601 strings.
+%   [T, B_BCS] = mms_fg_bcs(FILES, HICAL_FILE, LOCAL_FILE)
+%     Read, calibrate and rotate into BCS level 1A fluxgate data
+%     from files with names FILES, using hi- and lo-range
+%     calibration data found in files HICAL_FILE and LOCAL_FILE.
 %
-%   [__] = mms_sc_calibrate(__, 'ParamName', ParamValue)
-%     Use any of the parameter name-value pairs below.
+%   [T, B_BCS] = mms_fg_bcs(__, TSTART, TEND)
+%     Return data within the time interval beginning at TSTART and
+%     ending at TEND.
+%
+%   [__, B_SMPA, B_OMB, B_123] = mms_fg_bcs(__)
+%     Also return data in the SMPA and 123 coordinate systems.
 %
 % Parameters
-%   SC              in, required, type = char
-%   INSTR           in, required, type = char
+%   FILES           in, required, type = char/cell
+%   HICAL_FILE      in, required, type = char
+%   LOCAL_FILE      in, required, type = char
 %   TSTART          in, required, type = char
 %   TEND            in, required, type = char
-%   'CalDir'        in, optional, type = char, defualt = 'DataDir';
-%                   Directory in which to find calibration files.
-%   'DataDir'       in, optional, type = char, defualt = pwd();
-%                   Directory in which to find data files.
 %
 % Returns
-%   B_BCS           out, required, type=3xN double
 %   T               out, optional, type=1xN int64 (cdf_time_tt2000)
+%   B_BCS           out, required, type=3xN double
+%   B_SMPA          out, required, type=3xN double
+%   B_OMB           out, required, type=3xN double
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
 %
 % History:
 %   2015-04-13      Written by Matthew Argall
+%   2015-05-21      Take filenames as input, not pieces of filenames. - MRA
 %
-function [b_bcs, t, b_smpa, b_omb] = mms_fg_bcs(sc, instr, mode, tstart, tend, varargin)
+function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend)
 
 	% Defaults
-	cal_dir   = '';
-	data_dir  = pwd();
-
-	nOptArgs = length(varargin);
-	for ii = 1 : 2 : nOptArgs
-		switch varargin{ii}
-			case 'CalDir'
-				cal_dir   = varargin{ii+1};
-			case 'DataDir'
-				data_dir  = varargin{ii+1};
-			otherwise
-				error( ['Parameter name not recognized: "' varargin{ii} '".'] );
-		end
+	if nargin() < 4
+		tstart = '';
 	end
-	
-	% Assume the calibration files are stored with the data.
-	if isempty(cal_dir)
-		cal_dir = data_dir;
+	if nargin() < 5
+		tend = '';
 	end
 
 %------------------------------------%
 % Read Cal Data                      %
 %------------------------------------%
-
-	% File name patterns
-	hical_fname = mms_construct_filename(sc, instr, 'hirangecal', 'l2pre', ...
-	                                     'Directory', cal_dir, ...
-	                                     'Tokens',    true);
-	local_fname = mms_construct_filename(sc, instr, 'lorangecal', 'l2pre', ...
-	                                     'Directory', cal_dir, ...
-	                                     'Tokens',    true);
-
-	% Find the calibration file
-	[hiCal_file, nHiCal] = MrFile_Search(hical_fname);
-	[loCal_file, nLoCal] = MrFile_Search(local_fname);
-
-	% Make sure the files exist
-	assert( nHiCal > 0, 'HiCal file not found.' );
-	assert( nLoCal > 0, 'LoCal file not found.' );
+	% Check calibration file names
+	assert( ischar(hiCal_file) && isrow(hiCal_file), 'HiCal_File must be a single file name.' );
+	assert( ischar(loCal_file) && isrow(loCal_file), 'LoCal_File must be a single file name.' );
 
 	% Calibrate hi-range
 	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend);
@@ -95,44 +71,24 @@ function [b_bcs, t, b_smpa, b_omb] = mms_fg_bcs(sc, instr, mode, tstart, tend, v
 % Read Mag Data                      %
 %------------------------------------%
 
-	% Create the file names
-	fpattern = mms_construct_filename(sc, instr, mode, 'l1a', ...
-	                                  'Directory', data_dir, ...
-	                                  'Tokens',    true);
-	
-	% Find the files
-	[files, nFiles] = MrFile_Search(fpattern,              ...
-	                                'TStart',    tstart,   ...
-	                                'TEnd',      tend,     ...
-	                                'TimeOrder', '%Y%M%d', ...
-	                                'Closest',   true);
-	if nFiles == 0
-		error( ['No files found matching "' fpattern '".'] );
-	end
-
-	% Create variable names
-	b_name     = mms_construct_varname(sc, instr, '123');
-	if strcmp(instr, 'afg')
-		range_name = mms_construct_varname(sc, instr, 'hirange');
-	else
-		range_name = mms_construct_varname(sc, instr, 'range');
-	end
-
-	% Read the magnetometer data
-	[b_123,  t]      = MrCDF_Read(files, b_name,     'sTime', tstart, 'eTime', tend);
-	[range, t_range] = MrCDF_Read(files, range_name, 'sTime', tstart, 'eTime', tend);
-
-	% Transpose the data to be row vectors.
-	t       = t';
-	b_123   = b_123';
-	range   = range';
-	t_range = t_range';
+	% Read files
+	fg_l1a = mms_fg_read_l1a(files, tstart, tend);
 
 %------------------------------------%
 % Calibrate Mag Data                 %
 %------------------------------------%
 	% Calibrate
-	[b_omb, mpa] = mms_fg_calibrate(b_123, t, range, t_range, hiCal, loCal);
+	[b_omb, mpa] = mms_fg_calibrate(fg_l1a.b_123, fg_l1a.tt2000, ...
+	                                fg_l1a.range, fg_l1a.tt2000_ts, hiCal, loCal);
+
+	% Extract data
+	if nargout() > 5
+		b_123 = fg_l1a.b_123;
+	end
+	t = fg_l1a.tt2000;
+	
+	% Clear the data structure
+	clear fg_l1a
 
 %------------------------------------%
 % Transform from OMB to SMPA         %

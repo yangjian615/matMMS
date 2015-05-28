@@ -8,8 +8,8 @@
 %     varname = 'mms2_dfg_lo_l2pre_G';
 %     [sc, instr, name, desc] = mms_dissect_filename(varname);
 %     vname = mms_construct_varname(sc, instr, name, desc)
-% 				vname =
-% 				mms2_dfg_lo_l2pre_G
+%     vname =
+%              mms2_dfg_lo_l2pre_G
 %
 % :Params:
 %   SC:                 in, required, type=char

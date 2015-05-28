@@ -22,7 +22,7 @@
 %   FNAME = mms_construct_filename(..., 'ParamName', ParamValue)
 %     Any parameter name and value described below.
 %
-% :Params:
+% Parameters
 %   SC:                 in, required, type=char
 %                       mms1, mms2, mms3, mms4
 %   INSTR:              in, required, type=char
@@ -71,6 +71,11 @@
 %                           'yyyymmddhhmmss'. Least significant fields can
 %                           be dropped when files start on regular hourly
 %                           or minute boundaries.
+%   'TEnd:              in, required, type=char
+%                       Start time of the data product, formatted as:
+%                           'yyyymmddhhmmss'. Least significant fields can
+%                           be dropped when files start on regular hourly
+%                           or minute boundaries.
 %   'Version':          in, required, type=char
 %                       Version number in the form: "vX.Y.Z"
 %                           X - Interface number. Increments represent
@@ -84,71 +89,117 @@
 %                               reprocessing of missing data. Dependent
 %                               data products should be reprocessed.
 %
-function fname = mms_construct_filename(sc, instr, mode, level, varargin)
+function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, varargin)
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-	
-	% Defaults
-	tokens    = false;
 	tstart    = '';
-	optDesc   = '';
-	directory = '';
+	tend      = '';
+	optdesc   = '';
 	version   = '';
-
-	% Check for optional arguments
+	timeorder = '';
+	directory = '';
 	nOptArgs = length(varargin);
+	
+	% Optional parameters
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
 			case 'Directory'
 				directory = varargin{ii+1};
-			case 'OptDesc'
-				optDesc = varargin{ii+1};
-			case 'Tokens'
-				tokens = varargin{ii+1};
-			case 'Version'
-				version = varargin{ii+1};
 			case 'TStart'
 				tstart = varargin{ii+1};
+			case 'TEnd'
+				tend = varargin{ii+1};
+			case 'TimeOrder'
+				timeorder = varargin{ii+1};
+			case 'OptDesc'
+				optdesc = varargin{ii+1};
+			case 'Version'
+				version = varargin{ii+1};
 			otherwise
-				error( ['Unknown parameter "' varargin{ii} '".'] );
+				error([ 'Parameter name not recognized: "' varargin{ii+1} '"' ]);
 		end
 	end
 	
-	% Use MrToken tokens or a wildcard character?
-	if isempty(tstart)
-		if tokens
-			tstart = '%Y%M%d';
-		else
-			tstart = '*';
-		end
+	% Time order
+	if strcmp(timeorder, '')
+		timeorder = '%Y%M%d';
 	end
 	
-	% Use a wildcard to represent the version.
-	if isempty(version)
-		version = 'v*';
+	% Check time formats
+	if ~isempty(tstart)
+		assert( MrTokens_IsMatch(tstart, '%Y-%M-%dT%H:%m:%S'), ...
+		        'TStart must be an ISO-8601 string: "yyyy-mm-ddThh:mm:ss".' );
 	end
-	
-	% Look for any optional descriptor
-	if isempty(optDesc)
-		optDesc = '*';
+	if ~isempty(tend)
+		assert( MrTokens_IsMatch(tend, '%Y-%M-%dT%H:%m:%S'), ...
+		        'TEnd must be an ISO-8601 string: "yyyy-mm-ddThh:mm:ss".' );
 	end
 
 %------------------------------------%
-% Create File Name                   %
+% Directory                          %
 %------------------------------------%
-
-	% Separate the optional descriptor from the start time.
-	if ~strcmp(optDesc, '*')
-		optDesc = [optDesc '_'];
-	end
-
-	% Construct the file name.
-	fname = [sc '_' instr '_' mode '_' level '_' optDesc tstart '_' version '.cdf'];
-	
-	% Prepend a directory?
 	if ~isempty(directory)
-		fname = fullfile(directory, fname);
+		assert( exist(directory, 'dir') == 7, ['Directory does not exist: "' directory '".'] );
+		sdc_dir = directory;
+	else
+		% First half of directory
+		sdc_root = '/mmsa/sdc/';
+		sdc_dir  = fullfile(sdc_root, sc, instr, mode, level, optdesc);
+		
+		% Test the directory
+		assert( exist(sdc_dir, 'dir') == 7, ['SDC directory does not exist: "' sdc_dir '".'] );
+		
+		% Append the year, month, and day
+		sdc_dir = fullfile(sdc_dir, '%Y', '%M', '%d');
+	end
+
+%------------------------------------%
+% Find File                          %
+%------------------------------------%
+	% Create the file name
+	searchstr = mms_construct_filename(sc, instr, mode, level, ...
+	                                   'Directory', sdc_dir, ...
+	                                   'OptDesc',   optdesc, ...
+	                                   'Version',   version, ...
+	                                   'TStart',    timeorder);
+
+	% Search for the file.
+	[files, nFiles] = MrFile_Search(searchstr,               ...
+	                                'TStart',    tstart,    ...
+	                                'TEnd',      tend,      ...
+	                                'TimeOrder', timeorder, ...
+	                                'Closest',   true);
+
+	%
+	% Because MMS file names contain a start time, but no end time,
+	% the first file returned by MrFile_Search may not lie between
+	% TSTART and TEND. Here, we compare the date within the file name
+	% and ensure that it is within the same day as what was given
+	%
+	% This is only done if more than one files are found. One reason
+	% is that the FGM Calibration files start on 2010-10-01 and there
+	% is a single file for the entire mission. Therefore, I assume
+	% that if one file is found, it contains data that extends into
+	% your time period of interest.
+	if nFiles > 1
+		if nFiles == 1
+			[~, ~, ~, ~, fstart] = mms_dissect_filename( files );
+		else
+			[~, ~, ~, ~, fstart] = mms_dissect_filename( files{1} );
+		end
+		
+		if ~strcmp( fstart(1:4), tstart(1:4) ) || ...
+		   ~strcmp( fstart(5:6), tstart(6:7) ) || ...
+		   ~strcmp( fstart(7:8), tstart(9:10) )
+		   
+			nFiles = nFiles - 1;
+			if nFiles > 1
+				files = files(2:end);
+			else
+				files = '';
+			end
+		end
 	end
 end

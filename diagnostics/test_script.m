@@ -13,30 +13,38 @@
 %   2015-04-14      Written by Matthew Argall
 %
 
-
-
-
-
-
-% Inputs
-edi_data_dir = '/Users/argall/Documents/Work/Data/MMS/EDI/';
-dfg_data_dir = '/Users/argall/Documents/Work/Data/MMS/DFG/';
-fg_cal_dir   = '/Users/argall/Documents/Work/Data/MMS/FG_Cal/';
-att_dir      = '/Users/argall/Documents/Work/Data/MMS/Attitude/';
-sunpulse_dir = '/Users/argall/Documents/Work/Data/MMS/HK/';
-sc           = 'mms3';
-instr        = 'edi';
-mode         = 'slow';
-level        = 'l1a_efield';
-tstart       = '2015-04-18T14:00:00';
-tend         = '2015-04-18T14:00:15';
+%------------------------------------%
+% Inputs                             %
+%------------------------------------%
+	sc_data_dir  = '/Users/argall/Documents/Work/Data/MMS/SCM/';
+	sc_cal_dir   = '/Users/argall/Documents/Work/Data/MMS/SCM_Cal/';
+	sunpulse_dir = '/Users/argall/Documents/Work/Data/MMS/HK/';
+	att_dir      = '/Users/argall/Documents/Work/Data/MMS/Attitude/';
+	sc           = 'mms2';
+	instr        = 'scm';
+	mode         = 'comm';
+	optdesc      = 'sc256';
+	duration     = 32.0;
+	tstart       = '2015-03-17T14:40:00';
+	tend         = '2015-03-17T15:00:00';
 
 %------------------------------------%
-% Get DFG and EDI Data in DMPA       %
+% Find Files                         %
 %------------------------------------%
+	% SCM L1A Data File
+	[l1a_fname, count, str] = mms_file_search(sc, instr, mode, 'l1a', ...
+	                                          'TStart',    tstart, ...
+	                                          'TEnd',      tend, ...
+	                                          'OptDesc',   optdesc, ...
+	                                          'Directory', sc_data_dir);
+	assert(count > 0, ['SCM file not found: "' str '".']);
+	
+	% SCM Cal File
+	cal_fname = fullfile(sc_cal_dir, [sc '_' instr sc(4) '_caltab_%Y%M%d%H%m%S_v*.txt']);
+	[cal_fname, nFiles] = MrFile_Search( cal_fname, 'VersionRegex', '([0-9])');
+	assert(nFiles > 0, ['SCM cal file not found: "' str '".']);
 
-
-% Read EDI data in DMPA
-[gd12_dmpa, gd21_dmpa] = mms_edi_gse(sc, 'edi', 'slow', 'l1a_efield', tstart, tend, ...
-                                     'SunPulseDir', sunpulse_dir, ...
-                                     'DataDir',     edi_data_dir);
+%------------------------------------%
+% Calibrated Mag in BCS              %
+%------------------------------------%
+	[t, ~, b_omb] = mms_sc_bcs(l1a_fname, cal_fname, tstart, tend, duration);

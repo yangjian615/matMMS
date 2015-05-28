@@ -90,7 +90,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	T_median        = median( double( dPulse ) );
 	[iGaps, nInGap] = MrGapsX( pulse, T_median);
 	
-	% Fill in gaps that are > 4 periods. Ignore others
+	% Fill in gaps that are > NMINGAP periods. Ignore others
 	nMinGap  = 4;
 	iFill    = find( nInGap > nMinGap );
 	nBigGaps = length(iFill);
@@ -118,7 +118,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			speudopulse  = pulse(idx) - period(idx);
 			pulse        = [ pulse(1:idx-1)         speudopulse  pulse(idx:end)        ];
 			period       = [ period(1:idx-1)        period(idx)  period(idx:end)       ];
-			flag         = [ flag(1:idx-1)          0            flag(idx:end)         ];
+			flag         = [ flag(1:idx-1)          3            flag(idx:end)         ];
 			dPulse       = [ dPulse(1:idx-1)        period(idx)  dPulse(idx:end)       ];
 			dPulse_flag  = [ dPulse_flag(1:idx-1)   0            dPulse_flag(idx:end)  ];
 			valid_period = [ valid_period(1:idx-1)  0            valid_period(idx:end) ];
@@ -261,8 +261,9 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 				dPulse_flag(idx) = 3;
 			end
 			
-		% Use the first spin period if it is an integer to within 10%
-		elseif mod( nSpin1, 1 ) < 0.1
+		% Use the first spin period less than 10 degrees from expected
+		%    - 360 * 0.25 * 0.111 = 10
+		elseif mod( nSpin1, 1 ) < 0.25 * 0.111
 			nSpins           = nSpin1;
 			dPulse_flag(idx) = 4;
 			

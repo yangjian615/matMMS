@@ -29,37 +29,25 @@
 %   LEVEL           in, required, type=char
 %   TSTART          in, required, type=char
 %   TEND            in, required, type=char
-%   'AttDir'        in, optional, type=char, default='DataDir'
-%                   Directory in which to find definitive attitude data.
-%   'DataDir'       in, optional, type=char, default=pwd()
-%                   Directory in which to find EDI data.
-%   'SunPulseDir'   in, optional, type=char, default='DataDir'
-%                   Directory in which to find sun pulse data. If provided,
-%                     sun pulse times will be used to depsin data. Otherwise,
-%                     spin phase data from the devinitive attitude files is
-%                     used.
+%   'Attitude'      in, optional, type = struct, default = []
+%                   Structure of definitive attitude data returned by mms_fdoa_read_defatt.m
+%   'SunPulse'      in, optional, type=struct, default=[]
+%                   Structure of HK 101 sunpulse data returned by mms_dss_read_sunpulse.m
 %
 % Returns
-%   GD12_DMPA       out, required, type=structure
-%                   Fields are:
-%                     'epoch_gd12'     -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'gun_gd12_dmpa'  -  Gun1 position in DMPA.
-%                     'det_gd12_dmpa'  -  Detector2 position in DMPA.
-%                     'gun1_gd12_dmpa' -  Gun1 position on virtual spacecraft in DMPA.
-%                     'fv_gd12_dmpa'   -  Firing vectors from gun1 in DMPA.
-%                     'q_gd12'         -  Quality flag.
-%                     'tof_gd12'       -  Time of flight.
-%   GD21_DMPA       out, required, type=structure
-%                   Fields are:
-%                     'epoch_gd21'     -  TT2000 Epoch time for gun 2 and detector 1.
-%                     'gun_gd21_dmpa'  -  Gun2 position in DMPA.
-%                     'det_gd21_dmpa'  -  Detector1 position in DMPA.
-%                     'gun1_gd21_dmpa' -  Gun2 position on virtual spacecraft in DMPA.
-%                     'fv_gd21_dmpa'   -  Firing vectors from gun1 in DMPA.
-%                     'q_gd21'         -  Quality flag.
-%                     'tof_gd21'       -  Time of flight.
-%   GD12_BCS        out, optional, type=structure
-%   GD21_BCS        out, optional, type=structure
+%   EDI             out, required, type=structure
+%                   In addition to fields returned by mms_edi_bcs, we have:
+%                     'gun_gd12_*'     -  Gun1 position.
+%                     'det_gd12_*'     -  Detector2 position.
+%                     'virtual_gun1_*' -  Gun1 position on virtual spacecraft.
+%                     'fv_gd12_*'      -  Firing vectors from gun1.
+%
+%                     'gun_gd21_*'     -  Gun2 position.
+%                     'det_gd21_*'     -  Detector1 position.
+%                     'virtual_gun2_*' -  Gun2 position on virtual spacecraft.
+%                     'fv_gd21_*'      -  Firing vectors from gun1.
+%                   Where "*" indicates the coordinate system:
+%                     '123', 'bcs', 'smpa', 'dmpa', or 'gse'.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -68,79 +56,87 @@
 %   2015-04-19      Written by Matthew Argall
 %   2015-04-20      Data is despun with attitude data unless SunPulseDir is given. - MRA
 %
-function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mode, level, tstart, tend, varargin)
+function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 
 	% Defaults
-	edi_dir      = pwd();
-	sunpulse_dir = '';
-	att_dir      = '';
-
-	% 'AttDir' and 'SunPulseDir' are used here. The rest of the optional
-	% parameters are passed on to mms_edi_bcs. Find 'AttDir' and 'SunPulseDir'
-	% then remove them from varargin.
-	iChar = find( [ cellfun(@ischar, varargin) ] );
-	[tf_dir, iDir] = ismember({'AttDir', 'SunPulseDir'}, varargin(iChar));
-
-	% Remove AttDir
-	if tf_dir(1)
-		idx     = iChar(iDir(1));
-		att_dir = varargin{idx+1};
-		varargin(idx:idx+1) = [];
-	end
-	% Remove SunPulseDir
-	if tf_dir(2)
-		idx          = iChar(iDir(2));
-		sunpulse_dir = varargin{idx+1};
-		varargin(idx:idx+1) = [];
-	end
-
-	% We must have either sunpulse or attitude data.
-	%   - Use attitude by default
-	%   - Assume the calibration files are stored with the data.
-	if isempty(att_dir) && isempty(sunpulse_dir)
-		att_dir = edi_dir;
-	end
+	sunpulse = [];
+	attitude = [];
+	z_mpa    = [];
+	cs_123   = false;
+	cs_bcs   = false;
+	cs_smpa  = false;
+	cs_dmpa  = false;
+	cs_gse   = true;
+	
+	% Optional parameters
+	nOptArg = length(varargin);
+	for ii = 1 : 2 : nOptArg
+		switch varargin{ii}
+			case 'AttDir'
+				att_dir = varargin{ii+1};
+			case 'SunpulseDir'
+				sunpulse_dir = varargin{ii+1};
+			case 'CS_123'
+				cs_123 = varargin{ii+1};
+			case 'CS_BCS'
+				cs_bcs = varargin{ii+1};
+			case 'CS_SMPA'
+				cs_bcs = varargin{ii+1};
+			case 'CS_DMPA'
+				cs_bcs = varargin{ii+1};
+			case 'CS_GSE'
+				cs_bcs = varargin{ii+1};
+			case 'Quality'
+				quality = varargin{ii+1};
+			case 'zMPA'
+				z_mpa = varargin{ii+1};
+			otherwise
+				error( ['Optional parameter not recognized: "' varargin{ii+1} '".'] );
+		end
 	
 %------------------------------------%
 % Get EDI Data                       %
 %------------------------------------%
 	% EDI
-	[gd12_bcs, gd21_bcs] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, varargin{:});
+	edi = mms_edi_bcs(filenames, tstart, tend, ...
+	                  'CS_123',  cs_123, ...
+	                  'CS_BCS',  cs_bcs, ...
+	                  'Quality', quality);
 
 %------------------------------------%
 % Rotate to SMPA                     %
 %------------------------------------%
 	% Get to SMPA
-	if isempty(att_dir)
+	if isempty(z_mpa)
 		% Attitude data
 		attitude = [];
-		warning('MMS_EDI_GSE:SMPA', 'No Attitude data. Cannot transform to SMPA.');
+		warning('MMS_EDI_GSE:SMPA', 'zMPA not given. Cannot transform to SMPA.');
+		cs_smpa = false;
 		
 		% Cannot transform to SMPA, so copy variables
-		fv_gd12_smpa  = gd12_bcs.fv_gd12_bcs;
-		gun_gd12_smpa = gd12_bcs.gun_gd12_bcs;
-		det_gd12_smpa = gd12_bcs.det_gd12_bcs;
-		gun1_smpa     = gd12_bcs.gun1_bcs;
+		fv_gd12_smpa      = edi.fv_gd12_bcs;
+		gun_gd12_smpa     = edi.gun_gd12_bcs;
+		det_gd12_smpa     = edi.det_gd12_bcs;
+		virtual_gun1_smpa = edi.virtual_gun1_bcs;
 
-		fv_gd21_smpa  = gd21_bcs.fv_gd21_bcs;
-		gun_gd21_smpa = gd21_bcs.gun_gd21_bcs;
-		det_gd21_smpa = gd21_bcs.det_gd21_bcs;
-		gun2_smpa     = gd21_bcs.gun2_bcs;
+		fv_gd21_smpa      = edi.fv_gd21_bcs;
+		gun_gd21_smpa     = edi.gun_gd21_bcs;
+		det_gd21_smpa     = edi.det_gd21_bcs;
+		virtual_gun2_smpa = edi.virtual_gun2_bcs;
 	else
-		% Read attitude data
-		[attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir);
-
 		% Build matrix
-		bcs2smpa = mms_fdoa_xbcs2smpa( att_hdr.('zMPA')(:,1)' );
+		bcs2smpa = mms_fdoa_xbcs2smpa( z_mpa );
 
 		% Transform
-		fv_gd12_smpa  = mrvector_rotate(bcs2smpa, gd12_bcs.fv_gd12_bcs);
-		gun_gd12_smpa = mrvector_rotate(bcs2smpa, gd12_bcs.gun_gd12_bcs);
-		det_gd12_smpa = mrvector_rotate(bcs2smpa, gd12_bcs.det_gd12_bcs);
+		fv_gd12_smpa      = mrvector_rotate(bcs2smpa, edi.fv_gd12_bcs);
+		gun_gd12_smpa     = mrvector_rotate(bcs2smpa, edi.gun_gd12_bcs);
+		det_gd12_smpa     = mrvector_rotate(bcs2smpa, edi.det_gd12_bcs);
+		virtual_gun1_smpa = mrvector_rotate(bcs2smpa, edi.virtual_gun1_bcs);
 	
-		fv_gd21_smpa  = mrvector_rotate(bcs2smpa, gd12_bcs.fv_gd21_bcs);
-		gun_gd21_smpa = mrvector_rotate(bcs2smpa, gd12_bcs.gun_gd21_bcs);
-		det_gd21_smpa = mrvector_rotate(bcs2smpa, gd12_bcs.det_gd21_bcs);
+		fv_gd21_smpa      = mrvector_rotate(bcs2smpa, edi.fv_gd21_bcs);
+		gun_gd21_smpa     = mrvector_rotate(bcs2smpa, edi.gun_gd21_bcs);
+		det_gd21_smpa     = mrvector_rotate(bcs2smpa, edi.det_gd21_bcs);
+		virtual_gun2_smpa = mrvector_rotate(bcs2smpa, edi.virtual_gun2_bcs);
 	end
 
 %------------------------------------%
@@ -154,58 +150,25 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 
 	% Despin using definitive attitude
 	if isempty(sunpulse_dir)
-		% Build matrix
-		smpa2dmpa_gd12 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI1_GUN');
-		smpa2dmpa_gd21 = mms_fdoa_xdespin(attitude, t, 'L', 'EDI2_GUN');
+		smpa2dmpa_gd12 = mms_fdoa_xdespin( attitude, edi.epoch_gd12, 'L' );
+		smpa2dmpa_gd21 = mms_fdoa_xdespin( attitude, edi.epoch_gd21, 'L' );
 	
 	% Despin using sun pulse times.
 	else
-		% Read sun pulse data
-		sunpulse = mms_dss_read_sunpulse(sc, tstart, tend, ...
-		                                 'UniquePulse', true, ...
-		                                 'Directory', sunpulse_dir);
-
-		% Build matrix
-		smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12 );
-		smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21 );
+		smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, edi.epoch_gd12 );
+		smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, edi.epoch_gd21 );
 	end
 
-	% Transform
-	fv_gd12_dmpa  = mrvector_rotate( smpa2dmpa_gd12, fv_gd12_smpa  );
-	fv_gd21_dmpa  = mrvector_rotate( smpa2dmpa_gd21, fv_gd21_smpa  );
-
-
-%------------------------------------%
-% Spin Up Gun Positions              %
-%------------------------------------%
-
-	% Spin up using definitive attitude
-	if isempty(sunpulse_dir)
-		% Build matrix
-		smpa2dmpa_gun1 = mms_fdoa_xdespin( attitude, t, 'L' );
-		smpa2dmpa_det2 = mms_fdoa_xdespin( attitude, t, 'L' );
-
-		smpa2dmpa_gun2 = mms_fdoa_xdespin( attitude, t, 'L' );
-		smpa2dmpa_det1 = mms_fdoa_xdespin( attitude, t, 'L' );
+	% Despin
+	fv_gd12_dmpa      = mrvector_rotate( smpa2dmpa_gd12, fv_gd12_smpa );
+	gun_gd12_dmpa     = mrvector_rotate( smpa2dmpa_gd12, gun_gd12_smpa );
+	det_gd12_dmpa     = mrvector_rotate( smpa2dmpa_gd12, det_gd12_smpa );
+	virtual_gun1_dmpa = mrvector_rotate( smpa2dmpa_gd12, virtual_gun1_smpa );
 	
-	% Spin up using sunpulse
-	else
-		% Build rotation matrices
-		smpa2dmpa_gun1 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12 );
-		smpa2dmpa_det2 = mms_dss_xdespin( sunpulse, gd12_bcs.epoch_gd12 );
-	
-		smpa2dmpa_gun2 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21 );
-		smpa2dmpa_det1 = mms_dss_xdespin( sunpulse, gd21_bcs.epoch_gd21 );
-	end
-	
-	% Transform
-	gun_gd12_dmpa = mrvector_rotate( smpa2dmpa_gun1, gun_gd12_smpa );
-	det_gd12_dmpa = mrvector_rotate( smpa2dmpa_det2, det_gd12_smpa );
-	gun1_dmpa     = mrvector_rotate( smpa2dmpa_gun1, gun1_smpa     );
-
-	gun_gd21_dmpa = mrvector_rotate( smpa2dmpa_gun2, gun_gd21_smpa );
-	det_gd21_dmpa = mrvector_rotate( smpa2dmpa_det1, det_gd21_smpa );
-	gun2_dmpa     = mrvector_rotate( smpa2dmpa_gun2, gun2_smpa     );
+	fv_gd21_dmpa      = mrvector_rotate( smpa2dmpa_gd21, fv_gd21_smpa );
+	gun_gd21_dmpa     = mrvector_rotate( smpa2dmpa_gd21, gun_gd21_smpa );
+	det_gd21_dmpa     = mrvector_rotate( smpa2dmpa_gd21, det_gd21_smpa );
+	virtual_gun2_dmpa = mrvector_rotate( smpa2dmpa_gd21, virtual_gun2_smpa );
 
 %------------------------------------%
 % Rotate to GSE                      %
@@ -213,8 +176,8 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 	% Can only rotate to GSE if we have attitude data.
 	if ~isempty(attitude)
 		% GEI -> Despun
-		gei2despun_gd12 = mms_fdoa_xgei2despun(attitude, edi1_bcs.t_gd12, 'L');
-		gei2despun_gd21 = mms_fdoa_xgei2despun(attitude, edi1_bcs.t_gd21, 'L');
+		gei2despun_gd12 = mms_fdoa_xgei2despun(attitude, edi.epoch_gd12, 'L');
+		gei2despun_gd21 = mms_fdoa_xgei2despun(attitude, edi.epoch_gd21, 'L');
 	
 		% Despun -> GEI
 		despun2gei_gd12 = permute(gei2despun_gd12, [2, 1, 3]);
@@ -225,14 +188,16 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 		%
 	
 		% GD12
-		fv_gd12_gei  = mrvector_rotate(despun2gei_gd12, fv_gd12_dsl);
-		gun_gd12_gei = mrvector_rotate(despun2gei_gd12, gun_gd12_dsl);
-		det_gd12_gei = mrvector_rotate(despun2gei_gd12, det_gd12_dsl);
+		fv_gd12_gei      = mrvector_rotate(despun2gei_gd12, fv_gd12_dmpa);
+		gun_gd12_gei     = mrvector_rotate(despun2gei_gd12, gun_gd12_dmpa);
+		det_gd12_gei     = mrvector_rotate(despun2gei_gd12, det_gd12_dmpa);
+		virtual_gun1_gei = mrvector_rotate(despun2gei_gd12, virtual_gun1_dmpa);
 	
 		% GD21
-		fv_gd21_gei  = mrvector_rotate(despun2gei_gd21, fv_gd21_dsl);
-		gun_gd21_gei = mrvector_rotate(despun2gei_gd21, gun_gd21_dsl);
-		det_gd21_gei = mrvector_rotate(despun2gei_gd21, det_gd21_dsl);
+		fv_gd21_gei      = mrvector_rotate(despun2gei_gd21, fv_gd21_dmpa);
+		gun_gd21_gei     = mrvector_rotate(despun2gei_gd21, gun_gd21_dmpa);
+		det_gd21_gei     = mrvector_rotate(despun2gei_gd21, det_gd21_dmpa);
+		virtual_gun2_gei = mrvector_rotate(despun2gei_gd21, virtual_gun2_dmpa);
 
 		%
 		% Transformation matrix GEI -> GSE
@@ -267,37 +232,62 @@ function [gd12_dmpa, gd21_dmpa, gd12_bcs, gd21_bcs] = mms_edi_gse(sc, instr, mod
 		%
 	
 		% GD12
-		fv_gd12_gse  = mrvector_rotate(GEI2GSE_gd12, fv_gd12_gei);
-		gun_gd12_gse = mrvector_rotate(GEI2GSE_gd12, gun_gd12_gei);
-		det_gd12_gse = mrvector_rotate(GEI2GSE_gd12, det_gd12_gei);
+		fv_gd12_gse      = mrvector_rotate(GEI2GSE_gd12, fv_gd12_gei);
+		gun_gd12_gse     = mrvector_rotate(GEI2GSE_gd12, gun_gd12_gei);
+		det_gd12_gse     = mrvector_rotate(GEI2GSE_gd12, det_gd12_gei);
+		virtual_gun1_gse = mrvector_rotate(GEI2GSE_gd12, virtual_gun1_gei);
 	
 		% GD21
-		fv_gd21_gse  = mrvector_rotate(GEI2GSE_gd21, fv_gd21_gei);
-		gun_gd21_gse = mrvector_rotate(GEI2GSE_gd21, gun_gd21_gei);
-		det_gd21_gse = mrvector_rotate(GEI2GSE_gd21, det_gd21_gei);
+		fv_gd21_gse      = mrvector_rotate(GEI2GSE_gd21, fv_gd21_gei);
+		gun_gd21_gse     = mrvector_rotate(GEI2GSE_gd21, gun_gd21_gei);
+		det_gd21_gse     = mrvector_rotate(GEI2GSE_gd21, det_gd21_gei);
+		virtual_gun2_gse = mrvector_rotate(GEI2GSE_gd21, virtual_gun2_gei);
+	else
+		warning('MMS_EDI::GSE', 'No attitude data. Cannot rotate to GSE.')
+		cs_gse = false;
 	end
 
 %------------------------------------%
 % Return                             %
 %------------------------------------%
 	
-	% EDI1 output structure
-	%   - EDI1 contains gun1 and detector2
-	gd12_dmpa = struct( 'epoch_gd12',     gd12_bcs.epoch_gd12,   ...
-	                    'gun_gd12_dmpa',  gun_gd12_dmpa, ...
-	                    'det_gd12_dmpa',  det_gd12_dmpa, ...
-	                    'gun1_dmpa',      gun1_dmpa,     ...
-	                    'fv_gd12_dmpa',   fv_gd12_dmpa,  ...
-	                    'q_gd12',         gd12_bcs.q_gd12,  ...
-	                    'tof_gd12',       gd12_bcs.tof_gd12 );
+	%
+	% Add data to structure
+	%
 	
-	% EDI2 output structure
-	%   - EDI2 contains gun1 and detector2
-	gd21_dmpa = struct( 'epoch_gd21',     gd21_bcs.epoch_gd21,   ...
-	                    'gun_gd21_dmpa',  gun_gd21_dmpa, ...
-	                    'det_gd21_dmpa',  det_gd21_dmpa, ...
-	                    'gun2_dmpa',      gun2_dmpa,     ...
-	                    'fv_gd21_dmpa',   fv_gd21_dmpa,  ...
-	                    'q_gd21',         gd21_bcs.q_gd21,  ...
-	                    'tof_gd21',       gd21_bcs.tof_gd21 );
+	if smpa
+		edi.( 'gun_gd12_smpa' )     = gun_gd12_smpa );
+		edi.( 'det_gd12_smpa' )     = det_gd12_smpa );
+		edi.( 'virtual_gun1_smpa' ) = virtual_gun1_smpa );
+		edi.( 'fv_gd12_smpa' )      = fv_gd12_smpa );
+	
+		edi.( 'gun_gd21_smpa' )     = gun_gd21_smpa );
+		edi.( 'det_gd21_smpa' )     = det_gd21_smpa );
+		edi.( 'virtual_gun2_smpa' ) = virtual_gun2_smpa );
+		edi.( 'fv_gd21_smpa' )      = fv_gd21_smpa );
+	end
+	
+	if dmpa
+		edi.( 'gun_gd12_dmpa' )     = gun_gd12_dmpa );
+		edi.( 'det_gd12_dmpa' )     = det_gd12_dmpa );
+		edi.( 'virtual_gun1_dmpa' ) = virtual_gun1_dmpa );
+		edi.( 'fv_gd12_dmpa' )      = fv_gd12_dmpa );
+	
+		edi.( 'gun_gd21_dmpa' )     = gun_gd21_dmpa );
+		edi.( 'det_gd21_dmpa' )     = det_gd21_dmpa );
+		edi.( 'virtual_gun2_dmpa' ) = virtual_gun2_dmpa );
+		edi.( 'fv_gd21_dmpa' )      = fv_gd21_dmpa );
+	end
+	
+	if gse
+		edi.( 'gun_gd12_gse' )     = gun_gd12_gse );
+		edi.( 'det_gd12_gse' )     = det_gd12_gse );
+		edi.( 'virtual_gun1_gse' ) = virtual_gun1_gse );
+		edi.( 'fv_gd12_gse' )      = fv_gd12_gse );
+	
+		edi.( 'gun_gd21_gse' )     = gun_gd21_gse );
+		edi.( 'det_gd21_gse' )     = det_gd21_gse );
+		edi.( 'virtual_gun2_gse' ) = virtual_gun2_gse );
+		edi.( 'fv_gd21_gse' )      = fv_gd21_gse );
+	end
 end

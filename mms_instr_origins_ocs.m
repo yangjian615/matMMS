@@ -65,29 +65,29 @@ function origin = mms_instr_origins_ocs(instrument, varargin)
 	% Instrument list
 	instr_map                  = containers.Map('KeyType', 'char', 'ValueType', 'any');
 	%                                    X           Y            Z
-	instr_map('ADP1')          = [  0.0,       -0.161925,    15.745      ];
-	instr_map('ADP2')          = [  0.0,       -0.161925,   -15.185      ];
-	instr_map('AFG_BOOM')      = [ -0.99147,   -0.99147,     -0.0771     ];
-	instr_map('AFG_MECH')      = [  5.18785,   -0.0080,       0.0021262  ];    % In AFG_BOOM CS
-	instr_map('BCS')           = [  0.0,        0.0,          0.0        ];    % z translation from OCS to BCS unknown/variable
-	instr_map('DFG_BOOM')      = [  0.99147,    0.99147,     -0.0771     ];
-	instr_map('DFG_MECH')      = [  5.18785,   -0.0080,       0.0021262  ];    % In DFG_BOOM CS
-	instr_map('EDI1')          = [ -1.332748,   0.889069,     1.051      ];
-	instr_map('EDI1_GUN')      = [ -1.45598,    1.11837,      0.0        ];
-	instr_map('EDI1_DETECTOR') = [ -1.35885,    1.03395,      0.0        ];
-	instr_map('EDI2')          = [  1.332748,  -0.889069,     1.051      ];
-	instr_map('EDI2_GUN')      = [  1.45598,   -1.11837,      0.0        ];
-	instr_map('EDI2_DETECTOR') = [  1.35885,   -1.03395,      0.0        ];
-	instr_map('IDCS')          = [  0.0,        0.0,          1.0510     ];
-	instr_map('DSS')           = [  1.01764,    1.25506,      0.127220   ];
-	instr_map('OCS')           = [  0.0,        0.0,          0.0        ];
-	instr_map('SC')            = [  0.0,        0.0,          0.1670     ];
-	instr_map('SCM_BOOM')      = [ -0.99147,   -0.99147,     -0.0771     ];
-	instr_map('SCM_MECH')      = [  4.14785,   -0.00479899,  -0.0332010  ];    % In SCM_BOOM CS
-	instr_map('SDP1')          = [  1.342598,   0.865542,     1.050      ];
-	instr_map('SDP2')          = [ -1.342598,  -0.865542,     1.050      ];
-	instr_map('SDP3')          = [ -0.865542,   1.342598,     1.050      ];
-	instr_map('SDP4')          = [  0.865542,  -1.342598,     1.050      ];
+	instr_map('ADP1')           = [  0.0,        -0.161925,     15.745      ];
+	instr_map('ADP2')           = [  0.0,        -0.161925,    -15.185      ];
+	instr_map('AFG_BOOM')       = [ -0.99147,    -0.99147,      -0.0771     ];
+	instr_map('AFG_MECH')       = [  5.18785,    -0.0080,        0.0021262  ];    % In AFG_BOOM CS
+	instr_map('BCS')            = [  0.0,         0.0,           0.0        ];    % z translation from OCS to BCS unknown/variable
+	instr_map('DFG_BOOM')       = [  0.99147,     0.99147,      -0.0771     ];
+	instr_map('DFG_MECH')       = [  5.18785,    -0.0080,        0.0021262  ];    % In DFG_BOOM CS
+	instr_map('EDI1')           = [ -1.332748,    0.889069,      1.051      ];
+	instr_map('EDI1_GUN')       = [ -1.45598,     1.11837,       0.0        ];
+	instr_map('EDI1_DETECTOR')  = [ -1.35885,     1.03395,       0.0        ];
+	instr_map('EDI2')           = [  1.332748,   -0.889069,      1.051      ];
+	instr_map('EDI2_GUN')       = [  1.45598,    -1.11837,       0.0        ];
+	instr_map('EDI2_DETECTOR')  = [  1.35885,    -1.03395,       0.0        ];
+	instr_map('IDCS')           = [  0.0,         0.0,           1.0510     ];
+	instr_map('DSS')            = [  1.01764,     1.25506,       0.127220   ];
+	instr_map('OCS')            = [  0.0,         0.0,           0.0        ];
+	instr_map('SC')             = [  0.0,         0.0,           0.1670     ];
+	instr_map('SCM_BOOM')       = [ -0.99147,    -0.99147,      -0.0771     ];
+	instr_map('SCM_MECH')       = [  4.14785,    -0.00479899,   -0.0332010  ];    % In SCM_BOOM CS
+	instr_map('SDP1')           = [  1.342598,    0.865542,      1.050      ];
+	instr_map('SDP2')           = [ -1.342598,   -0.865542,      1.050      ];
+	instr_map('SDP3')           = [ -0.865542,    1.342598,      1.050      ];
+	instr_map('SDP4')           = [  0.865542,   -1.342598,      1.050      ];
 	
 	% Must convert the *_MECH coordinate systems to be relative to the
 	% OCS origin. This means rotating from AFG_BOOM to OCS.

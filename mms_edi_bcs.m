@@ -16,36 +16,32 @@
 %     vectors in BCS and returned in the output structures.
 %
 % Parameters
-%   SC              in, required, type=char/cell
-%   INSTR           in, required, type=char
-%   MODE            in, required, type=char
-%   LEVEL           in, required, type=char
+%   FILENAMES       in, required, type=char/cell
 %   TSTART          in, required, type=char
 %   TEND            in, required, type=char
-%   'DataDir'       in, optional, type=char, default=pwd()
-%                   Directory in which to find EDI data.
+%   'CS_123'        in, optional, type=boolean, default=true
+%                   If true, EDI data in the instrument 123 coordinate system is
+%                     included in the EDI output structure.
+%   'CS_BCS'        in, optional, type=boolean, default=true
+%                   If true, EDI data in the instrument BCS coordinate system is
+%                     included in the EDI output structure.
 %   'Quality'       in, optional, type=integer, default=[]
 %                   Quality of beams to select. Can be a scalar or array with
 %                     values of 0, 1, 2, or 3. The default is to select all
 %                     beams.
 %
 % Returns
-%   EDI1_BCS        out, required, type=structure
-%                   Fields are:
-%                     't_gd12'        -  TT2000 Epoch time for gun 1 and detector 2.
-%                     'gun_gd12_bcs'  -  Gun1 position in BCS.
-%                     'det_gd12_bcs'  -  Detector2 position in BCS.
-%                     'fv_gd12_bcs'   -  Firing vectors from gun1 in BCS.
-%                     'q_gd12'        -  Quality flag.
-%                     'tof_gd12'      -  Time of flight.
-%   EDI2_BCS        out, required, type=structure
-%                   Fields are:
-%                     't_gd21'        -  TT2000 Epoch time for gun 2 and detector 1.
-%                     'gun_gd21_bcs'  -  Gun2 position in BCS.
-%                     'det_gd21_bcs'  -  Detector1 position in BCS.
-%                     'fv_gd21_bcs'   -  Firing vectors from gun2 in BCS.
-%                     'q_gd21'        -  Quality flag.
-%                     'tof_gd21'      -  Time of flight.
+%   EDI             out, required, type=structure
+%                   In addition to the fields return by mms_edi_bcs, we have:
+%                     'gun_gd12_bcs'     -  Gun1 position in BCS.
+%                     'det_gd12_bcs'     -  Detector2 position in BCS.
+%                     'virtual_gun1_bcs' -  Position of gun1 on virtual spacecraft in BCS.
+%                     'fv_gd12_bcs'      -  Firing vectors from gun1 in BCS.
+%
+%                     'gun_gd21_bcs'     -  Gun2 position in BCS.
+%                     'det_gd21_bcs'     -  Detector1 position in BCS.
+%                     'virtual_gun2_bcs' -  Position of gun2 on virtual spacecraft in BCS.
+%                     'fv_gd21_bcs'      -  Firing vectors from gun1 in BCS.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -56,17 +52,24 @@
 %   2015-04-24      Renamed EDI_DIR to DATADIR and made a name-value pair.
 %                     Added "Quality" parameter. - MRA
 %   2015-04-29      Throw error if quality filter returns zero beams. - MRA
+%   2015-04-29      Remove quality selection and firing vector calculations.
+%                     Accept filenames as inputs. Select coordinate system. - MRA
 %
-function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, varargin)
+function edi = mms_edi_bcs(filenames, tstart, tend, varargin)
 
+	% Defaults
 	quality = [];
-	edi_dir = pwd();
+	cs_123  = false;
+	cs_bcs  = true;
 	
+	% Optional parameters
 	nOptArg = length(varargin);
 	for ii = 1 : 2 : nOptArg
 		switch varargin{ii}
-			case 'DataDir'
-				edi_dir = varargin{ii+1};
+			case 'CS_123'
+				cs_123 = varargin{ii+1};
+			case 'CS_BCS'
+				cs_bcs = varargin{ii+1};
 			case 'Quality'
 				quality = varargin{ii+1};
 			otherwise
@@ -84,64 +87,7 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
 	
 	% Read EDI efield data
-	[gd12, gd21] = mms_edi_read_efield(sc, instr, mode, level, tstart, tend, edi_dir);
-
-	% Convert to radians
-	deg2rad      = pi / 180.0;
-	polar_gd12   = gd12.polar_gd12   * deg2rad;
-	azimuth_gd12 = gd12.azimuth_gd12 * deg2rad;
-	polar_gd21   = gd21.polar_gd21   * deg2rad;
-	azimuth_gd21 = gd21.azimuth_gd21 * deg2rad;
-
-	% Convert to cartesian coordinates
-	%   - sph2cart requires the elevation angle, measured up from the xy-plane,
-	%     not down from the z-axis.
-	fv_gd12      = zeros( [3, length(polar_gd12)] );
-	fv_gd12(1,:) = sin( polar_gd12 ) .* cos( azimuth_gd12 );
-	fv_gd12(2,:) = sin( polar_gd12 ) .* sin( azimuth_gd12 );
-	fv_gd12(3,:) = cos( polar_gd12 );
-	
-	fv_gd21      = zeros( [3, length(polar_gd21)] );
-	fv_gd21(1,:) = sin( polar_gd21 ) .* cos( azimuth_gd21 );
-	fv_gd21(2,:) = sin( polar_gd21 ) .* sin( azimuth_gd21 );
-	fv_gd21(3,:) = cos( polar_gd21 );
-	
-%------------------------------------%
-% Filter by Quality                  %
-%------------------------------------%
-	if ~isempty(quality)
-		if length(quality) > 4 || max(quality) > 3 || min(quality) < 0
-			error('Quality can have only these unique values: 0, 1, 2, 3.');
-		end
-		
-		% Find quality
-		iq_gd12 = ismember(gd12.q_gd12, quality);
-		iq_gd21 = ismember(gd21.q_gd21, quality);
-		
-		% Number of beams of the selected quality
-		nq_gd12 = length(iq_gd12);
-		nq_gd21 = length(iq_gd21);
-
-		% Make sure something was found
-		if nq_gd12 == 0 && nq_gd21 == 0
-			error('EDI_BCS:Quality', 'No beams of the selected quality found.');
-		elseif sum(iq_gd12) == 0
-			warning('EDI_BCS:Quality', 'No beams of selected quality found for Gun1');
-		elseif sum(iq_gd21) == 0
-			warning('EDI_BCS:Quality', 'No beams of selected quality found for Gun2');
-		end
-		
-		% Select data
-		fv_gd12         = fv_gd12(:, iq_gd12);
-		gd12.epoch_gd12 = gd12.epoch_gd12(iq_gd12);
-		gd12.q_gd12     = gd12.q_gd12(iq_gd12);
-		gd12.tof_gd12   = gd12.tof_gd12(iq_gd12);
-		
-		fv_gd21         = fv_gd21(:, iq_gd21);
-		gd21.epoch_gd21 = gd21.epoch_gd21(iq_gd21);
-		gd21.q_gd21     = gd21.q_gd21(iq_gd21);
-		gd21.tof_gd21   = gd21.tof_gd21(iq_gd21);
-	end
+	edi = mms_edi_read_efield(filenames, tstart, tend, 'Quality', quality);
 
 %------------------------------------%
 % Transform to BCS                   %
@@ -152,32 +98,29 @@ function [gd12, gd21] = mms_edi_bcs(sc, instr, mode, level, tstart, tend, vararg
 	edi22bcs = mms_instr_xxyz2ocs('EDI2_GUN');
 
 	% Transform firing vectors
-	fv_gd12_bcs = mrvector_rotate( edi12bcs, fv_gd12 );
-	fv_gd21_bcs = mrvector_rotate( edi22bcs, fv_gd21 );
+	fv_gd12_bcs = mrvector_rotate( edi12bcs, edi.fv_gd12_123 );
+	fv_gd21_bcs = mrvector_rotate( edi22bcs, edi.fv_gd21_123 );
 	
 %------------------------------------%
 % Output                             %
 %------------------------------------%
-	%
-	% I would like to create a new structure GD12_BCS and copy fields from
-	% GD12 into it. I do not see a simple way of doing this in MATLAB, so
-	% resort to appending new fields to the old structure. This means having
-	% to do away with old fields.
-	%
 
-	% Remove fields from the structures
-	gd12 = rmfield(gd12, {'polar_gd12', 'azimuth_gd12'});
-	gd21 = rmfield(gd21, {'polar_gd21', 'azimuth_gd21'});
+	% Remove data in 123 system?
+	if ~cs_123
+		gd12 = rmfield(gd12, 'fv_gd12_123');
+		gd21 = rmfield(gd21, 'fv_gd21_123');
+	end
 	
-	% EDI1 output structure
-	gd12.('gun_gd12_bcs') = gun_gd12_bcs;
-	gd12.('det_gd12_bcs') = det_gd12_bcs;
-	gd12.('gun1_bcs')     = gun_gd12_bcs - det_gd21_bcs;
-	gd12.('fv_gd12_bcs')  = fv_gd12_bcs;
+	% Add data in BCS
+	if cs_bcs
+		edi.('gun_gd12_bcs')     = gun_gd12_bcs;
+		edi.('det_gd12_bcs')     = det_gd12_bcs;
+		edi.('virtual_gun1_bcs') = gun_gd12_bcs - det_gd21_bcs;
+		edi.('fv_gd12_bcs')      = fv_gd12_bcs;
 	
-	% EDI2 output structure
-	gd21.('gun_gd21_bcs') = gun_gd21_bcs;
-	gd21.('det_gd21_bcs') = det_gd21_bcs;
-	gd21.('gun2_bcs')     = gun_gd21_bcs - det_gd12_bcs;
-	gd21.('fv_gd21_bcs')  = fv_gd21_bcs;
+		edi.('gun_gd21_bcs')     = gun_gd21_bcs;
+		edi.('det_gd21_bcs')     = det_gd21_bcs;
+		edi.('virtual_gun2_bcs') = gun_gd21_bcs - det_gd12_bcs;
+		edi.('fv_gd21_bcs')      = fv_gd21_bcs;
+	end
 end

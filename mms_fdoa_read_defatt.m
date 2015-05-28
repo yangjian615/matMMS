@@ -6,10 +6,9 @@
 %   Read MMS Attitude data from FDOA ASCII files.
 %
 % Calling Sequence
-%   ATTITUDE = mms_fdoa_read_defatt(SC, TSTART, TEND, ATT_DIR)
-%     Return structure of attitude data ATTITUDE, from MMS spacecraft SC
-%     (e.g., 'mms2') between the times TSTART and TEND. Attitude data
-%     files will be searched for in ATT_DIR.
+%   ATTITUDE = mms_fdoa_read_defatt(ATT_FILES, TSTART, TEND, ATT_DIR)
+%     Return structure of attitude data ATTITUDE, read from MMS definitive
+%     attitude files with names ATT_FILES between the times TSTART and TEND.
 %
 %   [ATTITUDE, ATT_HDR] = mms_fdoa_read_defatt(__)
 %     Also return a structure of header information from all files read.
@@ -23,15 +22,16 @@
 % Returns
 %   ATTITUDE         out, required, type=struct
 %                    Fields are:
-%                      'UTC'  -  Time tags in UTC
-%                      'TAI'  -  Time tags in TAI as seconds since MMS reference epoch
-%                      'q'    -  Quaternions
-%                      'w'    -  Spin rate and phase.
-%                      'z'    -  Body z-axis components and phase.
-%                      'L'    -  Angular momentum axis and phase.
-%                      'P'    -  Principle axis and phase.
-%                      'Nut'  -  Nutation information.
-%                      'QF'   -  Quality flag
+%                      'UTC'     -  Time tags in UTC
+%                      'TAI'     -  Time tags in TAI as seconds since MMS reference epoch
+%                      'tt2000'  -  Time tags in CDF TT2000 epochs
+%                      'q'       -  Quaternions
+%                      'w'       -  Spin rate and phase.
+%                      'z'       -  Body z-axis components and phase.
+%                      'L'       -  Angular momentum axis and phase.
+%                      'P'       -  Principle axis and phase.
+%                      'Nut'     -  Nutation information.
+%                      'QF'      -  Quality flag
 %   ATT_HDR          out, required, type=struct
 %
 % Examples
@@ -40,13 +40,13 @@
 %     MMS2_DEFATT_2015079_2015080.V00
 %
 %   Read all the data from
-%     >> sc      = 'mms2';
+%     >> att_files = {'MMS2_DEFATT_2015078_2015079.V00', 'MMS2_DEFATT_2015079_2015080.V00'};
 %     >> tstart  = '2015-03-20T00:00:00Z';
 %     >> tend    = '2015-03-21T00:00:00Z';
-%     >> att_dir = '/Users/argall/Documents/Work/Data/MMS/Ephemeris/'
-%     >> data    = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
+%     >> data    = mms_fdoa_read_defatt(att_files, tstart, tend)
 %        data    = UTC: {278887x1 cell}
 %                  TAI: [278887x1 double]
+%               tt2000: [278887x1 int64]
 %                    q: [278887x4 double]
 %                    w: [278887x4 double]
 %                    z: [278887x3 double]
@@ -60,33 +60,31 @@
 %
 % History:
 %   2015-04-06      Written by Matthew Argall
+%   2015-05-25      Filenames taken as inputs. Return CDF TT2000 times.
 %
-function [attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
+function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 
 %------------------------------------%
-% Find Definitive Attitude File      %
+% Check Files                        %
 %------------------------------------%
-	% MMS#_DEFATT_%Y%D_%Y%D.V00
-	[fname, nFiles] = MrFile_Search( fullfile(att_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*']), ...
-	                                 'VersionRegex', 'V([0-9]{2})', ...
-	                                 'TStart',       tstart, ...
-	                                 'TEnd',         tend, ...
-	                                 'TimeOrder',    '%Y%D' );
-	nFiles = length(fname);
-	
-	% Make sure the file exists
-	assert( nFiles > 0, ...
-	        'Definitive attitude file not found or does not exist.');
+	% Number of files given
+	if iscell(att_files)
+		nFiles = length(att_files);
+		assert(nFiles > 0, 'At least one file name must be given.');
+	else
+		assert(ischar(att_files) && isrow(att_files), 'ATT_FILES must be a file name or cell array of file names.')
+		nFiles = 1;
+	end
 
 %------------------------------------%
 % Read Header from Each File         %
 %------------------------------------%
 	% Read the header
-	att_hdr = mms_fdoa_read_defatt_header(fname{1});
+	att_hdr = mms_fdoa_read_defatt_header(att_files{1});
 	
 	% Step through the rest of the files
 	for ii = 2 : nFiles
-		temp = mms_fdoa_read_defatt_header(fname{ii});
+		temp = mms_fdoa_read_defatt_header(att_files{ii});
 		
 		% Append the header information
 		att_hdr.('att_err')    = [ att_hdr.('att_err'),    temp.('att_err')    ];
@@ -108,11 +106,11 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
 %------------------------------------%
 	% Describe the file
 	column_names = {'UTC', 'TAI', 'q', 'q', 'q', 'q', 'w', 'w', 'w', 'w', ...
-	              'z', 'z', 'z', 'L', 'L', 'L', 'P', 'P', 'P', 'Nut', 'QF'};
+	                'z', 'z', 'z', 'L', 'L', 'L', 'P', 'P', 'P', 'Nut', 'QF'};
 	data_start = att_hdr.('DataStart')(1);
 
 	% Read the files
-	attitude = MrFile_Read_nAscii(fname, ...
+	attitude = MrFile_Read_nAscii(att_files, ...
 	                              'ColumnNames', column_names, ...
 	                              'DataStart',   data_start, ...
 	                              'nFooter',     1);
@@ -140,6 +138,9 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
 	for ii = 1 : nFields
 		attitude.( names{ii} ) = attitude.( names{ii} )(irange(1):irange(2), :);
 	end
+	
+	% Add tt2000 times to the structure
+	attitude.( 'tt2000' ) = tt2000(irange(1):irange(2));
 
 %------------------------------------%
 % Remove Duplicates                  %
@@ -154,16 +155,17 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(sc, tstart, tend, att_dir)
 	% we have to remove repeats.
 	%
 	if nFiles > 1
-		[~, iuniq] = unique(attitude.TAI);
-		attitude.UTC = attitude.UTC( iuniq, 1 );
-		attitude.TAI = attitude.TAI( iuniq, 1 );
-		attitude.q   = attitude.q(   iuniq, : );
-		attitude.w   = attitude.w(   iuniq, : );
-		attitude.z   = attitude.z(   iuniq, : );
-		attitude.L   = attitude.L(   iuniq, : );
-		attitude.P   = attitude.P(   iuniq, : );
-		attitude.Nut = attitude.Nut( iuniq, 1 );
-		attitude.QF  = attitude.QF(  iuniq, 1 );
+		[~, iuniq]      = unique(attitude.TAI);
+		attitude.UTC    = attitude.UTC(    iuniq, 1 );
+		attitude.TAI    = attitude.TAI(    iuniq, 1 );
+		attitude.tt2000 = attitude.tt2000( iuniq, 1 );
+		attitude.q      = attitude.q(      iuniq, : );
+		attitude.w      = attitude.w(      iuniq, : );
+		attitude.z      = attitude.z(      iuniq, : );
+		attitude.L      = attitude.L(      iuniq, : );
+		attitude.P      = attitude.P(      iuniq, : );
+		attitude.Nut    = attitude.Nut(    iuniq, 1 );
+		attitude.QF     = attitude.QF(     iuniq, 1 );
 	end
 end
 

@@ -8,16 +8,16 @@
 %
 % Calling Sequence
 %   ORIGIN = mms_instr_origins_ocs(INSTR1, INSTR2);
-%			Return the cartesian coordinates [x, y, z] of the origin of the instrument
-%			named INSTR1 relative to the orgigin of the instrument named INSTR2.
-%			For valid instrument names, see mms_instr_origins_ocs.m
+%     Return the cartesian coordinates [x, y, z] of the origin of the instrument
+%     named INSTR1 relative to the orgigin of the instrument named INSTR2.
+%     For valid instrument names, see mms_instr_origins_ocs.m
 %
 %   ORIGIN = mms_instr_origins_ocs(__, 'Spherical', TF);
-%			Specify whether the origin should be returned in spherical or
-%			cartesian coordinates. If spherical coordinate are returned, ORIGINS
-%			is [azimuth, elevation, radius], where azimuth is the angle from
-%			INSTR2 x-axis, elevation is the angle up from the OCS xy-plane, and
-%			radius is the radial distance from INSTR2 to INSTR1.
+%     Specify whether the origin should be returned in spherical or
+%     cartesian coordinates. If spherical coordinate are returned, ORIGINS
+%     is [azimuth, polar, radius], where azimuth is the angle from
+%     INSTR2 x-axis, polar is the angle down from the OCS z-axis, and
+%     radius is the radial distance from INSTR2 to INSTR1.
 %
 % Parameters
 %   INSTR1          in, required, type=char
@@ -29,6 +29,7 @@
 %
 % History:
 %   2015-03-22      Written by Matthew Argall
+%   2015-05-01      Return polar angle, not elevation angle.
 %
 function origin = mms_instr_origins_instr(instr1, instr2, varargin)
 	
@@ -57,6 +58,6 @@ function origin = mms_instr_origins_instr(instr1, instr2, varargin)
 	% Convert to spherical coordinates
 	if spherical
 		[az, el, r] = cart2sph(origin(1), origin(2), origin(3));
-		origin      = [az, el, r];
+		origin      = [az, pi/2 - el, r];
 	end
 end

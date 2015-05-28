@@ -22,12 +22,24 @@
 %
 % History:
 %   2015-03-24      Written by Matthew Argall
+%   2015-05-11      Mark
 %
 function [B_nT] = mms_sc_number2nT(B_sc)
 	
-	% Translate from a number to nano-tesla (32-bit int to 32-bit single)
+	%
+	% Translate from a number to nano-tesla (32-bit int to 32-bit float)
 	%   - The first  2^15 - 1 numbers are negative
-	%   - The second 2^15     numbers are positive
+	%   - The number 0
+	%   - The second 2^15 - 1 numbers are positive
 	%   - Normalize by 2^16 - 1
-	B_nT = single( 10.0 .* (double(B_sc) - 32767) ./ 65535.0);
+	%
+	% From Olivier le Contel:
+	%
+	%   Mark's  L1A CDF files are already signed between 32767 and - 32767.
+	%   Furthermore, SCM output voltage is 12.25 V not 10V, so the conversion
+	%   factor that we use to go from TM units to Volts, is only 
+	%
+	%       5.0/0.4030/2.0^16
+	%
+	B_nT = single( (5.0 / 0.4030) .* double(B_sc) ./ 65535.0);
 end

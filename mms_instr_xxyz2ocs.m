@@ -58,31 +58,31 @@ function [xyz2ocs, angles, sequence] = mms_instr_xxyz2ocs(instrument)
 	%
 	%   x' = Az * Ay * Ax * x
 	%             INSTRUMENT            EULER ANGLES           ORDER
-	euler_angles('ADP1')          = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('ADP2')          = { [   0.0,  0.0,  180.0 ], 'ZXY' };
-	euler_angles('AFG_XYZ')       = { [  45.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('AFG_123')       = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('AFG_BOOM')      = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('BCS')           = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('DFG_XYZ')       = { [-135.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('DFG_123')       = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('DFG_BOOM')      = { [ -45.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('DSS')           = { [ -76.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('EDI1')          = { [ 221.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('EDI1_GUN')      = { [ 221.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('EDI1_DETECTOR') = { [ 221.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('EDI2')          = { [  41.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('EDI2_GUN')      = { [  41.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('EDI2_DETECTOR') = { [  41.0,  0.0,  -90.0 ], 'ZXY' };
-	euler_angles('OCS')           = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('SC')            = { [   0.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('SCM_XYZ')       = { [ -45.0, 90.0,    0.0 ], 'ZXY' };
-	euler_angles('SCM_123')       = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('SCM_BOOM')      = { [ 135.0,  0.0,    0.0 ], 'ZXY' };
-	euler_angles('SDP1')          = { [ -60.0,  0.0,  180.0 ], 'ZXY' };
-	euler_angles('SDP2')          = { [ 120.0,  0.0,  180.0 ], 'ZXY' };
-	euler_angles('SDP3')          = { [  30.0,  0.0,  180.0 ], 'ZXY' };
-	euler_angles('SDP4')          = { [ 210.0,  0.0,  180.0 ], 'ZXY' };
+	euler_angles('ADP1')               = { [   0.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('ADP2')               = { [   0.0,   180.0,   0.0 ], 'ZYX' };
+	euler_angles('AFG_XYZ')            = { [  45.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('AFG_123')            = { [ 135.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('AFG_BOOM')           = { [ 135.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('BCS')                = { [   0.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('DFG_XYZ')            = { [-135.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('DFG_123')            = { [ 135.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('DFG_BOOM')           = { [ -45.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('DSS')                = { [ -76.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('EDI1')               = { [ 221.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('EDI1_GUN')           = { [ 221.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('EDI1_DETECTOR')      = { [ 221.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('EDI2')               = { [  41.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('EDI2_GUN')           = { [  41.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('EDI2_DETECTOR')      = { [  41.0,   -90.0,   0.0 ], 'ZYX' };
+	euler_angles('OCS')                = { [   0.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('SC')                 = { [   0.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('SCM_XYZ')            = { [ -45.0,     0.0,  90.0 ], 'ZYX' };
+	euler_angles('SCM_123')            = { [ 135.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('SCM_BOOM')           = { [ 135.0,     0.0,   0.0 ], 'ZYX' };
+	euler_angles('SDP1')               = { [ -60.0,   180.0,   0.0 ], 'ZYX' };
+	euler_angles('SDP2')               = { [ 120.0,   180.0,   0.0 ], 'ZYX' };
+	euler_angles('SDP3')               = { [  30.0,   180.0,   0.0 ], 'ZYX' };
+	euler_angles('SDP4')               = { [ 210.0,   180.0,   0.0 ], 'ZYX' };
 
 %-------------------------------------------------------
 % Names ////////////////////////////////////////////////

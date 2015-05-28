@@ -1,9 +1,10 @@
 %
 % Name
-%   mms_edi_read_efield
+%   mms_dss_xdespin
 %
 % Purpose
-%   Read MMS EDI electric field mode data files.
+%   Crate an array of matrices that will transform from a spinning to a
+%   not-spinning coordinate system.
 %
 % Calling Sequence
 %   SPIN2DESPUN = mms_dss_xdespin( SUNPULSE, TIMES )
@@ -37,13 +38,13 @@ function spin2despun = mms_dss_xdespin( sunpulse, times, instr, arg4 )
 	end
 
 	% Build matrix
-	spin_phase = mms_dss_sunpulse2phase( sunpulse, times );
+	spin_phase = mms_dss_sunpulse2phase( sunpulse, times ) * (pi/180.0);
 	
 	% The spin phase is the angle of rotation away from the s/c-sun
 	% line. To despin, we want to rotate against the phase. To spin-
 	% up, we rotate with the phase.
 	if ~tf_spinup
-		spin_phase = -spin_phase * pi/180.0;
+		spin_phase = -spin_phase;
 	end
 
 	% The DSS requires a -76 degree rotation about the z-axis to align

@@ -31,8 +31,12 @@
 %
 % History:
 %   2015-03-22      Written by Matthew Argall
+%   2015-05-21      Assert that the file name exists.
 %
 function cal_params = mms_fg_read_cal(filename, tstart, tstop)
+
+	% Make sure the file exist
+	assert( exist(filename, 'file') == 2, ['Calibration file does not exist: "' filename '".'] );
 
 	% Dissect the file name
 	[sc, instr, mode, level] = mms_dissect_filename(filename);
@@ -59,21 +63,20 @@ function cal_params = mms_fg_read_cal(filename, tstart, tstop)
 	%   - Also, dTheta and dPhi do not have DEPEND_0 variables.
 	%     However, their values appear to change. I have only
 	%     pre-flight calibration files so cannot say.
-	[gain_data, t_cal] = MrCDF_nRead(filename, gain_name);
-	dTheta_data        = MrCDF_nRead(filename, dTheta_name);
-	dPhi_data          = MrCDF_nRead(filename, dPhi_name);
-	u3_data            = MrCDF_nRead(filename, u3_name);
-	offset_data        = MrCDF_nRead(filename, offset_name);
-	mpa_data           = MrCDF_nRead(filename, mpa_name);
+	[gain_data, t_cal] = MrCDF_nRead(filename, gain_name,   'ColumnMajor', true);
+	dTheta_data        = MrCDF_nRead(filename, dTheta_name, 'ColumnMajor', true);
+	dPhi_data          = MrCDF_nRead(filename, dPhi_name,   'ColumnMajor', true);
+	u3_data            = MrCDF_nRead(filename, u3_name,     'ColumnMajor', true);
+	offset_data        = MrCDF_nRead(filename, offset_name, 'ColumnMajor', true);
+	mpa_data           = MrCDF_nRead(filename, mpa_name,    'ColumnMajor', true);
 	
 	% Find the closest calibration time and pick those calibration params.
 	%   - Transpose to return row vectors instead of column vectors.
-	cal_params            = struct();
-	cal_params.('Epoch')  = t_cal';
-	cal_params.('Gain')   = gain_data';
-	cal_params.('dTheta') = dTheta_data';
-	cal_params.('dPhi')   = dPhi_data';
-	cal_params.('U3')     = u3_data';
-	cal_params.('Offset') = offset_data';
-	cal_params.('MPA')    = mpa_data';
+	cal_params = struct( 'Epoch',  t_cal,       ...
+	                     'Gain',   gain_data,   ...
+	                     'dTheta', dTheta_data, ...
+	                     'dPhi',   dPhi_data,   ...
+	                     'U3',     u3_data,     ...
+	                     'Offset', offset_data, ...
+	                     'MPA',    mpa_data);
 end
