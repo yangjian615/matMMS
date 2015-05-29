@@ -53,8 +53,9 @@
 % Required Products None
 %
 % History:
-%   2015-04-19      Written by Matthew Argall
-%   2015-04-20      Data is despun with attitude data unless SunPulseDir is given. - MRA
+%   2015-05-14  Added detail to header. rlm
+%   2015-04-20  Data is despun with attitude data unless SunPulseDir is given. - MRA
+%   2015-04-19  Written by Matthew Argall
 %
 function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 
