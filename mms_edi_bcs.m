@@ -87,7 +87,7 @@ function edi = mms_edi_bcs(filenames, tstart, tend, varargin)
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
 	
 	% Read EDI efield data
-	edi = mms_edi_read_efield(filenames, tstart, tend, 'Quality', quality);
+	edi = mms_edi_read_l1a_efield(filenames, tstart, tend, 'Quality', quality);
 
 %------------------------------------%
 % Transform to BCS                   %
@@ -107,8 +107,7 @@ function edi = mms_edi_bcs(filenames, tstart, tend, varargin)
 
 	% Remove data in 123 system?
 	if ~cs_123
-		gd12 = rmfield(gd12, 'fv_gd12_123');
-		gd21 = rmfield(gd21, 'fv_gd21_123');
+		edi = rmfield( edi, {'fv_gd12_123', 'fv_gd21_123'} );
 	end
 	
 	% Add data in BCS

@@ -165,7 +165,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 		% Number of spins between each pulse
 		%   - Recall, T is the time between sun pulses, not the reported period
 		%   - There could still be gaps smaller than NMINGAP periods
-		nSpins = medT / T_median;
+		nSpins = medT ./ T_median;
 
 		% NSPINS should be roughly an integer. If not, the sun pulse is
 		% changing in an unexpected manner.
@@ -189,7 +189,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 		% Compute the average spin period between pulses.
 		%   - If there NSPINS=3 spins between pulses, this will give
 		%     the average of the tree periods.
-		dPulse(istart:iend) = dPulse(istart:iend) / nSpins;
+		dPulse(istart:iend) = dPulse(istart:iend) ./ nSpins;
 		
 		% Move to the next interval.
 		istart = iGaps(2, igap);
@@ -238,10 +238,10 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			msg    = sprintf('Cannot determine period after gap at %s', t_warn{1});
 			warning('SunPulse:Phase', msg);
 			T2 = nan;
-		elseif idx > 1
+		else
 			T2 = dPulse(idx+1);
 		end
-		
+
 		% Determine the number of spins in the gap. Use the period
 		% before and after the gap. They should be the same.
 		nSpin1 = dPulse(idx+1) / T1;

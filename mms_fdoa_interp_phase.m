@@ -56,7 +56,7 @@ function phaseOut = mms_fdoa_interp_phase(defatt, timeOut, type)
 %	end
 
 	% Start by unwrapping the phase
-	phunwrap = MrPhaseUnwrap(defatt.(type)(:,3)', 360.0);
+	phunwrap = MrPhaseUnwrap(defatt.(type)(3,:), 360.0);
 
 	% Inteprolate the phase
 	%   - interp1 requires floats

@@ -136,7 +136,7 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 	
 	% Get rid of unwanted data
 	for ii = 1 : nFields
-		attitude.( names{ii} ) = attitude.( names{ii} )(irange(1):irange(2), :);
+		attitude.( names{ii} ) = attitude.( names{ii} )(:, irange(1):irange(2));
 	end
 	
 	% Add tt2000 times to the structure
@@ -156,16 +156,16 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 	%
 	if nFiles > 1
 		[~, iuniq]      = unique(attitude.TAI);
-		attitude.UTC    = attitude.UTC(    iuniq, 1 );
-		attitude.TAI    = attitude.TAI(    iuniq, 1 );
-		attitude.tt2000 = attitude.tt2000( iuniq, 1 );
-		attitude.q      = attitude.q(      iuniq, : );
-		attitude.w      = attitude.w(      iuniq, : );
-		attitude.z      = attitude.z(      iuniq, : );
-		attitude.L      = attitude.L(      iuniq, : );
-		attitude.P      = attitude.P(      iuniq, : );
-		attitude.Nut    = attitude.Nut(    iuniq, 1 );
-		attitude.QF     = attitude.QF(     iuniq, 1 );
+		attitude.UTC    = attitude.UTC(    1, iuniq );
+		attitude.TAI    = attitude.TAI(    1, iuniq );
+		attitude.tt2000 = attitude.tt2000( 1, iuniq );
+		attitude.q      = attitude.q(      :, iuniq );
+		attitude.w      = attitude.w(      :, iuniq );
+		attitude.z      = attitude.z(      :, iuniq );
+		attitude.L      = attitude.L(      :, iuniq );
+		attitude.P      = attitude.P(      :, iuniq );
+		attitude.Nut    = attitude.Nut(    1, iuniq );
+		attitude.QF     = attitude.QF(     1, iuniq );
 	end
 end
 

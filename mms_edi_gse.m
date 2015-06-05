@@ -68,25 +68,26 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 	cs_smpa  = false;
 	cs_dmpa  = false;
 	cs_gse   = true;
+	quality  = [];
 	
 	% Optional parameters
 	nOptArg = length(varargin);
 	for ii = 1 : 2 : nOptArg
 		switch varargin{ii}
-			case 'AttDir'
-				att_dir = varargin{ii+1};
-			case 'SunpulseDir'
-				sunpulse_dir = varargin{ii+1};
+			case 'Attitude'
+				attitude = varargin{ii+1};
+			case 'Sunpulse'
+				sunpulse = varargin{ii+1};
 			case 'CS_123'
 				cs_123 = varargin{ii+1};
 			case 'CS_BCS'
 				cs_bcs = varargin{ii+1};
 			case 'CS_SMPA'
-				cs_bcs = varargin{ii+1};
+				cs_smpa = varargin{ii+1};
 			case 'CS_DMPA'
-				cs_bcs = varargin{ii+1};
+				cs_dmpa = varargin{ii+1};
 			case 'CS_GSE'
-				cs_bcs = varargin{ii+1};
+				cs_gse = varargin{ii+1};
 			case 'Quality'
 				quality = varargin{ii+1};
 			case 'zMPA'
@@ -94,6 +95,7 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 			otherwise
 				error( ['Optional parameter not recognized: "' varargin{ii+1} '".'] );
 		end
+	end
 	
 %------------------------------------%
 % Get EDI Data                       %
@@ -101,7 +103,7 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 	% EDI
 	edi = mms_edi_bcs(filenames, tstart, tend, ...
 	                  'CS_123',  cs_123, ...
-	                  'CS_BCS',  cs_bcs, ...
+	                  'CS_BCS',  true, ...
 	                  'Quality', quality);
 
 %------------------------------------%
@@ -150,7 +152,7 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 	%
 
 	% Despin using definitive attitude
-	if isempty(sunpulse_dir)
+	if isempty(sunpulse)
 		smpa2dmpa_gd12 = mms_fdoa_xdespin( attitude, edi.epoch_gd12, 'L' );
 		smpa2dmpa_gd21 = mms_fdoa_xdespin( attitude, edi.epoch_gd21, 'L' );
 	
@@ -175,7 +177,7 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 % Rotate to GSE                      %
 %------------------------------------%
 	% Can only rotate to GSE if we have attitude data.
-	if ~isempty(attitude)
+	if ~isempty(attitude) && cs_gse
 		% GEI -> Despun
 		gei2despun_gd12 = mms_fdoa_xgei2despun(attitude, edi.epoch_gd12, 'L');
 		gei2despun_gd21 = mms_fdoa_xgei2despun(attitude, edi.epoch_gd21, 'L');
@@ -254,41 +256,52 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 	
 	%
 	% Add data to structure
-	%
+	% 
 	
-	if smpa
-		edi.( 'gun_gd12_smpa' )     = gun_gd12_smpa );
-		edi.( 'det_gd12_smpa' )     = det_gd12_smpa );
-		edi.( 'virtual_gun1_smpa' ) = virtual_gun1_smpa );
-		edi.( 'fv_gd12_smpa' )      = fv_gd12_smpa );
-	
-		edi.( 'gun_gd21_smpa' )     = gun_gd21_smpa );
-		edi.( 'det_gd21_smpa' )     = det_gd21_smpa );
-		edi.( 'virtual_gun2_smpa' ) = virtual_gun2_smpa );
-		edi.( 'fv_gd21_smpa' )      = fv_gd21_smpa );
+	if ~cs_bcs
+		edi = rmfield( edi, { 'gun_gd12_bcs', ...
+		                      'det_gd12_bcs', ...
+		                      'virtual_gun1_bcs', ...
+		                      'fv_gd12_bcs', ...
+		                      'gun_gd21_bcs', ...
+		                      'det_gd21_bcs', ...
+		                      'virtual_gun2_bcs', ...
+		                      'fv_gd21_bcs' } );
 	end
 	
-	if dmpa
-		edi.( 'gun_gd12_dmpa' )     = gun_gd12_dmpa );
-		edi.( 'det_gd12_dmpa' )     = det_gd12_dmpa );
-		edi.( 'virtual_gun1_dmpa' ) = virtual_gun1_dmpa );
-		edi.( 'fv_gd12_dmpa' )      = fv_gd12_dmpa );
+	if cs_smpa
+		edi.( 'gun_gd12_smpa' )     = gun_gd12_smpa;
+		edi.( 'det_gd12_smpa' )     = det_gd12_smpa;
+		edi.( 'virtual_gun1_smpa' ) = virtual_gun1_smpa;
+		edi.( 'fv_gd12_smpa' )      = fv_gd12_smpa;
 	
-		edi.( 'gun_gd21_dmpa' )     = gun_gd21_dmpa );
-		edi.( 'det_gd21_dmpa' )     = det_gd21_dmpa );
-		edi.( 'virtual_gun2_dmpa' ) = virtual_gun2_dmpa );
-		edi.( 'fv_gd21_dmpa' )      = fv_gd21_dmpa );
+		edi.( 'gun_gd21_smpa' )     = gun_gd21_smpa;
+		edi.( 'det_gd21_smpa' )     = det_gd21_smpa;
+		edi.( 'virtual_gun2_smpa' ) = virtual_gun2_smpa;
+		edi.( 'fv_gd21_smpa' )      = fv_gd21_smpa;
 	end
 	
-	if gse
-		edi.( 'gun_gd12_gse' )     = gun_gd12_gse );
-		edi.( 'det_gd12_gse' )     = det_gd12_gse );
-		edi.( 'virtual_gun1_gse' ) = virtual_gun1_gse );
-		edi.( 'fv_gd12_gse' )      = fv_gd12_gse );
+	if cs_dmpa
+		edi.( 'gun_gd12_dmpa' )     = gun_gd12_dmpa;
+		edi.( 'det_gd12_dmpa' )     = det_gd12_dmpa;
+		edi.( 'virtual_gun1_dmpa' ) = virtual_gun1_dmpa;
+		edi.( 'fv_gd12_dmpa' )      = fv_gd12_dmpa;
 	
-		edi.( 'gun_gd21_gse' )     = gun_gd21_gse );
-		edi.( 'det_gd21_gse' )     = det_gd21_gse );
-		edi.( 'virtual_gun2_gse' ) = virtual_gun2_gse );
-		edi.( 'fv_gd21_gse' )      = fv_gd21_gse );
+		edi.( 'gun_gd21_dmpa' )     = gun_gd21_dmpa;
+		edi.( 'det_gd21_dmpa' )     = det_gd21_dmpa;
+		edi.( 'virtual_gun2_dmpa' ) = virtual_gun2_dmpa;
+		edi.( 'fv_gd21_dmpa' )      = fv_gd21_dmpa;
+	end
+	
+	if cs_gse
+		edi.( 'gun_gd12_gse' )     = gun_gd12_gse;
+		edi.( 'det_gd12_gse' )     = det_gd12_gse;
+		edi.( 'virtual_gun1_gse' ) = virtual_gun1_gse;
+		edi.( 'fv_gd12_gse' )      = fv_gd12_gse;
+	
+		edi.( 'gun_gd21_gse' )     = gun_gd21_gse;
+		edi.( 'det_gd21_gse' )     = det_gd21_gse;
+		edi.( 'virtual_gun2_gse' ) = virtual_gun2_gse;
+		edi.( 'fv_gd21_gse' )      = fv_gd21_gse;
 	end
 end

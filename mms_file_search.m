@@ -100,6 +100,7 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	version   = '';
 	timeorder = '';
 	directory = '';
+	sdc_root = '/mmsa/sdc/';
 	nOptArgs = length(varargin);
 	
 	% Optional parameters
@@ -107,6 +108,8 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 		switch varargin{ii}
 			case 'Directory'
 				directory = varargin{ii+1};
+			case 'SDCroot'
+				sdc_root = varargin{ii+1};
 			case 'TStart'
 				tstart = varargin{ii+1};
 			case 'TEnd'
@@ -141,18 +144,16 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 % Directory                          %
 %------------------------------------%
 	if ~isempty(directory)
-		assert( exist(directory, 'dir') == 7, ['Directory does not exist: "' directory '".'] );
 		sdc_dir = directory;
 	else
 		% First half of directory
-		sdc_root = '/mmsa/sdc/';
 		sdc_dir  = fullfile(sdc_root, sc, instr, mode, level, optdesc);
 		
 		% Test the directory
 		assert( exist(sdc_dir, 'dir') == 7, ['SDC directory does not exist: "' sdc_dir '".'] );
 		
 		% Append the year, month, and day
-		sdc_dir = fullfile(sdc_dir, '%Y', '%M', '%d');
+		sdc_dir = fullfile(sdc_dir, '%Y', '%M');
 	end
 
 %------------------------------------%

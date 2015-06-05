@@ -58,6 +58,7 @@
 %   2015-04-23      Cleaned up code. Return structure for each gun.
 %   2015-05-25      Take file names as inputs. Read more data from files. Calculate
 %                     firing vectors. Filter by quality. Return a single structure. - MRA
+%   2015-06-03      spdfcdfread does not accept CDF IDs, so cannot pre-open files. - MRA
 %
 function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 
@@ -85,14 +86,14 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 % Check Files                        %
 %------------------------------------%
 	% Number of files given
-	if iscell(files)
-		nFiles = length(files);
+	if iscell(filenames)
+		nFiles = length(filenames);
 	else
 		nFiles = 1;
 	end
 
 	% Dissect the file name
-	[sc, instr, mode, level, ~, ~, optdesc] = mms_dissect_filename(files);
+	[sc, instr, mode, level, ~, ~, optdesc] = mms_dissect_filename(filenames);
 
 	% AFG or DFG
 	assert( min( strcmp(instr, 'edi') ) == 1, 'Only EDI files are allowed.' );
@@ -123,7 +124,7 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 	q_gd12_vname        = mms_construct_varname(sc, instr, 'sq_gd12');
 	tof_gd12_vname      = mms_construct_varname(sc, instr, 'tof1_us');
 	e_gd12_name         = mms_construct_varname(sc, instr, 'e_gd12');
-	num_chips_gd12_name = mms_construct_varname(sc, instr, 'num_chips_gd12');
+	num_chips_gd12_name = mms_construct_varname(sc, instr, 'numchips_gd12');
 	m_gd12_name         = mms_construct_varname(sc, instr, 'm_gd12');
 	n_gd12_name         = mms_construct_varname(sc, instr, 'n_gd12');
 	max_addr_gd12_name  = mms_construct_varname(sc, instr, 'max_addr_gd12');
@@ -134,7 +135,7 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 	q_gd21_vname        = mms_construct_varname(sc, instr, 'sq_gd21');
 	tof_gd21_vname      = mms_construct_varname(sc, instr, 'tof2_us');
 	e_gd21_name         = mms_construct_varname(sc, instr, 'e_gd21');
-	num_chips_gd21_name = mms_construct_varname(sc, instr, 'num_chips_gd21');
+	num_chips_gd21_name = mms_construct_varname(sc, instr, 'numchips_gd21');
 	m_gd21_name         = mms_construct_varname(sc, instr, 'm_gd21');
 	n_gd21_name         = mms_construct_varname(sc, instr, 'n_gd21');
 	max_addr_gd21_name  = mms_construct_varname(sc, instr, 'max_addr_gd21');
@@ -143,40 +144,29 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 % Read Data                          %
 %------------------------------------%
 
-	% Make sure we have a cell array
-	if nFiles == 1
-		filenames = { filenames };
-	end
-
-	% Open the files.
-	cdfIDs = zeros(1, nFiles, 'int32')
-	for ii = 1, nFiles
-		cdfIDs(ii) = cdf_open( filenames{ii} );
-	end
-	
 	%
 	% Firing vectors in [x,y,z] are not filled yet.
 	% Convert analog voltages to firing vectors outside.
 	%
-	[theta_gd12, epoch_gd12] = MrCDF_nRead(fname, theta_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	phi_gd12                 = MrCDF_nRead(fname, phi_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	q_gd12                   = MrCDF_nRead(fname, q_gd12_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	tof_gd12                 = MrCDF_nRead(fname, tof_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	e_gd12                   = MrCDF_nRead(fname, e_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	num_chips_gd12           = MrCDF_nRead(fname, num_chips_gd12_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	m_gd12                   = MrCDF_nRead(fname, m_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	n_gd12                   = MrCDF_nRead(fname, n_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	max_addr_gd12            = MrCDF_nRead(fname, max_addr_gd12_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	[theta_gd12, epoch_gd12] = MrCDF_nRead(filenames, theta_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd12                 = MrCDF_nRead(filenames, phi_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd12                   = MrCDF_nRead(filenames, q_gd12_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd12                 = MrCDF_nRead(filenames, tof_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	e_gd12                   = MrCDF_nRead(filenames, e_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	num_chips_gd12           = MrCDF_nRead(filenames, num_chips_gd12_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	m_gd12                   = MrCDF_nRead(filenames, m_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	n_gd12                   = MrCDF_nRead(filenames, n_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	max_addr_gd12            = MrCDF_nRead(filenames, max_addr_gd12_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
-	[theta_gd21, epoch_gd21] = MrCDF_nRead(fname, theta_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	phi_gd21                 = MrCDF_nRead(fname, phi_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	q_gd21                   = MrCDF_nRead(fname, q_gd21_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	tof_gd21                 = MrCDF_nRead(fname, tof_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	e_gd21                   = MrCDF_nRead(fname, e_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	num_chips_gd21           = MrCDF_nRead(fname, num_chips_gd21_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	m_gd21                   = MrCDF_nRead(fname, m_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	n_gd21                   = MrCDF_nRead(fname, n_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	max_addr_gd21            = MrCDF_nRead(fname, max_addr_gd21_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	[theta_gd21, epoch_gd21] = MrCDF_nRead(filenames, theta_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd21                 = MrCDF_nRead(filenames, phi_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd21                   = MrCDF_nRead(filenames, q_gd21_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd21                 = MrCDF_nRead(filenames, tof_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	e_gd21                   = MrCDF_nRead(filenames, e_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	num_chips_gd21           = MrCDF_nRead(filenames, num_chips_gd21_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	m_gd21                   = MrCDF_nRead(filenames, m_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	n_gd21                   = MrCDF_nRead(filenames, n_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	max_addr_gd21            = MrCDF_nRead(filenames, max_addr_gd21_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
 
 	%
@@ -189,12 +179,6 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 	%   gy = sin(phi) * sin(theta)
 	%   gz = cos(theta)
 	%
-	
-	% Close the files
-	for ii = 0, nFiles
-		cdf_close( cdfIDs(ii) );
-		cdfIDs(ii) = int32(0);
-	end
 	
 %------------------------------------%
 % Filter by Quality                  %
@@ -282,7 +266,7 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 	                        'polar_gd21',     theta_gd21,     ...
 	                        'azimuth_gd21',   phi_gd21,       ...
 	                        'fv_gd21_123',    fv_gd21,        ...
-	                        'q_gd21',         q_gd21,         ...
+	                        'quality_gd21',   q_gd21,         ...
 	                        'tof_gd21',       tof_gd21,       ...
 	                        'energy_gd21',    e_gd21,         ...
 	                        'num_chips_gd21', num_chips_gd21, ...

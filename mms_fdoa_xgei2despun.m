@@ -54,9 +54,9 @@ function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
 % Interpolate                        %
 %------------------------------------%
 	% Extract the right ascension and declination
-	ra  = attitude.(type)(:,1)';
-	dec = attitude.(type)(:,2)';
-	
+	ra  = attitude.(type)(1,:);
+	dec = attitude.(type)(2,:);
+
 	% Unwrap the phase
 	ra  = MrPhaseUnwrap(ra,  360.0);
 	dec = MrPhaseUnwrap(dec, 360.0);

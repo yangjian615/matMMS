@@ -83,10 +83,10 @@ function fg_ql = mms_fg_read_ql(files, tstart, tend)
 %------------------------------------%
 
 	% Create variable names
-	b_dmpa_name = mms_construct_varname(sc, instr, 'srvy', 'OptDesc', 'dmpa');
-	b_gsm_name = mms_construct_varname(sc, instr, 'srvy', 'OptDesc', 'gsm_dmpa');
-	x_gse_name = mms_construct_varname(sc, 'ql', 'pos',   'OptDesc', 'gse');
-	x_gsm_name = mms_construct_varname(sc, 'ql', 'pos',   'OptDesc', 'gsm');
+	b_dmpa_name = mms_construct_varname(sc, instr, 'srvy', 'dmpa');
+	b_gsm_name  = mms_construct_varname(sc, instr, 'srvy', 'gsm_dmpa');
+	x_gse_name  = mms_construct_varname(sc, 'ql',  'pos',  'gse');
+	x_gsm_name  = mms_construct_varname(sc, 'ql',  'pos',  'gsm');
 
 	% Read the magnetometer data
 	[b_dmpa, t] = MrCDF_nRead(files, b_dmpa_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
