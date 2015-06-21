@@ -10,20 +10,21 @@
 %.    5. Transform from SMPA to BCS (equivalent to OCS).
 %
 % Purpose
-%   Calibrate the fluxgate data and transform into the spacecraft
-%   body coordinate system (BCS).
+%   Read digital and analog fluxgate (DFG & AFG) magnetometer level
+%   1A data and turn it into level 1B data. L1B implies calibrated
+%   data in the spinning spacecraft body coordinate system.
 %
 % Calling Sequence
-%   [T, B_BCS] = mms_fg_bcs(FILES, HICAL_FILE, LOCAL_FILE)
+%   [T, B_BCS] = mms_fg_create_l1b(FILES, HICAL_FILE, LOCAL_FILE)
 %     Read, calibrate and rotate into BCS level 1A fluxgate data
 %     from files with names FILES, using hi- and lo-range
 %     calibration data found in files HICAL_FILE and LOCAL_FILE.
 %
-%   [T, B_BCS] = mms_fg_bcs(__, TSTART, TEND)
+%   [T, B_BCS] = mms_fg_create_l1b(..., TSTART, TEND)
 %     Return data within the time interval beginning at TSTART and
 %     ending at TEND.
 %
-%   [__, B_SMPA, B_OMB, B_123] = mms_fg_bcs(__)
+%   [__, B_SMPA, B_OMB, B_123] = mms_fg_create_l1b(__)
 %     Also return data in the SMPA and 123 coordinate systems.
 %
 % Parameters
@@ -45,8 +46,9 @@
 % History:
 %   2015-04-13      Written by Matthew Argall
 %   2015-05-21      Take filenames as input, not pieces of filenames. - MRA
+%   2015-06-21      Renamed from mms_fg_bcs to mms_fg_create_l1b. - MRA
 %
-function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend)
+function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend)
 
 	% Defaults
 	if nargin() < 4

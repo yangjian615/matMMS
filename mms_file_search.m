@@ -150,7 +150,7 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 		sdc_dir  = fullfile(sdc_root, sc, instr, mode, level, optdesc);
 		
 		% Test the directory
-		assert( exist(sdc_dir, 'dir') == 7, ['SDC directory does not exist: "' sdc_dir '".'] );
+%		assert( exist(sdc_dir, 'dir') == 7, ['SDC directory does not exist: "' sdc_dir '".'] );
 		
 		% Append the year, month, and day
 		sdc_dir = fullfile(sdc_dir, '%Y', '%M');
@@ -184,13 +184,14 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	% is a single file for the entire mission. Therefore, I assume
 	% that if one file is found, it contains data that extends into
 	% your time period of interest.
-	if nFiles > 1
+	%
+	if nFiles > 1 && ~isempty(tstart)
 		if nFiles == 1
 			[~, ~, ~, ~, fstart] = mms_dissect_filename( files );
 		else
 			[~, ~, ~, ~, fstart] = mms_dissect_filename( files{1} );
 		end
-		
+
 		if ~strcmp( fstart(1:4), tstart(1:4) ) || ...
 		   ~strcmp( fstart(5:6), tstart(6:7) ) || ...
 		   ~strcmp( fstart(7:8), tstart(9:10) )

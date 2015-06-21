@@ -33,7 +33,7 @@
 % History:
 %   2015-06-07      Written by Matthew Argall
 %
-function edp_ql = mms_fg_read_ql(files, tstart, tend)
+function edp_ql = mms_edp_read_ql(files, tstart, tend)
 
 	% Defaults
 	if nargin() < 2
@@ -62,7 +62,7 @@ function edp_ql = mms_fg_read_ql(files, tstart, tend)
 	if nFiles > 1
 		assert( min( strcmp(instr, instr{1}) ) == 1, 'All files must be from the same instrument.' );
 		assert( min( strcmp(mode, mode{1}) )   == 1, 'All files must have the same telemetry mode.' );
-	else
+	end
 
 	% We now know all the files match, so keep on the the first value.
 	if nFiles > 1

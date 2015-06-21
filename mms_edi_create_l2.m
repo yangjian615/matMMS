@@ -1,38 +1,52 @@
 %
 % Name
-%   mms_edi_read_efield
+%   mms_edi_create_l2
 %
 % Purpose
-%   Read MMS EDI electric field mode data files.
+%   Turn level 1A EDI electric-field mode data into level 2 quality data
+%   for use with BESTARG or the beam convergence method for calculating
+%   the electric field. L2 implies despun data in the spacecraft reference
+%   frame (no VxB removal) and in GSE coordinates.
 %
 % Calling Sequence
-%   [GD12_GSE, GD21_GSE] = mms_edi_read_efield(SC, INSTR, MODE, LEVEL, TSTART, TEND)
-%     Read EDI electric field mode data captured by spacecraft SC
-%     (e.g. 'mms3'), instrument INSTR (e.g. 'edi'), from telemetry
-%     mode MODE and data product level LEVEL between the time
-%     interval of [TSTART, TEND]. Times should be provided in ISO format:
-%     'yyyy-mm-ddThh:mm_ss'.
+%   EDI = mms_edi_create_l2(FILENAMES, TSTART, TEND)
+%     Read EDI electric field mode data from files named FILENAMES
+%     between the time interval of [TSTART, TEND]. Return a data
+%     structure EDI with fields given below. Times should be provided
+%     in ISO format: 'yyyy-mm-ddThh:mm_ss'.
 %
-%   [GD12_GSE, GD21_GSE] = mms_edi_read_efield(__, 'ParamName', ParamValue)
+%   [GD12_GSE, GD21_GSE] = mms_edi_create_l2(__, 'ParamName', ParamValue)
 %     Include any of the parameter name-value pairs below.
 %
-%   [..., GD12_DSL, GD21_DSL] = mms_edi_read_efield(__)
-%     Return gun and detector information in despun coordinates.
-%
-%   [..., GD12_BCS, GD21_BCS] = mms_edi_read_efield(__)
-%     Return gun and detector information in the spinning body coordinate system (BCS).
-%
 % Parameters
-%   SC              in, required, type=char/cell
-%   INSTR           in, required, type=char
-%   MODE            in, required, type=char
-%   LEVEL           in, required, type=char
+%   FILENAMES       in, required, type=char/cell
 %   TSTART          in, required, type=char
 %   TEND            in, required, type=char
 %   'Attitude'      in, optional, type = struct, default = []
 %                   Structure of definitive attitude data returned by mms_fdoa_read_defatt.m
+%   'CS_123'        in, optional, type=boolean, default=false
+%                   If true, data in the EDI sensor 123 coordinate system is included
+%                     in the returned data structure.
+%   'CS_BCS'        in, optional, type=boolean, default=false
+%                   If true, data in the BCS is included in the returned data structure.
+%   'CS_SMPA'       in, optional, type=boolean, default=false
+%                   If true, data in the SMPA coordinate system is included in the
+%                     returned data structure.
+%   'CS_DMPA'       in, optional, type=boolean, default=false
+%                   If true, data in the DMPA coordinate system is included in the
+%                     returned data structure.
+%   'CS_GSE'        in, optional, type=boolean, default=false
+%                   If true, data in the GSE coordinate system is included in the
+%                     returned data structure.
+%   'Quality'       in, optional, type=integer/array, default=[]
+%                   The quality of beams to process. Options are 0, 1, 2, 3, or any
+%                     combination of the four. By default, beams of all qualities are
+%                     processed.
 %   'SunPulse'      in, optional, type=struct, default=[]
 %                   Structure of HK 101 sunpulse data returned by mms_dss_read_sunpulse.m
+%   'zMPA'          in, optional, type=boolean, default=false
+%                   The z-MPA axis used for rotating from BCS to SMPA coordinates.
+%                     Available in the returned header structure from mms_fdoa_read_defatt.m
 %
 % Returns
 %   EDI             out, required, type=structure
@@ -53,11 +67,12 @@
 % Required Products None
 %
 % History:
-%   2015-05-14  Added detail to header. rlm
-%   2015-04-20  Data is despun with attitude data unless SunPulseDir is given. - MRA
 %   2015-04-19  Written by Matthew Argall
+%   2015-04-20  Data is despun with attitude data unless SunPulseDir is given. - MRA
+%   2015-05-14  Added detail to header. rlm
+%   2015-06-20  Renamed from mms_edi_bcs to mms_edi_create_l2. - MRA
 %
-function edi = mms_edi_gse(filenames, tstart, tend, varargin)
+function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
 
 	% Defaults
 	sunpulse = [];
@@ -101,10 +116,10 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 % Get EDI Data                       %
 %------------------------------------%
 	% EDI
-	edi = mms_edi_bcs(filenames, tstart, tend, ...
-	                  'CS_123',  cs_123, ...
-	                  'CS_BCS',  true, ...
-	                  'Quality', quality);
+	edi = mms_edi_create_l1b(filenames, tstart, tend, ...
+	                         'CS_123',  cs_123, ...
+	                         'CS_BCS',  true, ...
+	                         'Quality', quality);
 
 %------------------------------------%
 % Rotate to SMPA                     %
@@ -153,13 +168,13 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 
 	% Despin using definitive attitude
 	if isempty(sunpulse)
-		smpa2dmpa_gd12 = mms_fdoa_xdespin( attitude, edi.epoch_gd12, 'L' );
-		smpa2dmpa_gd21 = mms_fdoa_xdespin( attitude, edi.epoch_gd21, 'L' );
+		smpa2dmpa_gd12 = mms_fdoa_xdespin( attitude, edi.tt2000_gd12, 'L' );
+		smpa2dmpa_gd21 = mms_fdoa_xdespin( attitude, edi.tt2000_gd21, 'L' );
 	
 	% Despin using sun pulse times.
 	else
-		smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, edi.epoch_gd12 );
-		smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, edi.epoch_gd21 );
+		smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, edi.tt2000_gd12 );
+		smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, edi.tt2000_gd21 );
 	end
 
 	% Despin
@@ -179,8 +194,8 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 	% Can only rotate to GSE if we have attitude data.
 	if ~isempty(attitude) && cs_gse
 		% GEI -> Despun
-		gei2despun_gd12 = mms_fdoa_xgei2despun(attitude, edi.epoch_gd12, 'L');
-		gei2despun_gd21 = mms_fdoa_xgei2despun(attitude, edi.epoch_gd21, 'L');
+		gei2despun_gd12 = mms_fdoa_xgei2despun(attitude, edi.tt2000_gd12, 'L');
+		gei2despun_gd21 = mms_fdoa_xgei2despun(attitude, edi.tt2000_gd21, 'L');
 	
 		% Despun -> GEI
 		despun2gei_gd12 = permute(gei2despun_gd12, [2, 1, 3]);
@@ -209,7 +224,7 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 		%
 	
 		% GD12
-		timevec = MrCDF_Epoch_Breakdown( gd12_bcs.t_gd12 );
+		timevec = MrCDF_Epoch_Breakdown( gd12_bcs.tt2000_gd12 );
 		mjd     = date2mjd(timevec(1,:), timevec(2,:), timevec(3,:));
 		ssm = timevec(4,:) * 3600.0 + ...
 			  timevec(5,:) * 60.0   + ...
@@ -220,7 +235,7 @@ function edi = mms_edi_gse(filenames, tstart, tend, varargin)
 		GEI2GSE_gd12 = gei2gse(mjd, ssm);
 	
 		% GD21
-		timevec = MrCDF_Epoch_Breakdown( gd21_bcs.t_gd21 );
+		timevec = MrCDF_Epoch_Breakdown( gd21_bcs.tt2000_gd21 );
 		mjd     = date2mjd(timevec(1,:), timevec(2,:), timevec(3,:));
 		ssm = timevec(4,:) * 3600.0 + ...
 			  timevec(5,:) * 60.0   + ...

@@ -41,6 +41,8 @@
 %
 % History:
 %   2015-04-20      Written by Matthew Argall
+%   2015-06-19      GD12 and GD21 are handled separately. Can have beams
+%                       from only one of the guns. - MRA
 %
 function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 
@@ -112,72 +114,130 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 		it_gd12_interp = find( t_gd12_sse >= t_interp_range(1) & t_gd12_sse < t_interp_range(2) );
 		it_gd21_interp = find( t_gd21_sse >= t_interp_range(1) & t_gd21_sse < t_interp_range(2) );
 	
-		% No data
-		if isempty(it_fg_interp) || ( isempty(it_gd12_interp) & isempty(it_gd21_interp) )
-			epoch_range = MrCDF_sse2epoch(t_interp_range, t0);
-			epoch_range = MrCDF_Epoch_Encode(epoch_range);
-			warning('EDI:Bavg', 'No beams found between %s and %s', epoch_range{1}, epoch_range{2});
-			
-			% Move to next interval
-			t_avg_range    = t_avg_range + dt;
-			t_interp_range = t_interp_range + dt;
-			continue
-		end
-		
 		% Extract the interval for ease of access
 		b_fg_temp   = b_fg(:, it_fg_interp);
 		t_fg_temp   = t_fg_sse(:, it_fg_interp);
-		t_gd12_temp = t_gd12_sse(it_gd12_interp);
-		t_gd21_temp = t_gd21_sse(it_gd21_interp);
-	
-	%------------------------------------%
-	% Interpolate                        %
-	%------------------------------------%
-		% Interpolate to GD12 pair
-		b_fg_gd12      = zeros(3, length(t_gd12_temp));
-		b_fg_gd12(1,:) = spline( t_fg_temp, b_fg_temp(1,:), t_gd12_temp );
-		b_fg_gd12(2,:) = spline( t_fg_temp, b_fg_temp(2,:), t_gd12_temp );
-		b_fg_gd12(3,:) = spline( t_fg_temp, b_fg_temp(3,:), t_gd12_temp );
 		
-		% Interpolate to GD21 pair
-		b_fg_gd21      = zeros(3, length(t_gd21_temp));
-		b_fg_gd21(1,:) = spline( t_fg_temp, b_fg_temp(1,:), t_gd21_temp );
-		b_fg_gd21(2,:) = spline( t_fg_temp, b_fg_temp(2,:), t_gd21_temp );
-		b_fg_gd21(3,:) = spline( t_fg_temp, b_fg_temp(3,:), t_gd21_temp );
+	%------------------------------------%
+	% GD12                               %
+	%------------------------------------%
+		if isempty(it_gd12_interp)
+			n_gd12 = 0;
+			trange_interp = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_interp_range, t0 ) );
+			warning('EDI:Bavg', 'No GD12 beams to interpolate: %s and %s', trange_interp{1}, trange_interp{2});
+		else
+			% Extract interpolation interval
+			t_gd12_temp = t_gd12_sse(it_gd12_interp);
+			
+			% Allocate memory to output array
+			b_fg_gd12 = zeros(3, length(t_gd12_temp));
+
+			% Interpolate (x,y,z) components
+			b_fg_gd12(1,:) = spline( t_fg_temp, b_fg_temp(1,:), t_gd12_temp );
+			b_fg_gd12(2,:) = spline( t_fg_temp, b_fg_temp(2,:), t_gd12_temp );
+			b_fg_gd12(3,:) = spline( t_fg_temp, b_fg_temp(3,:), t_gd12_temp );
+			
+			% Get the beams within the averaging interval
+			%  --|-----{-----}-----|--
+			%    |  Interpolation  |
+			%          { Avg }
+			it_gd12_avg = find( t_gd12_temp >= t_avg_range(1) & t_gd12_temp < t_avg_range(2) );
+			if isempty(it_gd12_avg)
+				n_gd12 = 0;
+				trange_avg = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_avg_range, t0 ) );
+				warning('EDI:Bavg', 'No GD12 beams to average: %s and %s', trange_avg{1}, trange_avg{2});
+			else
+				% Magnetic field in averaging interval
+				b_fg_gd12 = b_fg_gd12(:, it_gd12_avg);
+				
+				% Number of beams in the average
+				n_gd12 = length(it_gd12_avg);
+			end
+		end
+		
+	%------------------------------------%
+	% GD21                               %
+	%------------------------------------%
+		if isempty(it_gd21_interp)
+			n_gd21 = 0;
+			trange_interp = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_interp_range, t0 ) );
+			warning('EDI:Bavg', 'No GD21 beams to interpolate: %s and %s', trange_interp{1}, trange_interp{2});
+		else
+			% Extract interpolation interval
+			t_gd21_temp = t_gd21_sse(it_gd21_interp);
+			
+			% Allocate memory to output array
+			b_fg_gd21 = zeros(3, length(t_gd21_temp));
+			
+			% Interpolate (x,y,z) components
+			b_fg_gd21(1,:) = spline( t_fg_temp, b_fg_temp(1,:), t_gd21_temp );
+			b_fg_gd21(2,:) = spline( t_fg_temp, b_fg_temp(2,:), t_gd21_temp );
+			b_fg_gd21(3,:) = spline( t_fg_temp, b_fg_temp(3,:), t_gd21_temp );
+			
+			% Get the beams within the averaging interval
+			%  --|-----{-----}-----|--
+			%    |  Interpolation  |
+			%          { Avg }
+			it_gd21_avg = find( t_gd21_temp >= t_avg_range(1) & t_gd21_temp < t_avg_range(2) );
+			if isempty(it_gd21_avg)
+				n_gd21 = 0;
+				trange_avg = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_avg_range, t0 ) );
+				warning('EDI:Bavg', 'No GD21 beams to average: %s and %s', trange_avg{1}, trange_avg{2});
+			else
+				% Magnetic field in averaging interval
+				b_fg_gd21 = b_fg_gd21(:, it_gd21_avg);
+				
+				% Number of beams in the average
+				n_gd21 = length(it_gd21_avg);
+			end
+		end
 	
 	%------------------------------------%
 	% Find Avg Interval & Average        %
 	%------------------------------------%
-		% Get the beams within the averaging interval
-		%   --|-----{-----}-----|--
-		%     |  Interpolation  |
-		%           { Avg }
-		it_gd12_avg = find( t_gd12_temp >= t_avg_range(1) & t_gd12_temp < t_avg_range(2) );
-		it_gd21_avg = find( t_gd21_temp >= t_avg_range(1) & t_gd21_temp < t_avg_range(2) );
-		
-		% Extract the data
-		b_fg_gd12 = b_fg_gd12(:, it_gd12_avg);
-		b_fg_gd21 = b_fg_gd21(:, it_gd21_avg);
-		
-		% Take the average
-		t_avg(count)   = int64(t_avg_range(1) * 1d9) + t0;
-		b_avg(:,count) = mean( [b_fg_gd12 b_fg_gd21], 2 );
-		b_std(:,count) = std( [b_fg_gd12 b_fg_gd21], 0, 2 );
-	
-		% Number of beams in the average
-		n_gd12 = length(it_gd12_avg);
-		n_gd21 = length(it_gd21_avg);
+		switch 1
+			case n_gd12 > 0 && n_gd21 > 0
+				% Time stamp comes at the beginning of the interval
+				t_avg(count) = int64(t_avg_range(1) * 1d9) + t0;
+			
+				% Average field & standard deviation
+				b_avg(:,count) = mean( [b_fg_gd12 b_fg_gd21], 2 );
+				b_std(:,count) = std(  [b_fg_gd12 b_fg_gd21], 0, 2 );
+			case n_gd12 > 0
+				t_avg(count)   = int64(t_avg_range(1) * 1d9) + t0;
+				b_avg(:,count) = mean( b_fg_gd12, 2 );
+				b_std(:,count) = std(  b_fg_gd12, 0, 2 );
+			case n_gd21 > 0
+				t_avg(count)   = int64(t_avg_range(1) * 1d9) + t0;
+				b_avg(:,count) = mean( b_fg_gd21, 2 );
+				b_std(:,count) = std(  b_fg_gd21, 0, 2 );
+			otherwise
+				% Do nothing
+				%  - This ensures that the Electric field, drift velocity,
+				%    and drift step calculated hereafter will have the same
+				%    number of points which occur at the same times as the
+				%    averaged magnetic field
+		end
 	
 	%------------------------------------%
 	% Store the Interpolated Data        %
 	%------------------------------------%
 		% Magnetic field
-		b_gd12(:, n_tot_gd12+1:n_tot_gd12+n_gd12) = b_fg_gd12;
-		b_gd21(:, n_tot_gd21+1:n_tot_gd21+n_gd21) = b_fg_gd21;
+		if n_gd12 > 0
+			% Interpolated field
+			b_gd12(:, n_tot_gd12+1:n_tot_gd12+n_gd12) = b_fg_gd12;
+			
+			% Index into B_avg
+			inds_gd12(n_tot_gd12+1:n_tot_gd12+n_gd12) = count;
+		end
 		
-		% Index of B associated with each beam
-		inds_gd12(n_tot_gd12+1:n_tot_gd12+n_gd12) = count;
-		inds_gd21(n_tot_gd21+1:n_tot_gd21+n_gd21) = count;
+		if n_gd21 > 0
+			% Interpolated field
+			b_gd21(:, n_tot_gd21+1:n_tot_gd21+n_gd21) = b_fg_gd21;
+			
+			% Index into B_avg
+			inds_gd21(n_tot_gd21+1:n_tot_gd21+n_gd21) = count;
+		end
 
 	%------------------------------------%
 	% Next Interval                      %

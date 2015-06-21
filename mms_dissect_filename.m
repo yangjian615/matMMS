@@ -59,8 +59,13 @@
 function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(filename)
 	
 	% Extract the directory
-	[path, fname, ext] = fileparts(filename);
-	fname              = [fname ext];
+	if iscell(filename)
+		[path, fname, ext] = cellfun(@fileparts, filename, 'UniformOutput', false);
+		fname              = strcat(fname, ext);
+	else
+		[path, fname, ext] = fileparts(filename);
+		fname              = [fname ext];
+	end
 	
 	% Form a recular expression to take apart the file name.
 	parts = regexp(fname, ['(mms[1-4])_', ...                % Spacecraft ID

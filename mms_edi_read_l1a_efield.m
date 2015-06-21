@@ -28,7 +28,8 @@
 % Returns
 %   EDI_L1A_EMODE   out, required, type=structure
 %                   Fields are:
-%                     'epoch_gd12'      -  TT2000 Epoch time.
+%                     'tt2000_gd12'     -  TT2000 Epoch time.
+%                     'tt2000_tag_gd12' -  TT2000 Epoch time for ENERGY_GD12.
 %                     'polar_gd12'      -  polar firing angle.
 %                     'azimuth_gd12'    -  azimuth firing angles.
 %                     'quality_gd12'    -  Quality flag.
@@ -39,7 +40,8 @@
 %                     'n_gd12'          -  Correlator chip length.
 %                     'max_addr_gd12'   -  Address of maximum beam correlation.
 %
-%                     'epoch_gd21'      -  TT2000 Epoch time.
+%                     'tt2000_gd21'     -  TT2000 Epoch time.
+%                     'tt2000_tag_gd21' -  TT2000 Epoch time for ENERGY_GD21.
 %                     'polar_gd21'      -  polar firing angle.
 %                     'azimuth_gd21'    -  azimuth firing angles.
 %                     'q_gd21'          -  Quality flag.
@@ -148,26 +150,25 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 	% Firing vectors in [x,y,z] are not filled yet.
 	% Convert analog voltages to firing vectors outside.
 	%
-	[theta_gd12, epoch_gd12] = MrCDF_nRead(filenames, theta_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	phi_gd12                 = MrCDF_nRead(filenames, phi_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	q_gd12                   = MrCDF_nRead(filenames, q_gd12_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	tof_gd12                 = MrCDF_nRead(filenames, tof_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	e_gd12                   = MrCDF_nRead(filenames, e_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	num_chips_gd12           = MrCDF_nRead(filenames, num_chips_gd12_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	m_gd12                   = MrCDF_nRead(filenames, m_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	n_gd12                   = MrCDF_nRead(filenames, n_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	max_addr_gd12            = MrCDF_nRead(filenames, max_addr_gd12_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	[theta_gd12, epoch_gd12]  = MrCDF_nRead(filenames, theta_gd12_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd12                  = MrCDF_nRead(filenames, phi_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd12                    = MrCDF_nRead(filenames, q_gd12_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd12                  = MrCDF_nRead(filenames, tof_gd12_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+%	[e_gd12, tt2000_tag_gd12] = MrCDF_nRead(filenames, e_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	num_chips_gd12            = MrCDF_nRead(filenames, num_chips_gd12_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	m_gd12                    = MrCDF_nRead(filenames, m_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	n_gd12                    = MrCDF_nRead(filenames, n_gd12_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	max_addr_gd12             = MrCDF_nRead(filenames, max_addr_gd12_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
-	[theta_gd21, epoch_gd21] = MrCDF_nRead(filenames, theta_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	phi_gd21                 = MrCDF_nRead(filenames, phi_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	q_gd21                   = MrCDF_nRead(filenames, q_gd21_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	tof_gd21                 = MrCDF_nRead(filenames, tof_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	e_gd21                   = MrCDF_nRead(filenames, e_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	num_chips_gd21           = MrCDF_nRead(filenames, num_chips_gd21_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	m_gd21                   = MrCDF_nRead(filenames, m_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	n_gd21                   = MrCDF_nRead(filenames, n_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-	max_addr_gd21            = MrCDF_nRead(filenames, max_addr_gd21_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
-
+	[theta_gd21, epoch_gd21]  = MrCDF_nRead(filenames, theta_gd21_vname,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	phi_gd21                  = MrCDF_nRead(filenames, phi_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	q_gd21                    = MrCDF_nRead(filenames, q_gd21_vname,        'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	tof_gd21                  = MrCDF_nRead(filenames, tof_gd21_vname,      'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+%	[e_gd21, tt2000_tag_gd21] = MrCDF_nRead(filenames, e_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	num_chips_gd21            = MrCDF_nRead(filenames, num_chips_gd21_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	m_gd21                    = MrCDF_nRead(filenames, m_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	n_gd21                    = MrCDF_nRead(filenames, n_gd21_name,         'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	max_addr_gd21             = MrCDF_nRead(filenames, max_addr_gd21_name,  'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
 	%
 	% Firing angles
@@ -189,8 +190,8 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 		end
 		
 		% Find quality
-		iq_gd12 = ismember(gd12.q_gd12, quality);
-		iq_gd21 = ismember(gd21.q_gd21, quality);
+		iq_gd12 = ismember(q_gd12, quality);
+		iq_gd21 = ismember(q_gd21, quality);
 		
 		% Number of beams of the selected quality
 		nq_gd12 = length(iq_gd12);
@@ -206,19 +207,22 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 		end
 		
 		% Select data
+		%   - For those related to EPOCH_GD{12 | 21}
 		epoch_gd12     = epoch_gd12(iq_gd12);
+		phi_gd12       = phi_gd12(iq_gd12);
+		theta_gd12     = theta_gd12(iq_gd12);
 		q_gd12         = q_gd12(iq_gd12);
 		tof_gd12       = tof_gd12(iq_gd12);
-		e_gd12         = e_gd12(iq_gd12);
 		num_chips_gd12 = num_chips_gd12(iq_gd12);
 		m_gd12         = m_gd12(iq_gd12);
 		n_gd12         = n_gd12(iq_gd12);
 		max_addr_gd12  = max_addr_gd12(iq_gd12);
 		
 		epoch_gd21     = epoch_gd21(iq_gd21);
+		phi_gd21       = phi_gd21(iq_gd21);
+		theta_gd21     = theta_gd21(iq_gd21);
 		q_gd21         = q_gd21(iq_gd21);
 		tof_gd21       = tof_gd21(iq_gd21);
-		e_gd21         = e_gd21(iq_gd21);
 		num_chips_gd21 = num_chips_gd21(iq_gd21);
 		m_gd21         = m_gd21(iq_gd21);
 		n_gd21         = n_gd21(iq_gd21);
@@ -251,26 +255,28 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 %------------------------------------%
 % Create the Output Structure        %
 %------------------------------------%
-	edi_l1a_emode = struct( 'epoch_gd12',     epoch_gd12,     ...      GD12
-	                        'polar_gd12',     theta_gd12,     ...
-	                        'azimuth_gd12',   phi_gd12,       ...
-	                        'fv_gd12_123',    fv_gd12,        ...
-	                        'quality_gd12',   q_gd12,         ...
-	                        'tof_gd12',       tof_gd12,       ...
-	                        'energy_gd12',    e_gd12,         ...
-	                        'num_chips_gd12', num_chips_gd12, ...
-	                        'm_gd12',         m_gd12,         ...
-	                        'n_gd12',         n_gd12,         ...
-	                        'max_addr_gd12',  max_addr_gd12,  ...
-	                        'epoch_gd21',     epoch_gd21,     ...      GD21
-	                        'polar_gd21',     theta_gd21,     ...
-	                        'azimuth_gd21',   phi_gd21,       ...
-	                        'fv_gd21_123',    fv_gd21,        ...
-	                        'quality_gd21',   q_gd21,         ...
-	                        'tof_gd21',       tof_gd21,       ...
-	                        'energy_gd21',    e_gd21,         ...
-	                        'num_chips_gd21', num_chips_gd21, ...
-	                        'm_gd21',         m_gd21,         ...
-	                        'n_gd21',         n_gd21,         ...
-	                        'max_addr_gd21',  max_addr_gd21 );
+%	                        'energy_gd12',     e_gd12,         ...
+%	                        'energy_gd21',     e_gd21,         ...,     ...
+%	                        'tt2000_tag_gd12', tt2000_tag_gd12, ...
+%	                        'tt2000_tag_gd21', tt2000_tag_gd21
+	edi_l1a_emode = struct( 'azimuth_gd12',    phi_gd12,       ...
+	                        'azimuth_gd21',    phi_gd21,       ...
+	                        'fv_gd12_123',     fv_gd12,        ...
+	                        'fv_gd21_123',     fv_gd21,        ...
+	                        'n_gd12',          n_gd12,         ...
+	                        'n_gd21',          n_gd21,         ...
+	                        'num_chips_gd12',  num_chips_gd12, ...
+	                        'num_chips_gd21',  num_chips_gd21, ...
+	                        'm_gd12',          m_gd12,         ...
+	                        'm_gd21',          m_gd21,         ...
+	                        'max_addr_gd12',   max_addr_gd12,  ...
+	                        'max_addr_gd21',   max_addr_gd21,  ...
+	                        'polar_gd12',      theta_gd12,     ...
+	                        'polar_gd21',      theta_gd21,     ...
+	                        'quality_gd12',    q_gd12,         ...
+	                        'quality_gd21',    q_gd21,         ...
+	                        'tof_gd12',        tof_gd12,       ...
+	                        'tof_gd21',        tof_gd21 ,      ...
+	                        'tt2000_gd12',     epoch_gd12,     ...
+	                        'tt2000_gd21',     epoch_gd21 );
 end

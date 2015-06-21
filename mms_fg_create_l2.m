@@ -3,8 +3,9 @@
 %   mms_sc_gse
 %
 % Purpose
-%   Take l1a search coil data, calibrate, despin, and rotate into
-%   GSE.
+%   Turn level 1A AFG and DFG data into level 2 quality data. L2 implies
+%   despun data in the spacecraft reference frame (no VxB removal) and in
+%   GSE coordinates.
 %
 %   Process:
 %     1. Find, read, calibrate l1a data
@@ -12,19 +13,19 @@
 %     3. Transform to GSE
 %
 % Calling Sequence
-%   [T, B_GSE] = mms_fg_bcs(FILES, HICAL_FILE, LOCAL_FILE)
+%   [T, B_GSE] = mms_fg_create_l1a(FILES, HICAL_FILE, LOCAL_FILE)
 %     Read, calibrate and rotate into GSE level 1A fluxgate data
 %     from files with names FILES, using hi- and lo-range
 %     calibration data found in files HICAL_FILE and LOCAL_FILE.
 %
-%   [T, B_GSE] = mms_fg_bcs(__, TSTART, TEND)
+%   [T, B_GSE] = mms_fg_create_l1a(__, TSTART, TEND)
 %     Return data within the time interval beginning at TSTART and
 %     ending at TEND.
 %
-%   [__, B_DMPA, B_SMPA, B_OMB, B_123] = mms_fg_bcs(__)
+%   [__, B_DMPA, B_SMPA, B_OMB, B_123] = mms_fg_create_l1a(__)
 %     Also return data in the DMPA, SMPA, OMB, and 123 coordinate systems.
 %
-%   [__] = mms_fg_bcs(..., 'ParamName', ParamValue)
+%   [__] = mms_fg_create_l1a(..., 'ParamName', ParamValue)
 %     Any parameter name-value pair found below.
 %
 % Parameters
@@ -55,7 +56,7 @@
 %   2015-04-20      Added 'SunPulseDir' parameter.
 %   2015-05-21      Take filenames as input, not pieces of filenames.
 %
-function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_gse(files, hiCal_file, loCal_file, tstart, tend, varargin)
+function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
@@ -85,13 +86,13 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_gse(files, hiC
 %------------------------------------%
 	switch nargout()
 		case 7
-			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
 		case 6
-			[t, b_bcs, b_smpa, b_omb] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa, b_omb] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
 		case 5
-			[t, b_bcs, b_smpa] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
 		otherwise
-			[t, ~, b_smpa] = mms_fg_bcs(files, hiCal_file, loCal_file, tstart, tend);
+			[t, ~, b_smpa] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
 	end
 
 %------------------------------------%

@@ -6,7 +6,7 @@
 % 	beams (5s): firingVectors_gse, quality, runnerOrder, position;
 % 	mag: Bfield_avg_gse
 
-function E_dmpa = edi_drift_step ( ...
+function [E_dmpa, driftVelocity_dmpa, driftStep_dmpa] = edi_drift_step ( ...
 		b_tt2000, ...
 		b_avg_dmpa, ...
 		edi_gun1_virtual_dmpa, ...
@@ -57,7 +57,7 @@ function E_dmpa = edi_drift_step ( ...
 	gd12_b_bpp = zeros (1, length (edi_gun1_virtual_dmpa), 'double');
 	gd21_m_bpp = zeros (1, length (edi_gun2_virtual_dmpa), 'double');
 	gd21_b_bpp = zeros (1, length (edi_gun2_virtual_dmpa), 'double');
-             
+
 	% -~-~-~-~-~-~-~-~-~
 	% A gd12 beam originates in gun 1 and is detected in det 2.
 	% Find all the beam slopes and y-intercepts
@@ -109,8 +109,8 @@ function E_dmpa = edi_drift_step ( ...
 	GrubbsBeamInterceptMean        = mean (GrubbsBeamIntercepts, 2);
 	GrubbsBeamInterceptStdDev      = std (GrubbsBeamIntercepts, 1, 2);
 	GrubbsBeamInterceptMean_stdDev = GrubbsBeamInterceptStdDev / sqrt (nGrubbsBeamIntercepts); % x,y mean std dev
-	disp ( sprintf ('nGrubbsBeamIntercepts %4d : GrubbsInterceptMean, StdDev: (%+7.3f, %+7.3f) (%+7.3f, %+7.3f)', ...
-		nGrubbsBeamIntercepts, GrubbsBeamInterceptMean, GrubbsBeamInterceptStdDev) )
+%	disp ( sprintf ('nGrubbsBeamIntercepts %4d : GrubbsInterceptMean, StdDev: (%+7.3f, %+7.3f) (%+7.3f, %+7.3f)', ...
+%		nGrubbsBeamIntercepts, GrubbsBeamInterceptMean, GrubbsBeamInterceptStdDev) )
 
 	% -~-~-~-~-~-~-~-~-~
 	% -~-~-~-~-~-~-~-~-~
@@ -119,6 +119,22 @@ function E_dmpa = edi_drift_step ( ...
 	driftStep_bpp = [ GrubbsBeamInterceptMean(1); GrubbsBeamInterceptMean(2); 0.0 ];
 	gyroFrequency = (q * B2n * nT2T) / e_mass; % (SI) (|q| is positive here.)
 	gyroPeriod    = (twoPi / gyroFrequency);    % (SI) The result is usually on the order of a few ms
+	
+	driftStep_dmpa = (DMPA2BPP' * driftStep_bpp);
+	
+	% -~-~-~-~-~-~-~-~-~
+	% -~-~-~-~-~-~-~-~-~
+	% -~-~-~-~-~-~-~-~-~
+	% Drift Velocity
+	driftVelocity_bpp  = driftStep_bpp * gyroPeriod;
+	driftVelocity_dmpa = (DMPA2BPP' * driftVelocity_bpp);
+	
+	
+	% -~-~-~-~-~-~-~-~-~
+	% -~-~-~-~-~-~-~-~-~
+	% -~-~-~-~-~-~-~-~-~
+	% Electric Field
+	
 	% driftStep * B^2 / gyroPeriod = E_bpp x B_bpp =>
 	% 	E_bpp = cross ( (driftStep * B2n*B2n / gyroPeriod), B_bpp) / dot (B_bpp, B_bpp);
 	%OR

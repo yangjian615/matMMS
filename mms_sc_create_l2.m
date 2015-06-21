@@ -3,8 +3,9 @@
 %   mms_sc_gse
 %
 % Purpose
-%   Take l1a search coil data, calibrate, despin, and rotate into
-%   GSE.
+%   Turn level 1A SCM data into level 2 quality data. L2 implies
+%   despun data in the spacecraft reference frame (no VxB removal) and in
+%   GSE coordinates.
 %
 %   Process:
 %     1. Find, read, calibrate l1a data
@@ -12,45 +13,37 @@
 %     3. Transform to GSE
 %
 % Calling Sequence
-%   [T, B_GSE] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
+%   [T, B_GSE] = mms_sc_create_l2(SC_FILES, CAL_FILE, TSTART, TEND)
 %     Find and read search coil magnetometer and transfer function
-%     data from MMS scacecraft SC (e.g. 'mms1') from instrument
-%     INSTR (i.e. 'scm') in telemetry mode MODE (e.g. 'comm') during
-%     the time interval [TSTART, TEND]. Calibrate the data and
-%     transform into the spacecraft body frame (BCS), despin, and
-%     transform into GSE. Return the data and its time tags B_GSE
-%     and T.
+%     data from files SC_FILES and CAL_FILE during the time interval
+%     [TSTART, TEND]. Return the data and its time tags B_GSE and T.
 %
-%   [..., B_DMPA] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
+%   [..., B_DMPA] = mms_sc_create_l2(__)
 %     Also return the magnetic field in DMPA.
 %
-%   [..., B_SMPA] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
+%   [..., B_SMPA] = mms_sc_create_l2(__)
 %     Also return the magnetic field in SMPA.
 %
-%   [..., B_BCS] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
+%   [..., B_BCS] = mms_sc_create_l2(__)
 %     Also return the magnetic field in BCS.
 %
-%   [__] = mms_sc_bcs(__, 'ParamName', ParamValue)
+%   [__] = mms_sc_create_l2(__, 'ParamName', ParamValue)
 %     Any parameter name-value pair found below.
 %
 % Parameters
-%   SC              in, required, type = char
-%   INSTR           in, required, type = char
-%   MODE            in, required, type = char
+%   SC_FILES        in, required, type = char/cell
+%   CAL_FILE        in, required, type = char
 %   TSTART          in, optional, type = char
 %   TEND            in, optional, type = char
-%   'AttDir'        in, optional, type = char default = 'DataDir'
-%                   Directory in which to find attitude data.
-%   'CalDir'        in, optional, type = char default = 'DataDir'
-%                   Directory in which to find calibration data.
-%   'DataDir'       in, optional, type = char default = 'DataDir'
-%                   Directory in which to find search coil data.
+%   'Attitude'      in, optional, type = struct, default = []
+%                   Structure of definitive attitude data returned by mms_fdoa_read_defatt.m
 %   'Duration'      in, optional, type = char default = 'DataDir'
 %                   Time duration over which to calibrate data.
-%   'SunPulseDir'   in, optional, type = char default = 'DataDir'
-%                   Data in which to find HK 0x101 sunpulse data. If given, the
-%                     magnetic field will be despun using sunpulse, not attitude
-%                     data.
+%   'SunPulse'      in, optional, type=struct, default=[]
+%                   Structure of HK 101 sunpulse data returned by mms_dss_read_sunpulse.m
+%   'zMPA'          in, optional, type=boolean, default=false
+%                   The z-MPA axis used for rotating from BCS to SMPA coordinates.
+%                     Available in the returned header structure from mms_fdoa_read_defatt.m
 %
 % Returns
 %   T               out, required, type=1xN int64
@@ -65,8 +58,9 @@
 % History:
 %   2015-04-15      Written by Matthew Argall
 %   2015-05-07      Added 'SunPulseDir'. - MRA
+%   2015-06-21      Renamed from mms_sc_gse to mms_sc_create_l2. - MRA
 %
-function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_gse(sc_files, cal_file, tstart, tend, varargin)
+function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_files, cal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
@@ -99,7 +93,7 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_gse(sc_files, 
 %------------------------------------%
 % Calibrated & Rotate to BCS         %
 %------------------------------------%
-	[t, b_bcs, b_cal, b_123] = mms_sc_bcs(sc_files, cal_file, tstart, tend, duration);
+	[t, b_bcs, b_cal, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration);
 
 %------------------------------------%
 % BCS --> SMPA                       %

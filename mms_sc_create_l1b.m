@@ -3,7 +3,9 @@
 %   mms_sc_calibrate
 %
 % Purpose
-%   Calibrate MMS search coil data and transform into BCS.
+%   Read searchcoil magnetometer (SCM) level 1A data and turn it
+%   into level 1B data. L1B implies calibrated data in the spinning
+%   spacecraft body coordinate system.
 %
 %   Process:
 %     1. Find and read calibration file
@@ -16,16 +18,18 @@
 %       c) Inverse fourier transform
 %
 % Calling Sequence
-%   [T, B_BCS] = mms_sc_bcs(SC, INSTR, MODE, TSTART, TEND)
+%   [T, B_BCS] = mms_sc_create_l1b(SC_FILES, CAL-FILE, TSTART, TEND)
 %     Find and read search coil magnetometer and transfer function
-%     data from MMS scacecraft SC (e.g. 'mms1') from instrument
-%     INSTR (i.e. 'scm') in telemetry mode MODE (e.g. 'comm') during
+%     data from files SC_FILES and CAL_FILE during
 %     the time interval [TSTART, TEND]. Calibrate the data and
 %     transform into the spacecraft body frame (BCS). Return the data
 %     and its time tags B_BCS and T.
 %
-%   [__] = mms_sc_bcs(__, 'ParamName', ParamValue)
-%     Any parameter name-value pair found below.
+%   [T, B_BCS] = mms_sc_create_l1b(__, DURATION)
+%     Specify the length of each calibration interval.
+%
+%   [..., B_OMB, B_123] = mms_sc_create_l1b(__)
+%     Also return data in the OMB and 123 coordinate systems.
 %
 % Parameters
 %   SC_FILES        in, required, type = char/cell
@@ -35,10 +39,10 @@
 %   DURATION        in, optional, type = char default = 600.0
 %
 % Returns
-%   T               out, optional, type=1xN int64 (cdf_time_tt2000)
+%   T               out, required, type=1xN int64 (cdf_time_tt2000)
 %   B_BCS           out, required, type=3xN double
-%   B_OMB           out, required, type=3xN double
-%   B_123           out, required, type=3xN double
+%   B_OMB           out, optional, type=3xN double
+%   B_123           out, optional, type=3xN double
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -46,8 +50,9 @@
 % History:
 %   2015-04-14      Written by Matthew Argall
 %   2015-05-11      Take file names as inputs. Return data in OMB and 123. - MRA
+%   2015-06-21      renamed from mms_sc_bcs to mms_sc_create_l1b. - MRA
 %
-function [t, b_bcs, b_omb, b_123] = mms_sc_bcs(sc_files, cal_file, tstart, tend, duration)
+function [t, b_bcs, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration)
 
 	if nargin < 5
 		duration = 600.0;
