@@ -1,15 +1,17 @@
 function [] = edi_drift_step_plot ( ...
-	b_tt2000, ...
-	edi_gun1_virtual_bpp, edi_gun2_virtual_bpp, ...
-	edi_gd12_fv_bpp, edi_gd21_fv_bpp, ...
+	obsID, ...
+	B_tt2000, ...
+	gd_virtual_bpp, ...
+	gd_fv_bpp, ...
 	DMPA2BPP, ...
-	GrubbsBeamInterceptMean, GrubbsBeamInterceptMean_stdDev);
+	GrubbsBeamIntercepts, GrubbsBeamInterceptMean, GrubbsBeamInterceptMean_stdDev, ...
+	P0);
 
-	myColors        % MMS custom colors; set default axis colors
+	myLibAppConstants % custom colors; set default axis colors
 	cPathSep = pathsep;
 	cFileSep = filesep;
+	global dotVersion
 
-	% if it doesn't exist, create it
 	hBPP_figure = figure ('Position', [ 400   150   850   800 ]);
 	set (hBPP_figure, 'WindowStyle', 'normal')
 	set (hBPP_figure, 'DockControls', 'off')
@@ -33,10 +35,6 @@ function [] = edi_drift_step_plot ( ...
 		BPP_plane (2,:), ...
 		BPP_plane (3,:), ...
 		'LineStyle', '-', 'LineWidth', 1.0, 'Color', myDarkBlue);
-	title ( { ...
-		['1. The BPP coordinate system'];
-		['~> click plot to advance...'];
-		[] }, 'Fontname', 'Times');
 
 	AxisMax = 4;
 	axis ([ -AxisMax AxisMax  -AxisMax AxisMax  -AxisMax AxisMax ]); % expanded axes for viewing larger drift steps
@@ -52,7 +50,7 @@ function [] = edi_drift_step_plot ( ...
 	view ([ 0 90 ])
 	set (gcf, 'Units', 'normal')
 	set (gca, 'Position', [0.01 0.01 0.99 0.99])
-
+% keyboard
 	GDU_planeInBPP = DMPA2BPP * virtual_instr_plane;
 	hBPP_plotElements (2) = plot3 ( ...
 		GDU_planeInBPP (1,:), ...
@@ -63,25 +61,25 @@ function [] = edi_drift_step_plot ( ...
 
 	% 	edi_gun1_virtual_bpp = DMPA2BPP * edi_gun1_virtual_dmpa;
 	% 	edi_gun2_virtual_bpp = DMPA2BPP * edi_gun2_virtual_dmpa;
-		all_guns_virtual_bpp = [ edi_gun1_virtual_bpp, edi_gun2_virtual_bpp ];
+% 		all_guns_virtual_bpp = [ edi_gun1_virtual_bpp, edi_gun2_virtual_bpp ];
 	% 	edi_gd12_fv_bpp  = DMPA2BPP * edi_gd12_fv_dmpa;
 	% 	edi_gd21_fv_bpp  = DMPA2BPP * edi_gd21_fv_dmpa;
-		allgdxx_fv_bpp = [ edi_gd12_fv_bpp, edi_gd21_fv_bpp ];
+% 		allgdxx_fv_bpp = [ edi_gd12_fv_bpp, edi_gd21_fv_bpp ];
 
 	% GDU_BPP_coords = DMPA2BPP * GDU_OCS_coords;
 	hBPP_plotElements (3) = plot3 ( ...
-		all_guns_virtual_bpp (1,:), ...
-		all_guns_virtual_bpp (2,:), ...
-		all_guns_virtual_bpp (3,:), ...
+		gd_virtual_bpp (1,:), ...
+		gd_virtual_bpp (2,:), ...
+		gd_virtual_bpp (3,:), ...
 		'LineStyle', 'none', 'Marker', 'o', 'MarkerFaceColor', myDarkRed, 'MarkerEdgeColor', myDarkRed, 'MarkerSize', 5.0);
 	disp 'step 3 ~> GDUs as seen in BPP'
-
-	for i=1: length (all_guns_virtual_bpp)
+% keyboard
+	for i=1: size (gd_virtual_bpp, 2)
 		% The beams are // already [supposed to be] // parallel to BPP, so all we need to do is move them to the GDUs.
 		% This should place them all in the same plane.
-		GDU_Loc   = all_guns_virtual_bpp (:,i);
-		BeamStart = GDU_Loc - 6.0 * allgdxx_fv_bpp (:,i);
-		BeamEnd   = GDU_Loc + 6.0 * allgdxx_fv_bpp (:,i);
+		GDU_Loc   = gd_virtual_bpp (:,i);
+		BeamStart = GDU_Loc - 6.0 * gd_fv_bpp (:,i);
+		BeamEnd   = GDU_Loc + 6.0 * gd_fv_bpp (:,i);
 		BeamStartBPP = BeamStart; % OCS2BPP * BeamStart;
 		BeamEndBPP   = BeamEnd; % OCS2BPP * BeamEnd;
 
@@ -99,28 +97,156 @@ function [] = edi_drift_step_plot ( ...
 % 	disp ( sprintf ('Beam convergence: %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f %+8.3f', ...
 % 		GrubbsBeamInterceptMean, GrubbsBeamInterceptStdDev, GrubbsBeamInterceptMean_stdDev) )
 
-	ConfidenceBounds_z84 = 1.405; % norminv (0.92); % norminv (1.0 - (1.0 - 0.84) / 2.0);
+	ConfidenceBounds = norminv (1.0 - (1.0 - P0) / 2.0);
 	ConfidenceIntervals = [ ...
-		GrubbsBeamInterceptMean-(ConfidenceBounds_z84*GrubbsBeamInterceptMean_stdDev),... % x, y lower limits
-		GrubbsBeamInterceptMean+(ConfidenceBounds_z84*GrubbsBeamInterceptMean_stdDev) ];  % x, y upper limits
+		GrubbsBeamInterceptMean-(ConfidenceBounds*GrubbsBeamInterceptMean_stdDev),... % x, y lower limits
+		GrubbsBeamInterceptMean+(ConfidenceBounds*GrubbsBeamInterceptMean_stdDev) ];  % x, y upper limits
 	disp (['Grubbs 84% confidence intervals   = ', sprintf('( %g, %g )', ConfidenceIntervals) ])
-	r = rectangle ('Position', [ ...
-		ConfidenceIntervals(1,1), ...
-		ConfidenceIntervals(2,1), ...
-		ConfidenceIntervals(1,2)-ConfidenceIntervals(1,1), ...
-		ConfidenceIntervals(2,2)-ConfidenceIntervals(2,1) ], ...
-		'LineStyle', '--', 'LineWidth', 3);
-	set (r, 'edgecolor', myOrange)
+	if ( ((ConfidenceIntervals(1,2) - ConfidenceIntervals(1,1)) > 0.0) & ...
+	     ((ConfidenceIntervals(2,2) - ConfidenceIntervals(2,1)) > 0.0) )
+		r = rectangle ('Position', [ ...
+			ConfidenceIntervals(1,1), ...
+			ConfidenceIntervals(2,1), ...
+			ConfidenceIntervals(1,2)-ConfidenceIntervals(1,1), ...
+			ConfidenceIntervals(2,2)-ConfidenceIntervals(2,1) ], ...
+			'LineStyle', '--', 'LineWidth', 1);
+		set (r, 'edgecolor', myOrange)
+	end
 
-	% mms4_edi_slow_l1a_efield_20150506_SDP__EDI_2D_driftstep_E_field__B_avg_3Dd
-	bTimeStr = datestr (spdftt2000todatenum (b_tt2000), 'yyyy-mm-dd HH:MM:ss.fff');
+	for i = 1: size (GrubbsBeamIntercepts, 2)
+		hBPP_plotElements (6) = plot3 ( ...
+			GrubbsBeamIntercepts (1,i), ...
+			GrubbsBeamIntercepts (2,i), ...
+			0.0, ...
+			'LineStyle', 'none', 'Marker', 'o', 'MarkerFaceColor', myGold, 'MarkerEdgeColor', myGold, 'MarkerSize', 2.0);
+% 			zeros (1, length (GrubbsBeamIntercepts), 'double'), ...
+	end
+
+	nBeamIntercepts = length (GrubbsBeamIntercepts);
+	bTimeStr = datestr (spdftt2000todatenum (B_tt2000), 'yyyy-mm-dd HH:MM:ss');
+	title ( { ...
+		[ 'EDI drift step using beam convergence, ', dotVersion, ', BPP'];
+		[ 'MMS', obsID, ': B (UTC): ', bTimeStr, ', P_{0} = ', num2str(P0, 3), ' Points = ', num2str(nBeamIntercepts) ];
+		[ '~> click plot to advance...'];
+		[] }, 'Fontname', 'Times');
+
+	% Example: 'mms4_edi_slow_l1a_efield_20150506_SDP__EDI_2D_driftstep_E_field__B_avg_3Dd'
 	SavePlotFilename = [ ...
-		'.' cFileSep 'mms4_edi_', ...
+		'.' cFileSep 'mms', obsID, '_edi_', ...
 		bTimeStr(1:4) bTimeStr(6:7) bTimeStr(9:10) '_drift_E__SDP__Bavg_', ...
-		bTimeStr(12:13) bTimeStr(15:16) bTimeStr(18:23), ...
-		];
-	saveas (hBPP_figure, [ SavePlotFilename, '.png' ], 'png');
+		bTimeStr(12:13) bTimeStr(15:16) bTimeStr(18:19), ...
+		'-', dotVersion, 'a.png' ];
+	hgexport (gcf, SavePlotFilename, EDI_presentation_beam_plot_style);
 
-	dummy = waitforbuttonpress;
+% 	saveas (hBPP_figure, [ SavePlotFilename, '-v0101a.png' ], 'png');
+% keyboard
+
+% 	dummy = waitforbuttonpress;
 	close (hBPP_figure);
 end
+
+% 00 - default
+% 01 - Expand axes to fill figure - clips badly - NO
+% 02 - Custom color = w for white frame
+% 03a- Auto
+% 03b- 600 dpi
+% 04a- auto, painters
+% 04b- a600 dpi, painters, not much change from 03a,b
+% 05a- screen ?= auto
+% 06 - 300 looks as good as 600
+% 07 - lines >= 1 point - good
+% 08 - lines, scale, min 1 point, - good
+% assume your style sheet's name is <foo.txt>
+%{
+% create a fig
+     plot(1:10);
+     fnam='your_fig.png'; % your file name
+% the engine
+% ...get style sheet info
+     snam='foo'; % note: NO extension...
+     s=hgexport('readstyle',snam);
+% ...apply style sheet info
+     hgexport(gcf,fnam,s);
+
+
+% create an example fig that we want to format with style file 'foo'
+ plot(rand(14,10));
+
+ % get style sheet info
+ snam='foo'; % The name of your style file (NO extension)
+ s = hgexport ('readstyle',snam);
+
+ %apply style sheet info
+ fnam='myfig.jpeg'; % your file name
+ s.Format = 'jpeg'; %I needed this to make it work but maybe you wont.
+ hgexport (gcf, fnam, s);
+
+if you just want to apply the style to the figure itself,
+the matlab-command hgexport(gcf,'temp_dummy','mystyle','applystyle', true);
+
+s = hgexport ('readstyle','EDI beam plots')
+s =
+            Version: '1'
+             Format: 'eps'
+            Preview: 'none'
+              Width: 'auto'
+             Height: 'auto'
+              Units: 'inches'
+              Color: 'rgb'
+         Background: 'w'
+      FixedFontSize: '10'
+     ScaledFontSize: 'auto'
+           FontMode: 'scaled'
+        FontSizeMin: '8'
+     FixedLineWidth: '1'
+    ScaledLineWidth: 'auto'
+           LineMode: 'scaled'
+       LineWidthMin: '1'
+           FontName: 'auto'
+         FontWeight: 'auto'
+          FontAngle: 'auto'
+       FontEncoding: 'latin1'
+            PSLevel: '2'
+           Renderer: 'painters'
+         Resolution: '300'
+       LineStyleMap: 'none'
+         ApplyStyle: '0'
+             Bounds: 'loose'
+           LockAxes: 'on'
+      LockAxesTicks: 'off'
+             ShowUI: 'on'
+       SeparateText: 'off'
+
+s = hgexport ('readstyle','EDI presentation beam plots')
+EDI_presentation_beam_plot_style =
+            Version: '1'
+             Format: 'eps'
+            Preview: 'none'
+              Width: 'auto'
+             Height: 'auto'
+              Units: 'inches'
+              Color: 'rgb'
+         Background: 'w'
+      FixedFontSize: '10'
+     ScaledFontSize: 'auto'
+           FontMode: 'scaled'
+        FontSizeMin: '8'
+     FixedLineWidth: '1'
+    ScaledLineWidth: 'auto'
+           LineMode: 'fixed'
+       LineWidthMin: '1'
+           FontName: 'auto'
+         FontWeight: 'auto'
+          FontAngle: 'auto'
+       FontEncoding: 'latin1'
+            PSLevel: '2'
+           Renderer: 'painters'
+         Resolution: '300'
+       LineStyleMap: 'none'
+         ApplyStyle: '0'
+             Bounds: 'loose'
+           LockAxes: 'on'
+      LockAxesTicks: 'on'
+             ShowUI: 'on'
+       SeparateText: 'off'
+%}

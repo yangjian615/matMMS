@@ -27,14 +27,15 @@
 % Returns
 %   B_DATA          out, required, type=structure
 %                   Fields are:
-%                     't_avg'     -  Time of the averaged data.
-%                     'dt_avg'    -  Time interval between points.
-%                     'b_avg'     -  Averaged data.
-%                     'b_std'     -  Standard deviation of the averaged data.
-%                     'b_gd12'    -  B_FG interpolated onto T_GD12.
-%                     'b_gd21'    -  B_FG interpolated onto T_GD21.
-%                     'inds_gd12' -  Indices into B_AVG onto which T_GD12 map.
-%                     'inds_gd21' -  Indices into B_AVG onto which T_GD21 map.
+%                     't_avg'       -  Time of the averaged data.
+%                     'dt_avg'      -  Time interval between points.
+%                     'b_avg'       -  Averaged data.
+%                     'b_std'       -  Standard deviation of the averaged data.
+%                     'b_gd12'      -  B_FG interpolated onto T_GD12.
+%                     'b_gd21'      -  B_FG interpolated onto T_GD21.
+%                     'recnum'      -  Record number of each element of T_AVG
+%                     'recnum_gd12' -  Location of each GD12 beam within T_AVG.
+%                     'recnum_gd21' -  Location of each GD21 beam within T_AVG.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -43,6 +44,8 @@
 %   2015-04-20      Written by Matthew Argall
 %   2015-06-19      GD12 and GD21 are handled separately. Can have beams
 %                       from only one of the guns. - MRA
+%   2015-06-21      Indices are now 0-based instead of 1-based. - MRA
+%   2015-06-22      Added RECNUM fields to output structure. - MRA
 %
 function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 
@@ -68,14 +71,15 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 	N_gd21 = length(t_gd21);
 	
 	% Allocate memory
-	nOut      = max( [N_fg N_gd12 N_gd21] );
-	t_avg     = zeros(1, nOut, 'int64');
-	b_avg     = zeros(3, nOut);
-	b_std     = zeros(3, nOut);
-	inds_gd12 = zeros(1, N_gd12, 'int32');
-	inds_gd21 = zeros(1, N_gd21, 'int32');
-	b_gd12    = zeros(3, N_gd12);
-	b_gd21    = zeros(3, N_gd21);
+	nOut        = max( [N_fg N_gd12 N_gd21] );
+	t_avg       = zeros(1, nOut, 'int64');
+	b_avg       = zeros(3, nOut);
+	b_std       = zeros(3, nOut);
+	recnum      = zeros(1, nOut, 'int32');
+	recnum_gd12 = zeros(1, N_gd12, 'int32');
+	recnum_gd21 = zeros(1, N_gd21, 'int32');
+	b_gd12      = zeros(3, N_gd12);
+	b_gd21      = zeros(3, N_gd21);
 	
 %------------------------------------%
 % Loop Through Each Interval         %
@@ -203,14 +207,17 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 				% Average field & standard deviation
 				b_avg(:,count) = mean( [b_fg_gd12 b_fg_gd21], 2 );
 				b_std(:,count) = std(  [b_fg_gd12 b_fg_gd21], 0, 2 );
+				recnum(count)  = count - 1;
 			case n_gd12 > 0
 				t_avg(count)   = int64(t_avg_range(1) * 1d9) + t0;
 				b_avg(:,count) = mean( b_fg_gd12, 2 );
 				b_std(:,count) = std(  b_fg_gd12, 0, 2 );
+				recnum(count)  = count - 1;
 			case n_gd21 > 0
 				t_avg(count)   = int64(t_avg_range(1) * 1d9) + t0;
 				b_avg(:,count) = mean( b_fg_gd21, 2 );
 				b_std(:,count) = std(  b_fg_gd21, 0, 2 );
+				recnum(count)  = count - 1;
 			otherwise
 				% Do nothing
 				%  - This ensures that the Electric field, drift velocity,
@@ -227,24 +234,24 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 			% Interpolated field
 			b_gd12(:, n_tot_gd12+1:n_tot_gd12+n_gd12) = b_fg_gd12;
 			
-			% Index into B_avg
-			inds_gd12(n_tot_gd12+1:n_tot_gd12+n_gd12) = count;
+			% Index (0-based) into B_avg
+			recnum_gd12(n_tot_gd12+1:n_tot_gd12+n_gd12) = count - 1;
 		end
 		
 		if n_gd21 > 0
 			% Interpolated field
 			b_gd21(:, n_tot_gd21+1:n_tot_gd21+n_gd21) = b_fg_gd21;
 			
-			% Index into B_avg
-			inds_gd21(n_tot_gd21+1:n_tot_gd21+n_gd21) = count;
+			% Index (0-based) into B_avg
+			recnum_gd21(n_tot_gd21+1:n_tot_gd21+n_gd21) = count - 1;
 		end
 
 	%------------------------------------%
 	% Next Interval                      %
 	%------------------------------------%
-		
-		% Up the number of b-fields
-		count = count + 1;
+		if n_gd12 > 0 || n_gd21 > 0
+			count = count + 1;
+		end
 		
 		% Total number of beams
 		n_tot_gd12 = n_tot_gd12 + n_gd12;
@@ -258,19 +265,20 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 %------------------------------------%
 % Trim Data                          %
 %------------------------------------%
-
 	% Trim data
-	t_avg = t_avg(1:count-1);
-	b_avg = b_avg(:, 1:count-1);
-	b_std = b_std(:, 1:count-1);
+	t_avg  = t_avg(1:count-1);
+	b_avg  = b_avg(:, 1:count-1);
+	b_std  = b_std(:, 1:count-1);
+	recnum = recnum(1:count-1);
 	
 	% Output structure
-	b_avg = struct( 't_avg',     t_avg,     ...
-	                'dt_avg',    dt,        ...
-	                'b_avg',     b_avg,     ...
-	                'b_std',     b_std,     ...
-	                'b_gd12',    b_gd12,    ...
-	                'b_gd21',    b_gd21,    ...
-	                'inds_gd12', inds_gd12, ...
-	                'inds_gd21', inds_gd21 );
+	b_avg = struct( 't_avg',       t_avg,       ...
+	                'dt_avg',      dt,          ...
+	                'b_avg',       b_avg,       ...
+	                'b_std',       b_std,       ...
+	                'b_gd12',      b_gd12,      ...
+	                'b_gd21',      b_gd21,      ...
+	                'recnum',      recnum,      ...
+	                'recnum_gd12', recnum_gd12, ...
+	                'recnum_gd21', recnum_gd21 );
 end

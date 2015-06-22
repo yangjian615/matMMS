@@ -1,4 +1,4 @@
-function [ dataMean, dataSigma, dataOut ] = GrubbsTestForOutliers (dataIn, thisAlpha);
+function [ dataMean, dataSigma, dataOut ] = GrubbsTestForOutliers (dataIn, dataWeight, thisAlpha);
 % dataIn must be reasonably approximated by a normal distribution.
 % References:
 % "Procedures for Detecting Outlying Observations in Samples,"
@@ -10,21 +10,24 @@ function [ dataMean, dataSigma, dataOut ] = GrubbsTestForOutliers (dataIn, thisA
 
 	nArgsIn    = nargin;
 	nVarArgout = nargout;
-	assert (nArgsIn == 2, 'GrubbsTestForOutliers: args: data, alpha.');
+	assert (nArgsIn == 3, 'GrubbsTestForOutliers: args: data, weights, alpha.');
 
+% 	disp 'Entering GrubbsTestForOutliers'
 	dataOut = dataIn;
 
 	while 1
-		dataMean  = nanmean (dataOut);
-		dataSigma = nanstd (dataOut);
-		diffFromMean = abs (dataOut - dataMean);
-
-		[ maxVal iMax ] = max (diffFromMean);
+		sumWeights   = nansum (dataWeight);
+		dataMean     = nansum ((dataOut .* dataWeight)) / sumWeights;
+		diffFromMean = dataOut - dataMean;
+		dataSigma    = sqrt (nansum (diffFromMean.^2 .* dataWeight) / sumWeights);
+% keyboard
+		[ maxVal iMax ] = max (abs (diffFromMean));
 		Gtest = maxVal / dataSigma;
 		critical_Z = tDistroCriticalZ (thisAlpha, length (dataOut));
-
+% [ Gtest  critical_Z dataSigma]
 		if Gtest > critical_Z
-			dataOut (iMax) = NaN;
+			dataOut    (iMax) = NaN;
+			dataWeight (iMax) = 0.0; % Could be zero or NaN ~> affect other calcs?
 		else
 			break;
 		end
@@ -39,8 +42,15 @@ function critical_Z = tDistroCriticalZ (thisAlpha, DoF)
 	% For two-sided tests (see above), the hypothesis of no outliers is rejected if
 	% G = max |Y[i - Ymean| / dataSigma   >   zcrit
 	% For one-sided tests, use a significance level of level of alpha/N.
+	% Critical value for an upper one-tailed test: 2.032: alpha = 0.05, DoF=8 (8 samples) (ref above)
+	% clc
+	% thisAlpha=0.05
+	% DoF=8
+	% tDistCritSq = tinv (thisAlpha / DoF, DoF - 2.0)^2.0
+	% critical_Z = (DoF-1.0) * sqrt ( tDistCritSq / (DoF * (DoF - 2.0 + tDistCritSq)) )
+
 	tDistCritSq = tinv (thisAlpha / DoF, DoF - 2.0)^2.0;
-	critical_Z = (DoF-1.0) * (sqrt (tDistCritSq / (DoF * (DoF - 2.0 + tDistCritSq)) ));
+	critical_Z = (DoF-1.0) * sqrt ( tDistCritSq / (DoF * (DoF - 2.0 + tDistCritSq)) );
 end
 
 % Test data
@@ -53,3 +63,12 @@ end
 % Critical value for an upper one-tailed test:  2.032
 % Reject H0 if G > 2.032
 % GoodUMassSpec = GrubbsTestForOutliers (UMassSpec, 0.05)
+
+% aa=0:0.1:15;
+% weight=1-cosd(aa);
+% plot (aa, weight, 'r');
+% expWeight10 = 10.^(weight)-1.0;
+% expWeight = exp(weight)-1.0;
+% hold on
+% plot (aa, expWeight10, 'g');
+% plot (aa, expWeight, 'b');

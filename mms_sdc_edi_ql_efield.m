@@ -53,27 +53,47 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	attitude_dir = fullfile(sdc_root, 'ancillary', sc, 'defatt');
 	hk_root      = fullfile(sdc_root, 'hk');
 	beam_quality = 3;
-	dt           = 5.0;
+	create_log_file = false;
+	dt              = 5.0;
 
 	% Optional arguments
 	nOptArgs = length(varargin);
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
+			case 'AttitudeDir'
+				attitude_dir = varargin{ii+1};
+			case 'BeamQuality'
+				beam_quality = varargin{ii+1};
+			case 'CreateLogFile'
+				create_log_file = varargin{ii+1};
+			case 'dt'
+				dt = varargin{ii+1};
+			case 'HKdir'
+				hk_root = varargin{ii+1};
 			case 'SDCroot'
 				sdc_root = varargin{ii+1};
 			case 'SaveDir'
 				save_dir = varargin{ii+1};
-			case 'AttitudeDir'
-				attitude_dir = varargin{ii+1};
-			case 'HKdir'
-				hk_root = varargin{ii+1};
-			case 'BeamQuality'
-				beam_quality = varargin{ii+1};
-			case 'dt'
-				dt = varargin{ii+1};
 			otherwise
 				error(['Unknown input parameter: "' varargin{ii} '".']);
 		end
+	end
+
+%------------------------------------%
+% Log File                           %
+%------------------------------------%
+	if create_log_file
+		% Create a file name
+		log_name = mms_construct_fname( sc, 'edi', 'slow', 'ql', ...
+		                                'OptDesc',   'efield', ...
+		                                'TStart',    tstart, ...
+		                                'Version',   'v0.1.1' );
+		% Change extension to 'log'
+		[~, log_name] = fileparts(log_name)
+		log_name      = fullfile( save_dir, [log_name '.log']);
+		
+		% Create the log object
+		oLog = MrErrorLogger(log_name, 'Timestamp', true)
 	end
 
 %------------------------------------%
@@ -130,6 +150,16 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	                                         'SDCroot',   sdc_root);
 	assert(count > 0, ['EDI file not found: "' str '".']);
 
+	% Write names to log file
+	if create_log_file
+		oLog.AddText( 'Parent files:');
+		oLog.AddText( strcat('  FG:      "', fg_file,  '"') );
+		oLog.AddText( strcat('  DSS:     "', dss_file, '"') );
+		oLog.AddText( strcat('  DefAtt:  "', att_file, '"') );
+		oLog.AddText( strcat('  EDI:     "', edi_file, '"') );
+		oLog.AddText( '' );
+	end
+
 %------------------------------------%
 % Read Data                          %
 %------------------------------------%
@@ -164,7 +194,7 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	t0 = min( [edi.tt2000_gd12(1)   edi.tt2000_gd21(1)  ] );
 	t1 = max( [edi.tt2000_gd12(end) edi.tt2000_gd21(end)] );
 	
-	% Round down to the nearest 5-seconds
+	% Breakdown into time vectors
 	tvec = MrCDF_Epoch_Breakdown( [t0, t1] );
 	
 	% Round down to the nearest 5 seconds and recompute
@@ -186,48 +216,68 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 % Compute Drift Step                 %
 %------------------------------------%
 	% Allocate memory
-	E_dmpa = zeros( size(b_avg.b_avg), 'double');
-	v_dmpa = zeros( size(b_avg.b_avg), 'double');
-	d_dmpa = zeros( size(b_avg.b_avg), 'double');
+	E_dmpa     = zeros( size(b_avg.b_avg), 'double');
+	v_dmpa     = zeros( size(b_avg.b_avg), 'double');
+	d_dmpa     = zeros( size(b_avg.b_avg), 'double');
+	d_std_dmpa = zeros( size(b_avg.b_avg), 'double');
 
 	% Step through each interval
-	for ii = 1 : size(b_avg.b_avg, 2)
+	for ii = 1 : length(b_avg.recnum)
+		recnum = b_avg.recnum(ii);
 		
 		% B field data
-		b_tt2000   = b_avg.t_avg(ii);
-		b_avg_dmpa = b_avg.b_avg(1:3, ii);
+		B_tt2000 = b_avg.t_avg(ii);
+		B_dmpa   = b_avg.b_avg(1:3, ii);
 
 		% GDU data that corresponds to the B field data: position and firing vectors
-		iigd12_b_avgIntrp     = find( b_avg.inds_gd12 == ii );
-		edi_gun1_virtual_dmpa = edi.virtual_gun1_dmpa(:, iigd12_b_avgIntrp);
-		edi_gd12_fv_dmpa      = edi.fv_gd12_dmpa(:, iigd12_b_avgIntrp);
-		edi_gd12_tof          = edi.tof_gd12 (iigd12_b_avgIntrp);
+		iigd12_b_avgIntrp = find( b_avg.recnum_gd12 == recnum );
+		iigd21_b_avgIntrp = find( b_avg.recnum_gd21 == recnum );
 
-		iigd21_b_avgIntrp     = find( b_avg.inds_gd21 == ii );
-		edi_gun2_virtual_dmpa = edi.virtual_gun2_dmpa(:, iigd21_b_avgIntrp);
-		edi_gd21_fv_dmpa      = edi.fv_gd21_dmpa(:, iigd21_b_avgIntrp);
-		edi_gd21_tof          = edi.tof_gd21(iigd21_b_avgIntrp);
+		% Virtual gun positions
+		gd_virtual_dmpa = [ edi.virtual_gun1_dmpa(:, iigd12_b_avgIntrp), ...
+		                    edi.virtual_gun2_dmpa(:, iigd21_b_avgIntrp) ];
+		
+		% Firing Vectors
+		gd_fv_dmpa = [ edi.fv_gd12_dmpa(:, iigd12_b_avgIntrp), ...
+		               edi.fv_gd21_dmpa(:, iigd21_b_avgIntrp) ];
+		
+		% Time of Flight
+		gd_tof = [ edi.tof_gd12(iigd12_b_avgIntrp), ...
+		           edi.tof_gd21(iigd21_b_avgIntrp) ];
+		
+		% Gun ID of each data point
+		n_gd12                = size( iigd12_b_avgIntrp, 2 );
+		gd_ID                 = ones( 1, size(gd_virtual_dmpa, 2) );
+		gd_ID( n_gd12+1:end ) = 2;
 		
 		% Compute the electric field
-		if (length (edi_gun1_virtual_dmpa) > 2) & (length (edi_gun2_virtual_dmpa) > 2)
-			[E_temp, v_temp, d_temp] ...
-				= edi_drift_step ( b_tt2000, ...
-				                   b_avg_dmpa, ...
-				                   edi_gun1_virtual_dmpa, ...
-				                   edi_gd12_fv_dmpa, ...
-				                   edi_gun2_virtual_dmpa, ...
-				                   edi_gd21_fv_dmpa, ...
-				                   edi_gd12_tof, ...
-				                   edi_gd21_tof );
+		if size(gd_virtual_dmpa, 2) > 2
+			[ d_temp d_std_temp v_temp E_temp ] ...
+				= edi_drift_step( B_tt2000, ...
+				                  B_dmpa, ...
+				                  gd_virtual_dmpa, ...
+				                  gd_fv_dmpa, ...
+				                  gd_ID );
 			
-			E_dmpa(:, ii) = E_temp;
-			v_dmpa(:, ii) = v_temp;
-			d_dmpa(:, ii) = d_temp;
+			% Replace NaN with fill value
+			if isnan(E_temp(1))
+				E_temp     = [ -1e31; -1e31; -1e31 ];
+				v_temp     = [ -1e31; -1e31; -1e31 ];
+				d_temp     = [ -1e31; -1e31; -1e31 ];
+				d_std_temp = [ -1e31; -1e31; -1e31 ];
+			end
 		else
-			E_dmpa(:, ii) = [ -1e31; -1e31; -1e31 ];
-			v_dmpa(:, ii) = [ -1e31; -1e31; -1e31 ];
-			d_dmpa(:, ii) = [ -1e31; -1e31; -1e31 ];
+			E_temp     = [ -1e31; -1e31; -1e31 ];
+			v_temp     = [ -1e31; -1e31; -1e31 ];
+			d_temp     = [ -1e31; -1e31; -1e31 ];
+			d_std_temp = [ -1e31; -1e31; -1e31 ];
 		end
+		
+		% Store results	
+		E_dmpa(:, ii) = E_temp;
+		v_dmpa(:, ii) = v_temp;
+		d_dmpa(:, ii) = d_temp;
+		d_dmpa(:, ii) = d_std_temp;
 	end
 
 %------------------------------------%
@@ -245,12 +295,13 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	                 'tend',         tend, ...
 	                 'parents',      { { fg_file, dss_file, att_file{:}, edi_file } }, ...
 	                 'tt2000',       b_avg.t_avg', ...
-	                 'dt',           b_avg.dt_avg, ...
+	                 'dt',           int32( b_avg.dt_avg ) * int32(1e9), ... % s -> ns
 	                 'B_dmpa',       b_avg.b_avg', ...
-	                 'B_std',        b_avg.b_std', ...
+	                 'B_std_dmpa',   b_avg.b_std', ...
 	                 'E_dmpa',       E_dmpa', ...
 	                 'v_dmpa',       v_dmpa', ...
 	                 'd_dmpa',       d_dmpa', ...
+	                 'd_std_dmpa',   d_std_dmpa', ...
 	                 'tt2000_gd12',  edi.tt2000_gd12', ...
 	                 'tt2000_gd21',  edi.tt2000_gd21', ...
 	                 'b_gd12_dmpa',  b_avg.b_gd12', ...
@@ -259,8 +310,9 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	                 'pos_vg2_dmpa', edi.virtual_gun2_dmpa', ...
 	                 'fv_gd12_dmpa', edi.fv_gd12_dmpa', ...
 	                 'fv_gd21_dmpa', edi.fv_gd21_dmpa', ...
-	                 'inds_gd12',    b_avg.inds_gd12', ...
-	                 'inds_gd21',    b_avg.inds_gd12', ...
+	                 'recnum',       b_avg.recnum', ...
+	                 'recnum_gd12',  b_avg.recnum_gd12', ...
+	                 'recnum_gd21',  b_avg.recnum_gd21', ...
 	                 'quality_gd12', edi.quality_gd12', ...
 	                 'quality_gd21', edi.quality_gd21' ...
 	               );
@@ -269,5 +321,5 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	clear edi b_avg
 
 	% Write data to a file
-	file = mms_sdc_edi_write_ql_efield(edi_ql);
+	edi_ql_file = mms_sdc_edi_write_ql_efield(edi_ql);
 end
