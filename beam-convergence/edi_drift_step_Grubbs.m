@@ -12,7 +12,7 @@ function [ dataMean, dataSigma, dataOut ] = GrubbsTestForOutliers (dataIn, dataW
 	nVarArgout = nargout;
 	assert (nArgsIn == 3, 'GrubbsTestForOutliers: args: data, weights, alpha.');
 
-% 	disp 'Entering GrubbsTestForOutliers'
+	% disp 'Entering GrubbsTestForOutliers'
 	dataOut = dataIn;
 
 	while 1
@@ -20,11 +20,11 @@ function [ dataMean, dataSigma, dataOut ] = GrubbsTestForOutliers (dataIn, dataW
 		dataMean     = nansum ((dataOut .* dataWeight)) / sumWeights;
 		diffFromMean = dataOut - dataMean;
 		dataSigma    = sqrt (nansum (diffFromMean.^2 .* dataWeight) / sumWeights);
-% keyboard
+
 		[ maxVal iMax ] = max (abs (diffFromMean));
 		Gtest = maxVal / dataSigma;
 		critical_Z = tDistroCriticalZ (thisAlpha, length (dataOut));
-% [ Gtest  critical_Z dataSigma]
+
 		if Gtest > critical_Z
 			dataOut    (iMax) = NaN;
 			dataWeight (iMax) = 0.0; % Could be zero or NaN ~> affect other calcs?

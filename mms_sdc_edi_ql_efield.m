@@ -48,11 +48,11 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 % MMS4: May 6, 2015  15:30 - 15:35
 
 	% Defaults
-	sdc_root     = '/nfs/';
-	save_dir     = '/nfs/edi/';
-	attitude_dir = fullfile(sdc_root, 'ancillary', sc, 'defatt');
-	hk_root      = fullfile(sdc_root, 'hk');
-	beam_quality = 3;
+	sdc_root        = '/nfs/';
+	save_dir        = '/nfs/edi/';
+	attitude_dir    = fullfile(sdc_root, 'ancillary', sc, 'defatt');
+	hk_root         = fullfile(sdc_root, 'hk');
+	beam_quality    = 3;
 	create_log_file = false;
 	dt              = 5.0;
 
@@ -135,7 +135,7 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	                                   'TStart',       tstart, ...
 	                                   'TEnd',         tend, ...
 	                                   'TimeOrder',    '%Y%D', ...
-	                                   'VersionRegex', 'V([0-9]{2})' );	
+	                                   'VersionRegex', 'V([0-9]{2})' );
 	
 	% EDI L1A E-Field Data File
 	%    - Find last, so file descriptors are saved.
@@ -249,7 +249,7 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 		n_gd12                = size( iigd12_b_avgIntrp, 2 );
 		gd_ID                 = ones( 1, size(gd_virtual_dmpa, 2) );
 		gd_ID( n_gd12+1:end ) = 2;
-		
+
 		% Compute the electric field
 		if size(gd_virtual_dmpa, 2) > 2
 			[ d_temp d_std_temp v_temp E_temp ] ...
@@ -272,12 +272,12 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 			d_temp     = [ -1e31; -1e31; -1e31 ];
 			d_std_temp = [ -1e31; -1e31; -1e31 ];
 		end
-		
+
 		% Store results	
-		E_dmpa(:, ii) = E_temp;
-		v_dmpa(:, ii) = v_temp;
-		d_dmpa(:, ii) = d_temp;
-		d_dmpa(:, ii) = d_std_temp;
+		E_dmpa(:, ii)     = E_temp;
+		v_dmpa(:, ii)     = v_temp;
+		d_dmpa(:, ii)     = d_temp;
+		d_std_dmpa(:, ii) = d_std_temp;
 	end
 
 %------------------------------------%
