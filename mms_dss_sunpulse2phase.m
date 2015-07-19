@@ -94,7 +94,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	nMinGap  = 4;
 	iFill    = find( nInGap > nMinGap );
 	nBigGaps = length(iFill);
-	
+
 	% Warn about gaps
 	if nBigGaps > 0
 		msg = sprintf('%d gaps of more than %f seconds.', nBigGaps, double(nMinGap*T_median)*1e-9);

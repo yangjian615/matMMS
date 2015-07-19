@@ -26,15 +26,10 @@
 % History:
 %   2015-04-19      Written by Matthew Argall
 %
-function spin2despun = mms_dss_xdespin( sunpulse, times, instr, arg4 )
+function spin2despun = mms_dss_xdespin( sunpulse, times, tf_spinup )
 
-	tf_spinup = false;
 	if nargin < 3
-		instr = 'BCS';
-	end
-	if nargin > 3
-		assert( ischar(arg4) && strcmp(arg4, 'SpinUp'), 'Unknown parameter in position 4.')
-		tf_spinup = true;
+		tf_spinup = false;
 	end
 
 	% Build matrix
