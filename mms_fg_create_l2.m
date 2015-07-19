@@ -22,8 +22,8 @@
 %     Return data within the time interval beginning at TSTART and
 %     ending at TEND.
 %
-%   [__, B_DMPA, B_SMPA, B_OMB, B_123] = mms_fg_create_l1a(__)
-%     Also return data in the DMPA, SMPA, OMB, and 123 coordinate systems.
+%   [__, B_GEI, B_DMPA, B_SMPA, B_OMB, B_123] = mms_fg_create_l1a(__)
+%     Also return data in the GEI, DMPA, SMPA, OMB, and 123 coordinate systems.
 %
 %   [__] = mms_fg_create_l1a(..., 'ParamName', ParamValue)
 %     Any parameter name-value pair found below.
@@ -42,6 +42,7 @@
 % Returns
 %   T               out, required, type=1xN int64
 %   B_GSE           out, required, type=3xN double
+%   B_GEI           out, optional, type=3xN double
 %   B_DMPA          out, optional, type=3xN double
 %   B_BCS           out, optional, type=3xN double
 %   B_SMPA          out, optional, type=3xN double
@@ -56,7 +57,7 @@
 %   2015-04-20      Added 'SunPulseDir' parameter.
 %   2015-05-21      Take filenames as input, not pieces of filenames.
 %
-function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend, varargin)
+function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_l2(files, hiCal_file, loCal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
@@ -85,14 +86,14 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_l1a(fil
 % Calibrated Mag in BCS              %
 %------------------------------------%
 	switch nargout()
+		case 8
+			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
 		case 7
-			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa, b_omb] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
 		case 6
-			[t, b_bcs, b_smpa, b_omb] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
-		case 5
-			[t, b_bcs, b_smpa] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
 		otherwise
-			[t, ~, b_smpa] = mms_fg_create_l1a(files, hiCal_file, loCal_file, tstart, tend);
+			[t, ~, b_smpa] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
 	end
 
 %------------------------------------%
@@ -105,7 +106,7 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_l1a(fil
 	
 	% Despin using attitude data
 	if isempty(sunpulse)
-		smpa2dmpa = mms_fdoa_xdespin( attitude, t, 'L', [upper(instr) '_123'] );
+		smpa2dmpa = mms_fdoa_xdespin( attitude, t, 'L' );
 	
 	% Despin using sunpulse directory
 	else

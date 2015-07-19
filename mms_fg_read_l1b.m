@@ -64,7 +64,7 @@ function fg_l1b = mms_fg_read_l1b(files, tstart, tend)
 	if nFiles > 1
 		assert( min( strcmp(instr, instr{1}) ) == 1, 'All files must be from the same instrument.' );
 		assert( min( strcmp(mode, mode{1}) )   == 1, 'All files must have the same telemetry mode.' );
-	else
+	end
 	assert( min( strcmp(level, 'l1b') ) == 1, 'Only L1B files are allowed.' );
 
 	% We now know all the files match, so keep on the the first value.

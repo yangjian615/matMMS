@@ -61,7 +61,7 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
 	% However, the packet time marks the beginning of the
 	% data capture, so there should be no problem.
 	%
-	
+
 	% histc() does not take int64.
 	t_sse       = MrCDF_epoch2sse(t, t_range(1));
 	t_range_sse = MrCDF_epoch2sse(t_range, t_range(1));

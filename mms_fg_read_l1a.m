@@ -92,7 +92,7 @@ function fg_l1a = mms_fg_read_l1a(files, tstart, tend)
 	end
 
 	% Read the magnetometer data
-	[b_123,  t]      = MrCDF_nRead(files, b_name,     'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
+	[b_123, t]       = MrCDF_nRead(files, b_name,     'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 	[range, t_range] = MrCDF_nRead(files, range_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 	sample_rate      = MrCDF_nRead(files, sr_name,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
@@ -101,5 +101,5 @@ function fg_l1a = mms_fg_read_l1a(files, tstart, tend)
 	                 'tt2000_ts',   t_range, ...
 	                 'b_123',       b_123, ...
 	                 'range',       range, ...
-	                 'sample_rate', sample_rate );
+	                 'sample_rate', 1.0 ./ sample_rate );
 end
