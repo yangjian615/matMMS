@@ -6,19 +6,18 @@
 %   Read MMS ephemeris data from FDOA ASCII files.
 %
 % Calling Sequence
-%   EPHEMERIS = mms_fdoa_read_defatt(SC, TSTART, TEND, EPH_DIR)
+%   EPHEMERIS = mms_fdoa_read_defatt(EPH_FILES, TSTART, TEND)
 %     Return structure of ephemeris data EPHEMERIS, from MMS spacecraft SC
-%     (e.g., 'mms2') between the times TSTART and TEND. Ephemeris data
-%     files will be searched for in EPH_DIR.
+%     (e.g., 'mms2') between the times TSTART and TEND from ephemeris data
+%     named EPH_FILES.
 %
-%   [ATTITUDE, EPH_HDR] = mms_fdoa_read_defatt(__)
+%   [EPHEMERIS, EPH_HDR] = mms_fdoa_read_defatt(__)
 %     Also return a structure of header information from all files read.
 %
 % Parameters
-%   SC              in, required, type=char
+%   EPH_FILES       in, required, type=char/cell
 %   TSTART          in, required, type=char
 %   TEND            in, required, type=char
-%   EPH_DIR         in, required, type=char
 %
 % Returns
 %   EPHEMERIS       out, required, type=struct
@@ -52,33 +51,38 @@
 %
 % History:
 %   2015-04-12      Written by Matthew Argall
+%   2015-07-16      Take file names as inputs. - MRA
 %
-function [Ephemeris, eph_hdr] = mms_fdoa_read_defeph(sc, tstart, tend, eph_dir)
+function [ephemeris, eph_hdr] = mms_fdoa_read_defeph(eph_files, tstart, tend)
 
 %------------------------------------%
-% Find Definitive Attitude File      %
+% Check Files                        %
 %------------------------------------%
-	% MMS#_DEFATT_%Y%D_%Y%D.V00
-	fname = MrFile_Search( fullfile(eph_dir, [upper(sc) '_DEFEPH_%Y%D_%Y%D.V*']), ...
-	                      'VersionRegex', 'V([0-9]{2})', ...
-	                      'TStart',       tstart, ...
-	                      'TEnd',         tend, ...
-	                      'TimeOrder',    '%Y%D' );
-	nFiles = length(fname);
+	% Number of files given
+	if iscell(eph_files)
+		nFiles = length(eph_files);
+		assert(nFiles > 0, 'At least one file name must be given.');
+	else
+		assert(ischar(eph_files) && isrow(eph_files), 'EPH_FILES must be a file name or cell array of file names.')
+		nFiles = 1;
+	end
 	
-	% Make sure the file exists
-	assert( ~isempty( fname ), ...
-	        ['Definitive attitude file not found or does not exist: "' fname '".']);
+	if nargin() < 3
+		tend = '';
+	end
+	if nargin() < 2
+		tstart = '';
+	end
 
 %------------------------------------%
 % Read Header from Each File         %
 %------------------------------------%
 	% Read the header
-	eph_hdr = mms_fdoa_read_ephem_header(fname{1});
+	eph_hdr = mms_fdoa_read_ephem_header(eph_files{1});
 
 	% Step through the rest of the files
 	for ii = 2 : nFiles
-		temp = mms_fdoa_read_ephem_header(fname{ii});
+		temp = mms_fdoa_read_ephem_header(eph_files{ii});
 		
 		% Append the header information
 		eph_hdr.('DataStart')  = [ eph_hdr.('DataStart'),  temp.('DataStart')  ];
@@ -98,20 +102,34 @@ function [Ephemeris, eph_hdr] = mms_fdoa_read_defeph(sc, tstart, tend, eph_dir)
 	data_start = eph_hdr.('DataStart')(1);
 
 	% Read the files
-	Ephemeris = MrFile_Read_nAscii(fname,                       ...
+	ephemeris = MrFile_Read_nAscii(eph_files,                   ...
 	                               'ColumnNames', column_names, ...
 	                               'ColumnTypes', column_types, ...
 	                               'DataStart',   data_start);
+	
+	% Convert TAI to TT2000
+	tt2000 = mms_fdoa_epoch2tt2000(ephemeris.('TAI'), 'EphemTAI', true);
 
 %------------------------------------%
 % Time Interval                      %
 %------------------------------------%
-	% Convert input times to TT2000
-	trange = MrTimeParser({tstart, tend}, '%Y-%M-%dT%H:%m:%S', '%Y-%M-%dT%H:%m:%S.%1%2%3');
-	trange = spdfparsett2000(trange);
+	trange = zeros(1, 2, 'int64');
+
+	% Start of range
+	if isempty(tstart)
+		trange(1) = tt2000(1);
+	else
+		temp      = MrTimeParser(tstart, '%Y-%M-%dT%H:%m:%S', '%Y-%M-%dT%H:%m:%S.%1%2%3');
+		trange(1) = spdfparsett2000(temp);
+	end
 	
-	% Convert TAI to TT2000
-	tt2000 = mms_fdoa_epoch2tt2000(Ephemeris.('TAI'), 'EphemTAI', true);
+	% End of range
+	if isempty(tend)
+		trange(2) = tt2000(end);
+	else
+		temp      = MrTimeParser(tend, '%Y-%M-%dT%H:%m:%S', '%Y-%M-%dT%H:%m:%S.%1%2%3');
+		trange(2) = spdfparsett2000(temp);
+	end
 	
 	% Indices to keep
 	irange    = zeros(1, 2);
@@ -119,12 +137,36 @@ function [Ephemeris, eph_hdr] = mms_fdoa_read_defeph(sc, tstart, tend, eph_dir)
 	irange(2) = find( tt2000 <= trange(2), 1, 'last' );
 	
 	% Number of data returned
-	names   = fieldnames(Ephemeris);
+	names   = fieldnames(ephemeris);
 	nFields = length(names);
-	
+
 	% Get rid of unwanted data
 	for ii = 1 : nFields
-		Ephemeris.( names{ii} ) = Ephemeris.( names{ii} )(irange(1):irange(2), :);
+		ephemeris.( names{ii} ) = ephemeris.( names{ii} )(:, irange(1):irange(2));
+	end
+	
+	% Add tt2000 times to the structure
+	ephemeris.( 'tt2000' ) = tt2000(irange(1):irange(2));
+
+%------------------------------------%
+% Remove Duplicates                  %
+%------------------------------------%
+	%
+	% Definitive ephemeris files overlap, meaning if more than
+	% one file is found, it could have repeated data. Since
+	% attitude data will often be interpolated to data sample
+	% times, and MATLAB's interp1() function does not consider
+	% repeated values to be strictly monotonically increasing,
+	% we have to remove repeats.
+	%
+	if nFiles > 1
+		[~, iuniq]         = unique(ephemeris.TAI);
+		ephemeris.UTC      = ephemeris.UTC(      1, iuniq );
+		ephemeris.TAI      = ephemeris.TAI(      1, iuniq );
+		ephemeris.tt2000   = ephemeris.tt2000(   1, iuniq );
+		ephemeris.position = ephemeris.Position( :, iuniq );
+		ephemeris.velocity = ephemeris.Velocity( :, iuniq );
+		ephemeris.mass     = ephemeris.Mass(     1, iuniq );
 	end
 end
 
