@@ -129,18 +129,13 @@ function fname = mms_construct_filename(sc, instr, mode, level, varargin)
 	if isempty(version)
 		version = 'v*';
 	end
-	
-	% Look for any optional descriptor
-	if isempty(optDesc)
-		optDesc = '*';
-	end
 
 %------------------------------------%
 % Create File Name                   %
 %------------------------------------%
 
 	% Separate the optional descriptor from the start time.
-	if ~strcmp(optDesc, '*')
+	if ~isempty(optDesc)
 		optDesc = [optDesc '_'];
 	end
 

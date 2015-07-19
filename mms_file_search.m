@@ -94,18 +94,21 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-	tstart    = '';
-	tend      = '';
-	optdesc   = '';
-	version   = '';
-	timeorder = '';
-	directory = '';
-	sdc_root = '/mmsa/sdc/';
-	nOptArgs = length(varargin);
+	tstart     = '';
+	tend       = '';
+	optdesc    = '';
+	version    = '';
+	timeorder  = '';
+	day_subdir = false;
+	directory  = '';
+	sdc_root   = '/nfs/';
+	nOptArgs   = length(varargin);
 	
 	% Optional parameters
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
+			case 'DaySubdir'
+				day_subdir = varargin{ii+1};
 			case 'Directory'
 				directory = varargin{ii+1};
 			case 'SDCroot'
@@ -121,7 +124,7 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 			case 'Version'
 				version = varargin{ii+1};
 			otherwise
-				error([ 'Parameter name not recognized: "' varargin{ii+1} '"' ]);
+				error([ 'Parameter name not recognized: "' varargin{ii} '"' ]);
 		end
 	end
 	
@@ -154,6 +157,9 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 		
 		% Append the year, month, and day
 		sdc_dir = fullfile(sdc_dir, '%Y', '%M');
+		if day_subdir
+			sdc_dir = fullfile(sdc_dir, '%d');
+		end
 	end
 
 %------------------------------------%

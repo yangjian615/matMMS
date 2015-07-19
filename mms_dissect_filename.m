@@ -73,11 +73,11 @@ function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(
 	                       '([a-z0-9]+)_', ...               % Instrument Mode
 	                       '([a-z0-4]+)_', ...               % Data Level
 	                       '([a-zA-Z0-9-]*)_?', ...          % Optional Descriptor
-	                       '([0-9]{4}[0-9]{2}[0-9]{2}[0-9]*)_', ...  % Start Time
+	                       '(20[0-9]{2}[0-9]{2}[0-9]{2}[0-9]*)_', ...  % Start Time
 	                       '(v[0-9]+\.[0-9]+\.[0-9]+)', ...  % Version
 	                       '\.cdf'], ...                     % Extension
 	                       'tokens');
-	
+
 	% Make sure the file name is dissectable.
 	assert(isempty(parts) == 0, ['Filename not recognized: "' filename '".']);
 	
