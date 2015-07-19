@@ -58,11 +58,15 @@ function comp = mms_sc_tf_compensate(transfr_fn, f, N, df)
 	comp(3, :)     = interp1(f(3, :), transfr_fn(3, :), f_out, 'linear');
 	comp(:, pivot) = abs( comp(:, pivot));
 	
+	% If F_OUT < F(1) or F_OUT > F(end), NaNs will result
+	%   - Replace NaNs with Infinity so that when the transfer function
+	%     is applied via division, the resulting component is zero.
+	comp(isnan(comp)) = inf;
+
 	% Complete teh compensation array
 	%  - Append the DC component
 	%  - Reflect the complex component beyond N/2
 	%  - do not duplicate the Nyquist
 	%  - Real and imaginary frequencies have the same spectral components
-	comp(isnan(comp)) = inf;
-	comp              = [ ones(3,1) comp conj( fliplr( comp(:, 1:end-1) ) )];
+	comp = [ ones(3,1) comp conj( fliplr( comp(:, 1:end-1) ) )];
 end
