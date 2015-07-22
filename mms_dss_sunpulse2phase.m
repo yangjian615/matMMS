@@ -48,7 +48,8 @@
 %   2015-03-25      Written by Matthew Argall
 %   2015-04-12      Added the 'UniqPackets' and 'UniqPulse' parameters. - MRA
 %   2015-04-14      Return a structure. - MRAs
-%   2015-04-27      Corrected check of extrapolation at end of array. - MRAs
+%   2015-04-27      Corrected check of extrapolation at end of array. - MRA
+%   2015-07-21      Was filling PERIOD with 0 instead of actual periods. - MRA
 %
 function phase = mms_dss_sunpulse2phase(sunpulse, times)
 
@@ -75,12 +76,12 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	% If the first period is a valid value, it can be used to create
 	% an epoch time just prior to the end of a gap.
 	if valid_period(1)
-		pulse        = [ pulse(1) - period(1) pulse ];
-		dPulse       = [ period(1) dPulse ];
-		dPulse_flag  = [ 0 dPulse_flag ];
-		period       = [ 0 period ];
-		valid_period = [ 0 valid_period ];
-		flag         = [ 3 flag ];
+		pulse        = [ pulse(1) - period(1) pulse        ];
+		dPulse       = [ period(1)            dPulse       ];
+		dPulse_flag  = [ 0                    dPulse_flag  ];
+		period       = [ period(1)            period       ];
+		valid_period = [ 0                    valid_period ];
+		flag         = [ 3                    flag         ];
 	end
 	
 %------------------------------------%
@@ -100,7 +101,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 		msg = sprintf('%d gaps of more than %f seconds.', nBigGaps, double(nMinGap*T_median)*1e-9);
 		warning('SunPulse:Phase', msg);
 	end
-	
+
 	% Insert a pseudo sun pulse before each big gap
 	%   - The first period is a valid value, so can be used to create
 	%     an epoch time just prior to the end of a gap.
@@ -127,7 +128,7 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			iGaps( igap+1:end ) = iGaps( igap+1:end ) + 1;
 		end
 	end
-	
+
 %------------------------------------%
 % Smooth Data Intervals              %
 %------------------------------------%

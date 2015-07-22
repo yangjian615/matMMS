@@ -170,6 +170,15 @@ function sunpulse = mms_hk_read_sunpulse(dss_files, tstart, tend, varargin)
 		period = period(iUniq);
 	end
 
+	% Filter period = 0
+	izero = find(period == 0);
+	if ~isempty(izero)
+		warning('DSS:Read_SunPulse', 'Period = 0 found with flags %d. Removing.', flag(izero(1)));
+		flag(izero)      = [];
+		period(izero)    = [];
+		sun_pulse(izero) = [];
+	end
+
 %------------------------------------%
 % Output                             %
 %------------------------------------%
