@@ -1,17 +1,17 @@
 %
 % Name
-%   mms_sdc_edi_ql_efield
+%   mms_edi_create_ql_efield
 %
 % Purpose
 %   Create a MATLAB save file of inputs needed for Bestarg.
 %
 % Calling Sequence
-%   EDI_QL_FILE = mms_sdc_edi_ql_efield(SC, TSTART, TEND)
+%   EDI_QL_FILE = mms_edi_create_ql_efield(SC, TSTART, TEND)
 %     Compute the EDI electric field from MMS spacecraft SC during
 %     the time interval [TSTART, TEND], and output a CDF file
 %     named EDI_QL_FILE.
 %
-%   EDI_QL_FILE = mms_sdc_edi_ql_efield(..., 'ParamName', ParamValue)
+%   EDI_QL_FILE = mms_edi_create_ql_efield(..., 'ParamName', ParamValue)
 %     Any parameter name-value pair given below.
 %
 % Parameters
@@ -41,15 +41,16 @@
 % History:
 %   2015-06-03      Written by Matthew Argall
 %   2015-06-20      Writing to CDF file now occurs in separate function. - MRA
+%   2015-07-20      Renamed from mms_sdc_edi_ql_efield to mms_edi_create_ql_efield. - MRA
 %
-function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
+function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 
 % MMS2: May 9, 2015  16:08 - 16:13
 % MMS4: May 6, 2015  15:30 - 15:35
 
 	% Defaults
 	sdc_root        = '/nfs/';
-	save_dir        = '/nfs/edi/';
+	save_dir        = '/nfs/edi/temp/';
 	attitude_dir    = fullfile(sdc_root, 'ancillary', sc, 'defatt');
 	hk_root         = fullfile(sdc_root, 'hk');
 	beam_quality    = 3;
@@ -176,14 +177,14 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	sunpulse = mms_dss_read_sunpulse(dss_file, tstart, tend, 'UniquePulse', true);
 
 	% EDI data
-	edi = mms_edi_create_l2( edi_file, tstart, tend, ...
-	                         'Attitude', defatt, ...
-	                         'CS_GSE',   false, ...
-	                         'CS_DMPA',  true, ...
-	                         'Quality',  beam_quality, ...
-	                         'Sunpulse', sunpulse, ...
-	                         'zMPA',     zMPA );
-	
+	edi = mms_edi_create_l2pre_efield( edi_file, tstart, tend, ...
+	                                   'Attitude', defatt, ...
+	                                   'CS_GSE',   false, ...
+	                                   'CS_DMPA',  true, ...
+	                                   'Quality',  beam_quality, ...
+	                                   'Sunpulse', sunpulse, ...
+	                                   'zMPA',     zMPA );
+
 	% FGM data
 	fg_ql = mms_fg_read_ql(fg_file, tstart, tend);
 
@@ -191,8 +192,18 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 % Prepare Data                       %
 %------------------------------------%
 	% Time range that we have data
-	t0 = min( [edi.tt2000_gd12(1)   edi.tt2000_gd21(1)  ] );
-	t1 = max( [edi.tt2000_gd12(end) edi.tt2000_gd21(end)] );
+	if isempty(edi.tt2000_gd12) && isempty(edi.tt2000_gd21)
+		error( 'No EDI E-field data available.' );
+	elseif isempty(edi.tt2000_gd12)
+		t0 = edi.tt2000_gd21(1);
+		t1 = edi.tt2000_gd21(end);
+	elseif isempty(edi.tt2000_gd21)
+		t0 = edi.tt2000_gd12(1);
+		t1 = edi.tt2000_gd12(end);
+	else
+		t0 = min( [edi.tt2000_gd12(1)   edi.tt2000_gd21(1)  ] );
+		t1 = max( [edi.tt2000_gd12(end) edi.tt2000_gd21(end)] );
+	end
 	
 	% Breakdown into time vectors
 	tvec = MrCDF_Epoch_Breakdown( [t0, t1] );
@@ -220,6 +231,12 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	v_dmpa     = zeros( size(b_avg.b_avg), 'double');
 	d_dmpa     = zeros( size(b_avg.b_avg), 'double');
 	d_std_dmpa = zeros( size(b_avg.b_avg), 'double');
+	quality    = zeros( 1, size(b_avg.b_avg, 2), 'uint8');
+
+	% Declare global variables for the drift step function
+	global plot_beams;      plot_beams      = false;
+	global rotation_method; rotation_method = 2;
+	global use_v10502;      use_v10502      = false;
 
 	% Step through each interval
 	for ii = 1 : length(b_avg.recnum)
@@ -252,32 +269,36 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 
 		% Compute the electric field
 		if size(gd_virtual_dmpa, 2) > 2
-			[ d_temp d_std_temp v_temp E_temp ] ...
-				= edi_drift_step( B_tt2000, ...
+			[ d_temp d_std_temp v_temp E_temp q_temp] ...
+				= edi_drift_step( '', ...
+				                  B_tt2000, ...
 				                  B_dmpa, ...
 				                  gd_virtual_dmpa, ...
 				                  gd_fv_dmpa, ...
 				                  gd_ID );
-			
+
 			% Replace NaN with fill value
 			if isnan(E_temp(1))
 				E_temp     = [ -1e31; -1e31; -1e31 ];
 				v_temp     = [ -1e31; -1e31; -1e31 ];
 				d_temp     = [ -1e31; -1e31; -1e31 ];
 				d_std_temp = [ -1e31; -1e31; -1e31 ];
+				q_temp     = 0;
 			end
 		else
 			E_temp     = [ -1e31; -1e31; -1e31 ];
 			v_temp     = [ -1e31; -1e31; -1e31 ];
 			d_temp     = [ -1e31; -1e31; -1e31 ];
 			d_std_temp = [ -1e31; -1e31; -1e31 ];
+			q_temp     = 0;
 		end
 
-		% Store results	
+		% Store results
 		E_dmpa(:, ii)     = E_temp;
 		v_dmpa(:, ii)     = v_temp;
 		d_dmpa(:, ii)     = d_temp;
 		d_std_dmpa(:, ii) = d_std_temp;
+		quality(ii)       = q_temp;
 	end
 
 %------------------------------------%
@@ -295,12 +316,13 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	                 'tend',         tend, ...
 	                 'parents',      { { fg_file, dss_file, att_file{:}, edi_file } }, ...
 	                 'tt2000',       b_avg.t_avg', ...
-	                 'dt',           int32( b_avg.dt_avg ) * int32(1e9), ... % s -> ns
+	                 'dt',           int64( b_avg.dt_avg ) * int64(1e9), ... % s -> ns
 	                 'B_dmpa',       b_avg.b_avg', ...
 	                 'B_std_dmpa',   b_avg.b_std', ...
 	                 'E_dmpa',       E_dmpa', ...
 	                 'v_dmpa',       v_dmpa', ...
 	                 'd_dmpa',       d_dmpa', ...
+	                 'quality',      quality', ...
 	                 'd_std_dmpa',   d_std_dmpa', ...
 	                 'tt2000_gd12',  edi.tt2000_gd12', ...
 	                 'tt2000_gd21',  edi.tt2000_gd21', ...
@@ -321,5 +343,5 @@ function edi_ql_file = mms_sdc_edi_ql_efield(sc, tstart, tend, varargin)
 	clear edi b_avg
 
 	% Write data to a file
-	edi_ql_file = mms_sdc_edi_write_ql_efield(edi_ql);
+	edi_ql_file = mms_edi_write_ql_efield(edi_ql);
 end

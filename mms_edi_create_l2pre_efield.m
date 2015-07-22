@@ -1,21 +1,22 @@
 %
 % Name
-%   mms_edi_create_l2
+%   mms_edi_create_l2pre_efield
 %
 % Purpose
-%   Turn level 1A EDI electric-field mode data into level 2 quality data
+%   Turn level 1A EDI electric-field mode data into level 2-pre quality data
 %   for use with BESTARG or the beam convergence method for calculating
 %   the electric field. L2 implies despun data in the spacecraft reference
-%   frame (no VxB removal) and in GSE coordinates.
+%   frame (no VxB removal) and in GSE coordinates. The "pre" indicates that
+%   we have not used the beam information to calculate the electric field yet.
 %
 % Calling Sequence
-%   EDI = mms_edi_create_l2(FILENAMES, TSTART, TEND)
+%   EDI = mms_edi_create_l2pre_efield(FILENAMES, TSTART, TEND)
 %     Read EDI electric field mode data from files named FILENAMES
 %     between the time interval of [TSTART, TEND]. Return a data
 %     structure EDI with fields given below. Times should be provided
 %     in ISO format: 'yyyy-mm-ddThh:mm_ss'.
 %
-%   [GD12_GSE, GD21_GSE] = mms_edi_create_l2(__, 'ParamName', ParamValue)
+%   [GD12_GSE, GD21_GSE] = mms_edi_create_l2pre_efield(__, 'ParamName', ParamValue)
 %     Include any of the parameter name-value pairs below.
 %
 % Parameters
@@ -71,6 +72,7 @@
 %   2015-04-20  Data is despun with attitude data unless SunPulseDir is given. - MRA
 %   2015-05-14  Added detail to header. rlm
 %   2015-06-20  Renamed from mms_edi_bcs to mms_edi_create_l2. - MRA
+%   2015-07-20  Renamed from mms_edi_create_l2 to mms_edi_create_l2pre_efield. - MRA
 %
 function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
 
@@ -261,7 +263,7 @@ function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
 		det_gd21_gse     = mrvector_rotate(GEI2GSE_gd21, det_gd21_gei);
 		virtual_gun2_gse = mrvector_rotate(GEI2GSE_gd21, virtual_gun2_gei);
 	else
-		warning('MMS_EDI::GSE', 'No attitude data. Cannot rotate to GSE.')
+		warning('MMS_EDI:GSE', 'No attitude data. Cannot rotate to GSE.')
 		cs_gse = false;
 	end
 

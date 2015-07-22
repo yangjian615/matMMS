@@ -27,36 +27,52 @@ function [] = mms_sdc_proc_edi_ql_efield()
 % Find Files                         %
 %------------------------------------%
 	% EDI L1A E-Field Data Files
-	sc       = 'mms%([1-4]%)';
+	sc       = { 'mms1' 'mms2' 'mms3' 'mms4' };
 	instr    = 'edi';
 	mode     = 'slow';
 	level    = 'l1a';
 	optdesc  = 'efield';
-	sdc_root = '/nfs/';
-	
-	[edi_file, count, str] = mms_file_search(sc, instr, mode, level, ...
-	                                         'OptDesc',   optdesc, ...
-	                                         'SDCroot',   sdc_root);
-	assert(count > 0, ['EDI file not found: "' str '".']);
+	tstart   = '2015-03-01T00:00:00';
+	tend     = '2015-06-18T24:00:00';
 
 %------------------------------------%
-% Loop Through Each File             %
+% Process Data for Each Spacecraft   %
 %------------------------------------%
-	% Dissect the file name to discover which days efield data exists
-	[sc, ~, ~, ~, fstart] = mms_dissect_filename(edi_file);
-	
-	% Convert time to yyyy-mm-ddTHH:MM:SS
-	date_temp = MrTimeParser(fstart, '%Y%M%d', '%Y-%M-%d');
-	tstart = strcat(date_temp, 'T00:00:00');
-	tend   = strcat(date_temp, 'T24:00:00');
+	% Make sure we have a cell.
+	if ischar(sc)
+		sc = { sc };
+	end
 
-	% Loop through each file
-	for ii = 1 : count
-		try
-			cdf_file = mms_sdc_edi_ql_efield(sc{ii}, tstart{ii}, tend{ii});
-		catch ME
-			fprintf('Unable to create file: %s %s %s\n', sc{ii}, tstart{ii}, tend{ii});
-			rethrow(ME);
+	% Step through each spacecraft
+	for ii = 1 : length(sc)
+		% Search for files.
+		[edi_file, count, str] = mms_file_search(sc{ii}, instr, mode, level, ...
+		                                         'TStart',    tstart, ...
+		                                         'TEnd',      tend, ...
+		                                         'OptDesc',   optdesc);
+		if count == 0
+			warning('SDC:EDI', ['EDI file not found: "' str '".']);
+			continue
+		end
+
+	%------------------------------------%
+	% Loop Through Each File             %
+	%------------------------------------%
+		for jj = 1 : count
+		
+			% Dissect the file name to discover which days efield data exists
+			[~, ~, ~, ~, fstart] = mms_dissect_filename(edi_file{jj});
+	
+			% Convert time to yyyy-mm-ddTHH:MM:SS
+			date_temp = MrTimeParser(fstart, '%Y%M%d', '%Y-%M-%d');
+			fstart = strcat(date_temp, 'T00:00:00');
+			fend   = strcat(date_temp, 'T24:00:00');
+			
+			% Create the data
+			try
+				cdf_file = mms_edi_create_ql_efield(sc{ii}, fstart, fend);
+			catch ME
+				fprintf('Unable to create file: %s %s %s\n', sc{ii}, fstart, fend);
+			end
 		end
 	end
-end
