@@ -11,27 +11,20 @@
 %
 % History:
 %   2015-04-21      Written by Matthew Argall
+%   2015-07-22      Updated to use local SDC mirror.
 %
 %***************************************************************************
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-dfg_data_dir = '/Users/argall/Documents/Work/Data/MMS/DFG/';
-afg_data_dir = '/Users/argall/Documents/Work/Data/MMS/AFG/';
-fg_cal_dir   = '/Users/argall/Documents/Work/Data/MMS/FG_Cal/';
-sc           = 'mms3';
-instr        = 'dfg';
-tstart       = '2015-04-18T05:00:00';
-tend         = '2015-04-18T05:03:00';
+sc          = 'mms3';
+instr       = 'dfg';
+mode        = 'f128';
+tstart      = '2015-06-30T05:00:00';
+tend        = '2015-06-30T05:03:00';
+fg_cal_root = '/home/argall/data/mms/fg_cal/';
 
-if strcmp(instr, 'dfg')
-	fg_data_dir = dfg_data_dir;
-	mode        = 'f128';
-else
-	fg_data_dir = afg_data_dir;
-	mode        = 'fast';
-end
 
 %------------------------------------%
 % Find Files                         %
@@ -39,38 +32,42 @@ end
 	% FG L1A Data File
 	[l1a_fname, count, str] = mms_file_search(sc, instr, mode, 'l1a', ...
 	                                          'TStart',    tstart, ...
-	                                          'TEnd',      tend, ...
-	                                          'Directory', fg_data_dir);
+	                                          'TEnd',      tend);
 	assert(count > 0, ['FG file not found: "' str '".']);
 	
 	% FG L1B Data File
 	[l1b_fname, count, str] = mms_file_search(sc, instr, 'srvy', 'l1b', ...
-	                                          'TStart',    tstart, ...
-	                                          'TEnd',      tend, ...
-	                                          'Directory', fg_data_dir);
+	                                          'TStart',  tstart, ...
+	                                          'TEnd',    tend);
 	assert(count > 0, ['FG file not found: "' str '".']);
 	
 	% FG Hi-Cal File
 	[hical_fname, count, str] = mms_file_search(sc, instr, 'hirangecal', 'l2pre', ...
-	                                            'TStart',    tstart, ...
-	                                            'TEnd',      tend, ...
-	                                            'Directory', fg_cal_dir);
+	                                            'SDCroot', fg_cal_root, ...
+	                                            'SubDirs', '', ...
+	                                            'TStart',  tstart, ...
+	                                            'TEnd',    tend);
 	assert(count > 0, ['FG Hi-Cal file not found: "' str '".']);
 	
 	% FG Lo-Cal File
 	[local_fname, count, str] = mms_file_search(sc, instr, 'lorangecal', 'l2pre', ...
-	                                            'TStart',    tstart, ...
-	                                            'TEnd',      tend, ...
-	                                            'Directory', fg_cal_dir);
-	assert(count > 0, ['FG Hi-Cal file not found: "' str '".']);
+	                                            'SDCroot', fg_cal_root, ...
+	                                            'SubDirs', '', ...
+	                                            'TStart',  tstart, ...
+	                                            'TEnd',    tend);
+	assert(count > 0, ['FG Lo-Cal file not found: "' str '".']);
+	
+	% HK 0x10e files
+	hk_file = [];
 
 %------------------------------------%
 % Calibrated Mag in BCS              %
 %------------------------------------%
-[t, b_bcs] = mms_fg_bcs(l1a_fname, hical_fname, local_fname, tstart, tend);
+
+[t, b_bcs] = mms_fg_create_l1b(l1a_fname, hical_fname, local_fname, tstart, tend, hk_file);
 
 %------------------------------------%
-% Get the Official l1b Data          %
+% Get the Official L1B Data          %
 %------------------------------------%
 
 % Get the data
@@ -98,7 +95,7 @@ title([ upper(sc) ' ' upper(instr) ' BCS ' tstart(1:10)] );
 xlabel( 'Time UTC' );
 ylabel( {'|B|', '(nT)'} );
 datetick();
-legend('MagTeam', 'Mine');
+legend('FGM', 'UNH');
 
 % X-component
 subplot(4,1,2)

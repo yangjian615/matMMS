@@ -15,100 +15,119 @@
 %***************************************************************************
 
 % Clear large variables before starting
-clear t b_dmpa b_ql_dmpa t_ql t_dn t_ql_dn
+clear t b_dmpa fg_ql t_unh t_mag sunpulse attitude
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-dfg_data_dir = '/Users/argall/Documents/Work/Data/MMS/DFG/';
-afg_data_dir = '/Users/argall/Documents/Work/Data/MMS/AFG/';
-fg_cal_dir   = '/Users/argall/Documents/Work/Data/MMS/FG_Cal/';
-att_dir      = ''; % '/Users/argall/Documents/Work/Data/MMS/Attitude/';
-sunpulse_dir = '/Users/argall/Documents/Work/Data/MMS/HK/';
-sc           = 'mms3';
-instr        = 'afg';
-tstart       = '2015-04-18T05:00:00';
-tend         = '2015-04-18T05:03:00';
-
-if strcmp(instr, 'dfg')
-	fg_data_dir = dfg_data_dir;
-	mode        = 'f128';
-else
-	fg_data_dir = afg_data_dir;
-	mode        = 'fast';
-end
+sc         = 'mms3';
+instr      = 'dfg';
+mode       = 'f128';
+tstart     = '2015-06-30T05:00:00';
+tend       = '2015-06-30T05:03:00';
+fg_cal_dir = '/home/argall/data/mms/fg_cal/';
+att_dir    = fullfile('/nfs', 'ancillary', sc, 'defatt');
 
 %------------------------------------%
-% Calibrated Mag in BCS              %
+% Find Files                         %
 %------------------------------------%
-[t, ~, b_dmpa] = mms_fg_gse(sc, instr, mode, tstart, tend, ...
-                            'CalDir',      fg_cal_dir,     ...
-                            'DataDir',     fg_data_dir,    ...
-                            'AttDir',      att_dir ,       ...
-                            'SunPulseDir', sunpulse_dir);
+	% FGM L1A
+	[fname_l1a, count, fsrch] = mms_file_search(sc, instr, mode, 'l1a', ...
+	                                            'TStart', tstart, ...
+	                                            'TEnd',   tend);
+	assert(count > 0, ['No DFG file found: "' fsrch '".']);
+	
+	% FGM QL
+	[fname_ql, count, fsrch] = mms_file_search(sc, instr, 'srvy', 'ql', ...
+	                                           'TStart', tstart, ...
+	                                           'TEnd',   tend);
+	assert(count > 0, ['No DFG file found: "' fsrch '".']);
+	
+	% HI-CAL
+	[hiCal_file, count, fsrch] = mms_file_search(sc, instr, 'hirangecal', 'l2pre', ...
+	                                             'SDCroot', fg_cal_dir, ...
+	                                             'SubDirs', '', ...
+	                                             'TStart',  tstart, ...
+	                                             'TEnd',    tend);
+	assert(count > 0, ['No HiCal file found: "' fsrch '".']);
+	
+	% LO-CAL
+	[loCal_file, count, fsrch] = mms_file_search(sc, instr, 'lorangecal', 'l2pre', ...
+	                                             'SDCroot', fg_cal_dir, ...
+	                                             'SubDirs', '', ...
+	                                             'TStart',  tstart, ...
+	                                             'TEnd',    tend);
+	assert(count > 0, ['No LoCal file found: "' fsrch '".']);
+	
+	% Attitude files
+	att_ftest = fullfile( att_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*'] );
+	[defatt_files, count] = MrFile_Search(att_ftest, ...
+	                                      'Closest',      true, ...
+	                                      'TimeOrder',    '%Y%D', ...
+	                                      'TStart',       tstart, ...
+	                                      'TEnd',         tend, ...
+	                                      'VersionRegex', 'V[0-9]{2}');
+	assert(count > 0, ['No definitive attitude file found: "' att_ftest '".']);
+	
+	% Sunpulse files
+	[dss_files, count, fsrch] = mms_file_search(sc, 'fields', 'hk', 'l1b', ...
+	                                            'OptDesc',      '101',  ...
+	                                            'SDCroot',      '/nfs/hk/', ...
+	                                            'TStart',       tstart, ...
+	                                            'TEnd',         tend);
+	assert(count > 0, ['No sun sensor file found: "' fsrch '".']);
 
 %------------------------------------%
-% Get the Official QL Data           %
+% Get Data                           %
 %------------------------------------%
-mode  = 'srvy';
-level = 'ql';
 
-% Create the file name
-ql_fname = mms_construct_filename(sc, instr, mode, level,   ...
-                                  'Directory', fg_data_dir, ...
-                                  'Tokens',    true);
+% Read attitude and sunpulse data
+attitude = mms_fdoa_read_defatt(defatt_files, tstart, tend);
+sunpulse = mms_dss_read_sunpulse(dss_files, tstart, tend, 'UniquePulse', true);
 
-% Search for the file
-ql_fname = MrFile_Search(ql_fname, ...
-                         'TStart',    tstart,   ...
-                         'TEnd',      tend,     ...
-                         'TimeOrder', '%Y%M%d', ...
-                         'Closest',   true);
+% Create QL data from L1A
+[t, ~, ~, b_dmpa] = mms_fg_create_l2(fname_l1a, hiCal_file, loCal_file, tstart, tend, ...
+                                     'Attitude', attitude, ...
+                                     'SunPulse', sunpulse);
 
-% Create variable names
-b_vname = mms_construct_varname(sc, instr, mode, 'dmpa');
-
-% Get the data
-[b_ql_dmpa, t_ql] = MrCDF_Read(ql_fname, b_vname, ...
-                               'sTime', tstart, ...
-                               'eTime', tend, ...
-                               'ColumnMajor', true);
+% Read official QL data
+fg_ql = mms_fg_read_ql(fname_ql, tstart, tend);
 
 %------------------------------------%
 % Plot the Results                   %
 %------------------------------------%
 % Convert time to datenumber to use the datetick function.
-t_dn    = MrCDF_epoch2datenum(t);
-t_ql_dn = MrCDF_epoch2datenum(t_ql);
+t_unh = MrCDF_epoch2datenum(t);
+t_mag = MrCDF_epoch2datenum(fg_ql.tt2000);
 
 f_ql = figure();
 
 % Magnitude
 subplot(4,1,1)
-plot( t_ql_dn, b_ql_dmpa(4,:), t_dn, mrvector_magnitude(b_dmpa) );
+plot( t_mag, fg_ql.b_dmpa(4,:), t_unh, mrvector_magnitude(b_dmpa) );
 title([ upper(sc) ' ' upper(instr) ' DMPA ' tstart(1:10)] );
 xlabel( 'Time UTC' );
 ylabel( {'|B|', '(nT)'} );
 datetick();
-legend('MagTeam', 'Mine');
+legend('FGM', 'UNH');
 
 % X-component
 subplot(4,1,2)
-plot( t_ql_dn, b_ql_dmpa(1,:), t_dn, b_dmpa(1,:) );
+plot( t_mag, fg_ql.b_dmpa(1,:), t_unh, b_dmpa(1,:) );
 xlabel( 'Time UTC' );
 ylabel( {'B_{X}', '(nT)'} );
 datetick();
 
 % Y-component
 subplot(4,1,3)
-plot( t_ql_dn, b_ql_dmpa(2,:), t_dn, b_dmpa(2,:) );
+plot( t_mag, fg_ql.b_dmpa(2,:), t_unh, b_dmpa(2,:) );
 xlabel( 'Time UTC' );
 ylabel( {'B_{Y}', '(nT)'} );
 datetick();
 
 % Z-component
 subplot(4,1,4)
-plot( t_ql_dn, b_ql_dmpa(3,:), t_dn, b_dmpa(3,:) );
+plot( t_mag, fg_ql.b_dmpa(3,:), t_unh, b_dmpa(3,:) );
 xlabel( 'Time UTC' );
 ylabel( {'B_{Z}', '(nT)'} );
 datetick();
