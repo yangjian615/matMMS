@@ -33,8 +33,8 @@ function bcs2smpa = mms_fdoa_xbcs2smpa(mpa)
 	% Each FDOA file has a single z-MPA vector.
 	%   - We expect it to be constant.
 	%   - If not, we should interpolate (slerp)
-	assert( isrow(mpa) && length(mpa) == 3, ...
-	        'DefAtt MPA vector is a constant. One 3-vector expected.' )
+	assert( ( isrow(mpa) || iscolumn(mpa) ) && length(mpa) == 3, ...
+	        'DefAtt MPA vector must be 1x3 or 3x1.' )
 	
 	% Create unit vectors
 	%   - To deal with arrays of vectors, see:
