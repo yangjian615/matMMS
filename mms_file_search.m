@@ -99,7 +99,7 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	optdesc    = '';
 	version    = '';
 	timeorder  = '';
-	day_subdir = false;
+	subdirs    = {'%Y', '%M'};
 	directory  = '';
 	sdc_root   = '/nfs/';
 	nOptArgs   = length(varargin);
@@ -107,12 +107,12 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	% Optional parameters
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
-			case 'DaySubdir'
-				day_subdir = varargin{ii+1};
 			case 'Directory'
 				directory = varargin{ii+1};
 			case 'SDCroot'
 				sdc_root = varargin{ii+1};
+			case 'SubDirs'
+				subdirs = varargin{ii+1};
 			case 'TStart'
 				tstart = varargin{ii+1};
 			case 'TEnd'
@@ -143,6 +143,13 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 		        'TEnd must be an ISO-8601 string: "yyyy-mm-ddThh:mm:ss".' );
 	end
 
+	% Subdirectories
+	assert( ischar(subdirs) || iscell(subdirs), 'SUBDIRS must be a string or cell array of strings.' );
+	if ischar(subdirs)
+		subdirs = { subdirs };
+	end
+	
+
 %------------------------------------%
 % Directory                          %
 %------------------------------------%
@@ -155,11 +162,8 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 		% Test the directory
 %		assert( exist(sdc_dir, 'dir') == 7, ['SDC directory does not exist: "' sdc_dir '".'] );
 		
-		% Append the year, month, and day
-		sdc_dir = fullfile(sdc_dir, '%Y', '%M');
-		if day_subdir
-			sdc_dir = fullfile(sdc_dir, '%d');
-		end
+		% Date subdirectories
+		sdc_dir = fullfile( sdc_dir, subdirs{:} );
 	end
 
 %------------------------------------%
