@@ -48,7 +48,7 @@
 %   2015-05-21      Take filenames as input, not pieces of filenames. - MRA
 %   2015-06-21      Renamed from mms_fg_bcs to mms_fg_create_l1b. - MRA
 %
-function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend)
+function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend, hk_file)
 
 	% Defaults
 	if nargin() < 4
@@ -57,6 +57,15 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file,
 	if nargin() < 5
 		tend = '';
 	end
+	if nargin() < 6
+		hk_file = '';
+	end
+	
+	%
+	% Right now 2015-07-29, Ken is using the reference temperature to calibrate
+	% DFG/AFG data. In-fight temperature measurements from the 0x10e housekeeping
+	% files are ignored.
+	%
 
 %------------------------------------%
 % Read Cal Data                      %
@@ -65,9 +74,16 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file,
 	assert( ischar(hiCal_file) && isrow(hiCal_file), 'HiCal_File must be a single file name.' );
 	assert( ischar(loCal_file) && isrow(loCal_file), 'LoCal_File must be a single file name.' );
 
-	% Calibrate hi-range
-	hiCal = mms_fg_read_cal(hiCal_file, tstart, tend);
-	loCal = mms_fg_read_cal(loCal_file, tstart, tend);
+	% Calibration data
+	[hiCal, hiConst] = mms_fg_read_cal(hiCal_file, tstart, tend);
+	[loCal, loConst] = mms_fg_read_cal(loCal_file, tstart, tend);
+	
+	% Sensor temperature data
+	if isempty(hk_file)
+		hk_0x10e = [];
+	else
+		hk_0x10e = mms_hk_read_0x10e(hk_file, tstart, tend);
+	end
 
 %------------------------------------%
 % Read Mag Data                      %
@@ -80,8 +96,10 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file,
 % Calibrate Mag Data                 %
 %------------------------------------%
 	% Calibrate
-	[b_omb, mpa] = mms_fg_calibrate(fg_l1a.b_123, fg_l1a.tt2000, ...
-	                                fg_l1a.range, fg_l1a.tt2000_ts, hiCal, loCal);
+	[b_omb, mpa] = mms_fg_calibrate( fg_l1a.b_123, fg_l1a.tt2000,    ...
+	                                 fg_l1a.range, fg_l1a.tt2000_ts, ...
+	                                 hiCal, loCal, hiConst, loConst, ...
+	                                 hk_0x10e );
 
 	% Extract data
 	if nargout() > 5

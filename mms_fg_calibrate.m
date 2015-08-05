@@ -26,6 +26,10 @@
 %   [B_OMB, MPA] = mms_fg_calibrate(B_123, T, RANGE, T_RANGE, HICAL, LOCAL)
 %     Also return the z-MPA axis as viewed from BCS.
 %
+%   [__] = mms_fg_calibrate(..., HK_0X10E)
+%     Use temperatures read from housekeeping 0x10e files by mms_hk_read_0x10e
+%     to correct the data. If not provided, the ROI reference temperature is used.
+%
 % Parameters
 %   B_123           in, required, type = 3xN double
 %   T               in, required, type = 1xN int64 (cdf_time_tt2000)
@@ -33,6 +37,7 @@
 %   T_RANGE         in, required, type = 1xN int64 (cdf_time_tt2000)
 %   HICAL           in, required, type = struct
 %   LOCAL           in, required, type = struct
+%   HK_0X10E        in, optional, type = struct
 %
 % Returns
 %   B_OMB           out, required, type=3xN double
@@ -43,8 +48,15 @@
 %
 % History:
 %   2015-04-13      Written by Matthew Argall
+%   2015-07-27      Include entire last packet when finding poitns without
+%                       range values. - MRA
 %
-function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
+function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal, hiConst, loConst, hk_0x10e)
+
+	% Were in-flight sensor temperatures given?
+	if nargin < 9
+		hk_0x10e = [];
+	end
 
 	%
 	% Histogram ranges
@@ -77,6 +89,10 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
 	% histc() does not have a right-edge for the last
 	% bin.
 	%
+	% T_RANGE is given as packet times. All samples with
+	% the same packet have the same range. Look DT seconds
+	% beyond the last packet time.
+	%
 	if t(1) < t_range(1)
 		% Find the first point with range information.
 		iInRange = find( t >= t_range(1), 1, 'first');
@@ -88,14 +104,20 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
 	end
 	if t(end) > t_range(end)
 		% Find the last point with range information.
-		iInRange = find( t <= t_range(end), 1, 'last');
-		wrn_msg  = sprintf('Last %d points may lack range info.', length(t) - iInRange);
-		warning('mms_fg_calibrate:range', wrn_msg);
+		iInRange = find( t <= ( t_range(end) ), 1, 'last');
+		
+		% Look for the remaining points in the packet.
+		dt_range  = median( diff( t_range ) );
+		iOutRange = find( t >= t_range(end) + dt_range, 1, 'first' );
+		if ~isempty(iOutRange)
+			wrn_msg  = sprintf('Last %d points may lack range info.', length(iOutRange));
+			warning('mms_fg_calibrate:range', wrn_msg);
+		end
 		
 		% Set out-of-range values to the last in-range value.
 		range_inds(iInRange+1:end) = range_inds(iInRange);
 	end
-	
+
 	% hirange data -- logical array
 	%   1 if hirange
 	%   0 if lorange
@@ -105,6 +127,18 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
 	nLo     = sum( lorange );
 
 %------------------------------------%
+% Interpolate Temperature            %
+%------------------------------------%
+	% Interpolate sensor temperatures onto data time stamps.
+	if isempty( hk_0x10e )
+		stemp   = [];
+		histemp = [];
+		lostemp = [];
+	else
+		stemp = mms_fg_interp_temp( hk_0x10e.tt2000, hk_0x10e.stemp, t );
+	end
+
+%------------------------------------%
 % Apply Calibration                  %
 %------------------------------------%
 	% Allocate memory to output
@@ -112,12 +146,26 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal)
 	
 	% hirange data
 	if nHi > 0
-		[B_omb(:, hirange), zmpaHi] = mms_fg_calibrate_apply( B_123(:, hirange), t(hirange), hiCal );
+		% Grab the sensor temperature
+		if ~isempty(stemp)
+			histemp = stemp(hiCal)
+		end
+		
+		% Apply calibration parameters
+		[B_omb(:, hirange), zmpaHi] ...
+			= mms_fg_calibrate_apply( B_123(:, hirange), t(hirange), 'lo', hiCal, hiConst, histemp );
 	end
 	
 	% lorange data
 	if nLo > 0
-		[B_omb(:, lorange), zmpaLo] = mms_fg_calibrate_apply( B_123(:, lorange), t(lorange), loCal );
+		% Grab the sensor temperature
+		if ~isempty(stemp)
+			histemp = stemp(loCal)
+		end
+		
+		% Apply calibration parameters
+		[B_omb(:, lorange), zmpaLo] ...
+			= mms_fg_calibrate_apply( B_123(:, lorange), t(lorange), 'hi', loCal, loConst, lostemp );
 	end
 
 %------------------------------------%
@@ -150,13 +198,13 @@ end
 %     4. Apply orthogonalization
 %
 % Calling Sequence
-%   B_CAL = mms_fg_calibrate_apply(B, TIME, CAL_PARAMS)
+%   B_CAL = mms_fg_calibrate_apply(B, TIME, RANGE, CAL_PARAMS)
 %     Calibrate MMS fgm data B with time stamps TIME using the
 %     calibration parameters stored in CAL_PARAMS. Return the
 %     calibrated magnetic field B_CAL. CAL_PARAMS can be obtained
 %     from mms_fg_read_cal.m.
 %
-%   [B_CAL, CAL] = mms_fg_calibrate_apply(__)
+%   [B_CAL, ZMPA] = mms_fg_calibrate_apply(__)
 %     Also return the interpolated calibration matrix.
 %
 % Parameters
@@ -174,8 +222,16 @@ end
 % History:
 %   2015-04-13      Written by Matthew Argall
 %   2015-04-21      Avoid interpolating calibration parameters. - MRA
+%   2015-07-27      Incorporate temperature corrections. - MRA
 %
-function [b_cal, zmpa] = mms_fg_calibrate_apply(B_123, time, cal_params)
+function [b_cal, zmpa] = mms_fg_calibrate_apply(B_123, time, range, cal_params, cal_const, stemp)
+
+	% Was the housekeeping sensor temperature given?
+	%   - If it was, STEMP will be the same size as B_123.
+	if nargin < 6
+		stemp = [];
+	end
+	assert(strcmp(range, 'hi') || strcmp(range, 'lo'), 'RANGE must be "hi" or "lo".');
 
 %------------------------------------%
 % Map Cal Params to Values of B      %
@@ -201,7 +257,7 @@ function [b_cal, zmpa] = mms_fg_calibrate_apply(B_123, time, cal_params)
 	%
 	%     cal = mms_fg_interp_cal(cal_params, time, true);
 	%
-	% Instead, map each value of B_123 onto the appropriate set of
+	% Instead, locate each value of B_123 to the appropriate set of
 	% calibration parameters.
 	%
 	
@@ -221,22 +277,52 @@ function [b_cal, zmpa] = mms_fg_calibrate_apply(B_123, time, cal_params)
 	% MrValue_Locate() cannot handle int64.
 	time_sse  = MrCDF_epoch2sse(time,      cal_epoch(1));
 	t_cal_sse = MrCDF_epoch2sse(cal_epoch, cal_epoch(1));
-	
+
 	% Map times to closest calibration time.
 	cal_inds = MrValue_Locate(t_cal_sse, time_sse);
 
 %------------------------------------%
-% Apply Calibration Parameters       %
+% Apply Offsets                      %
 %------------------------------------%
+
 	% Subtract DC offsets
-	b_cal      = B_123;
-	b_cal(1,:) = B_123(1,:) - cal_params.('Offset')(1,cal_inds);
-	b_cal(2,:) = B_123(2,:) - cal_params.('Offset')(2,cal_inds);
-	b_cal(3,:) = B_123(3,:) - cal_params.('Offset')(3,cal_inds);
+	b_cal = B_123 - cal_params.('Offset')(:,cal_inds);
+
+%------------------------------------%
+% Apply Temperature Correction       %
+%------------------------------------%
+	% Temperature correction factor
+	%   - Ken says, "Always use the default electronics temperature."
+	%   - Make sure there is a one-to-one correspondence between STEMP and B_123.
+	if isempty(stemp)
+		stemp = cal_params.('stemp_r')(cal_inds);
+	end
+	etemp = cal_params.('etemp_r')(cal_inds);
+
+	c_temp = mms_fg_h_stemp_etemp( stemp, etemp, cal_const );
 	
+	% Apply temperature correction
+	b_cal = b_cal .* c_temp;
+
+%------------------------------------%
+% Nonlinear Correction               %
+%------------------------------------%
+	%
+	% No nonlinear correction for lorange.
+	%
+	if strcmp(range, 'hi')
+		for ii = 1 : 3
+			b_cal(ii,:) = cal_const.('nl_a')(ii) .* b_cal(ii,:)    + ...
+			              cal_const.('nl_b')(ii) .* b_cal(ii,:).^2 + ...
+			              cal_const.('nl_c')(ii) .* b_cal(ii,:).^3;
+		end
+	end
+%------------------------------------%
+% Orthogonalize                      %
+%------------------------------------%
 	% Create orthogonalization matrix
-	x123toOMB = mms_fg_calparams2matrix( cal_params.('Gain'), cal_params.('dTheta'), ...
-	                                     cal_params.('dPhi'), cal_params.('U3') );
+	x123toOMB = mms_fg_calparams2matrix( cal_params.('gprime'), cal_params.('dTheta'), ...
+	                                     cal_params.('dPhi'),   cal_params.('U3') );
 
 	% Orthogonalize the data
 	b_cal = mrvector_rotate( x123toOMB(:,:,cal_inds), b_cal );

@@ -38,6 +38,8 @@
 %                   Structure of definitive attitude data returned by mms_fdoa_read_defatt.m
 %   'SunPulse'      in, optional, type=struct, default=[]
 %                   Structure of HK 101 sunpulse data returned by mms_dss_read_sunpulse.m
+%   'hk_file'       in, optional, type=struct, default=[]
+%                   Structure of HK 0x10e sensor temperature data returned by mms_hk_read_0x10e.m
 %
 % Returns
 %   T               out, required, type=1xN int64
@@ -56,14 +58,17 @@
 %   2015-04-15      Written by Matthew Argall
 %   2015-04-20      Added 'SunPulseDir' parameter.
 %   2015-05-21      Take filenames as input, not pieces of filenames.
+%   2015-07-29      Update to use latest verion of mag cal files.
 %
-function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_l2(files, hiCal_file, loCal_file, tstart, tend, varargin)
+function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] ...
+	= mms_fg_create_l2(files, hiCal_file, loCal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
 	attitude = [];
 	sunpulse = [];
+	hk_file  = '';
 	nOptArgs = length(varargin);
 	
 	for ii = 1 : 2 : nOptArgs
@@ -72,8 +77,10 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_
 				attitude = varargin{ii+1};
 			case 'SunPulse'
 				sunpulse = varargin{ii+1};
+			case 'hk_file'
+				hk_file = varargin{ii+1};
 			otherwise
-				error(['Parameter name not recognized: "' varargin{ii+1} '".']);
+				error(['Parameter name not recognized: "' varargin{ii} '".']);
 		end
 	end
 	
@@ -87,13 +94,13 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] = mms_fg_create_
 %------------------------------------%
 	switch nargout()
 		case 8
-			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend, hk_file);
 		case 7
-			[t, b_bcs, b_smpa, b_omb] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa, b_omb]        = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend, hk_file);
 		case 6
-			[t, b_bcs, b_smpa] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
+			[t, b_bcs, b_smpa]               = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend, hk_file);
 		otherwise
-			[t, ~, b_smpa] = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend);
+			[t, ~, b_smpa]                   = mms_fg_create_l1b(files, hiCal_file, loCal_file, tstart, tend, hk_file);
 	end
 
 %------------------------------------%
