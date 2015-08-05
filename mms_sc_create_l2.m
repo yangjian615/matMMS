@@ -60,18 +60,18 @@
 %   2015-05-07      Added 'SunPulseDir'. - MRA
 %   2015-06-21      Renamed from mms_sc_gse to mms_sc_create_l2. - MRA
 %
-function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_files, cal_file, tstart, tend, varargin)
+function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_files, cal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
 	% Defaults
-	duration = 600;
+	duration = 64;
 	attitude = [];
 	sunpulse = [];
 	zMPA     = [];
 
-	nOptArg = length(varargin)
+	nOptArg = length(varargin);
 	for ii = 1 : 2 : nOptArg
 		switch varargin{ii}
 			case 'Attitude'
@@ -88,29 +88,29 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_f
 	end
 	
 	% Must have attitude or sunpulse to at least despin
-	assert(~isempty(sunpulse) && ~isempty(attitude), 'Sunpulse and/or attitude data must be given.')
+	assert( ~( isempty(sunpulse) && isempty(attitude) ), 'Sunpulse and/or attitude data must be given.')
 
 %------------------------------------%
 % Calibrated & Rotate to BCS         %
 %------------------------------------%
-	[t, b_bcs, b_cal, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration);
+	[t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration);
 
 %------------------------------------%
 % BCS --> SMPA                       %
 %------------------------------------%
 	if isempty(zMPA)
 		% Attitude data
-		warning('MMS_SC_GSE:SMPA', 'MPA axis not given. Cannot transform BCS -> SMPA.');
+		warning('MMS_SC_GSE:SMPA', 'MPA axis not given. Cannot transform SMPA -> BCS.');
 		
 		% Cannot transform to SMPA, so copy variables
-		b_smpa = b_bcs;
+		b_bcs = b_smpa;
 	else
 		% Build matrix
 		bcs2smpa = mms_fdoa_xbcs2smpa( zMPA );
 		smpa2bcs = permute(bcs2smpa, [2, 1, 3]);
 
 		% Transform
-		b_smpa  = mrvector_rotate(smpa2bcs, b_bcs);
+		b_bcs = mrvector_rotate(smpa2bcs, b_smpa);
 	end
 
 %------------------------------------%
@@ -130,7 +130,7 @@ function [t, b_gse, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_f
 	end
 
 	% Rotate to DMPA
-	b_dmpa = mrvector_rotate(smpa2dmpa, b_smpa);
+	b_dmpa = mrvector_rotate(smpa2dmpa, b_sin_smpa);
 
 %------------------------------------%
 % Rotate to GSE                      %

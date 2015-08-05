@@ -1,6 +1,6 @@
 %
 % Name
-%   mms_sc_calibrate
+%   mms_sc_calibrate_v2
 %
 % Purpose
 %   Calibrate MMS search coil data.
@@ -45,14 +45,9 @@
 % Required Products None
 %
 % History:
-%   2015-04-12      Written by Matthew Argall
-%   2015-04-14      Do not truncate the output array. Instead, calibrate
-%                     the ramaining points by extending backward from
-%                     the end of the array. Read data elsewhere. - MRA
-%   2015-05-08      Model FFT windowing after the FSM strategy. - MRA
-%   2015-05-10      Replaced Hamming and Tukey windows with a constant window of 1.0. - MRA
+%   2015-07-30      Written by Matthew Argall
 %
-function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
+function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
 
 	%
 	% Calibration intervals are of length DURATION. Given data sampling rate,
@@ -71,30 +66,29 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 	%
 
 	if nargin < 5
-		duration = 600.0;
+		duration = 64.0;
 	end
+	
+	% Parameters
+	tf_window = false;
 	
 	% Number of points
 	nPts = size(B, 2);
-
-%------------------------------------%
-% Invert                             %
-%------------------------------------%
 	
-	% Must multiply all components by -1.
-	%   - MagCon Minutes 2015-03-25
-	%   - This is done only AFTER *ALL* data manipulation has been performed.
-%	B_out = -B;
+	% Allocate memory to output
+	B_out = zeros(size(B));
 
 %------------------------------------%
 % Convert to nano-tesla              %
 %------------------------------------%
 
 	% Convert B to nano-Tesla
+	%   - Negate and scale
 	B_nT = mms_sc_number2nT(B);
+	B_nT = -1.0 * B_nT;
 
 %------------------------------------%
-% Prep for FFT                       %
+% FFT Parameters                     %
 %------------------------------------%
 
 	% Frequency and time parameters
@@ -107,7 +101,7 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 	NFFT = sr * duration;
 	fN   = 1 / (2 * dt);
 	fout = fN * linspace(0, 1, NFFT/2+1);
-	
+
 	% Make sure there are enough points in the array.
 	assert( NFFT <= nPts, 'FFT length greater than data interval.' )
 
@@ -115,118 +109,69 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 	compensate_array = mms_sc_tf_compensate(transfr_fn, f, NFFT, df);
 
 %------------------------------------%
-% First Chunk of Data                %
-%------------------------------------%
-	B_out = zeros(size(B_nT));
-
-	istart = 1;
-	istop  = NFFT;
-
-	% Tapering Window
-	% win = repmat( window(@hamming, NFFT, 'periodic')', 3, 1 );
-	win = ones(3, NFFT);
-
-	% Fourier transform
-	B_f = fft(B_nT(:, istart:istop) .* win, [], 2);
-
-	% Apply the transfer function
-	B_f(1, :) = B_f(1, :) ./ compensate_array(1, :);
-	B_f(2, :) = B_f(2, :) ./ compensate_array(2, :);
-	B_f(3, :) = B_f(3, :) ./ compensate_array(3, :);
-
-	% Inverse transform
-	B_f = ifft(B_f, [], 2) ./ win;
-	B_out(:, istart:istop) = B_f;
-
-%------------------------------------%
-% Middle Chunks                      %
+% Outline Calibration Intervals      %
 %------------------------------------%
 	
 	%
 	% Indices
 	%
+
+	% FFT interval
+	istart = 1;
+	istop  = NFFT;
 	
-	% Middle quarter to be kept
-	is_middle = floor(0.375 * NFFT) + 1;
-	ie_middle = floor(0.625 * NFFT);
+	% Middle portion to be kept
+%	is_middle = floor(0.375 * NFFT) + 1;
+%	ie_middle = floor(0.625 * NFFT);
+	is_middle = NFFT / 2.0;
+	ie_middle = NFFT / 2.0;
 	nShift    = ie_middle - is_middle + 1;
-	
-	% Advance by a quarter window
-	istart = istart + nShift - 1;
-	istop  = istop  + nShift - 1;
 	
 	% Fill section
 	is_fill = istart + is_middle - 1;
 	ie_fill = istart + ie_middle - 1;
 
-	%
-	% Calibrate
-	%
-
-	% Use a Tukey window
-	% win = repmat( window(@tukeywin, NFFT, 0.75)', 3, 1 );
-	win = ones(3, NFFT);
-
-	% Loop through all FFT intervals
-	while istop < nPts
-		% Fourier transform
-		B_f = fft(B_nT(:, istart:istop) .* win, [], 2);
-
-		% Apply the transfer function
-		B_f(1, :) = B_f(1, :) ./ compensate_array(1, :);
-		B_f(2, :) = B_f(2, :) ./ compensate_array(2, :);
-		B_f(3, :) = B_f(3, :) ./ compensate_array(3, :);
-
-		% Inverse transform
-		B_f = ifft(B_f, [], 2) ./ win;
-		B_out(:, is_fill:ie_fill) = B_f(:, is_middle:ie_middle);
-
-		% Save indices for plotting
-		istart_old  = istart;
-		istop_old   = istop;
-		is_fill_old = is_fill;
-		ie_fill_old = ie_fill;
-		B_f_old     = B_f;
-
-		% Move to Next Interval
-		istart = istart + nShift - 1;
-		istop  = istop  + nShift - 1;
-	
-		% Fill section
-		is_fill = is_fill + nShift - 1;
-		ie_fill = ie_fill + nShift - 1;
+	% Tapering window?
+	if tf_window
+		win = repmat( window(@hamming, NFFT, 'periodic')', 3, 1 );
+	else
+		win = ones(3, NFFT);
 	end
 
 %------------------------------------%
-% Calibrate End of Data              %
+% Step through Each Interval         %
 %------------------------------------%
-	% Last calibrated point
-	iLast = istart;
+	count = 0;
+	while istop <= nPts
+if mod(count, 5000) == 0
+	fprintf('data = [%d, %d], fill = [%d, %d], middle = [%d, %d] of %d\n', ...
+	        istart, istop, is_fill, ie_fill, is_middle, ie_middle, nPts);
+end
+	%------------------------------------%
+	% Calibrate                          %
+	%------------------------------------%
+		% Fourier transform
+		B_f = fft( B_nT(:, istart:istop) .* win, [], 2);
+		
+		% Apply transfer function
+		B_f = B_f ./ compensate_array;
+		
+		% Transform back into time domain
+		B_f = ifft(B_f, [], 2);
+		
+		% Store into output array
+		B_out(:, is_fill:ie_fill) = B_f(:, is_middle:ie_middle);
 
-	% Extend backward from the end of the array
-	istop  = nPts;
-	istart = nPts - NFFT + 1;
+	%------------------------------------%
+	% Next Interval                      %
+	%------------------------------------%
+		istart = istart + nShift;
+		istop  = istop  + nShift;
 	
-	% Take only those points that have not been calibrated
-	nFill = nPts - iLast + 1;
-	is_fill = iLast;
-	ie_fill = nPts;
-	
-	is_middle = NFFT - nFill + 1;
-	ie_middle = NFFT;
-	
-	% Tapering window
-	win = repmat( window(@hamming, NFFT, 'periodic')', 3, 1 );
-	
-	% Fourier transform
-	B_f = fft(B_nT(:, istart:istop) .* win, [], 2);
-
-	% Apply the transfer function
-	B_f(1, :) = B_f(1, :) ./ compensate_array(1, :);
-	B_f(2, :) = B_f(2, :) ./ compensate_array(2, :);
-	B_f(3, :) = B_f(3, :) ./ compensate_array(3, :);
-
-	% Inverse transform
-	B_f = ifft(B_f, [], 2) ./ win;
-	B_out(:, is_fill:ie_fill) = B_f(:, is_middle:ie_middle);
+		% Fill section
+		is_fill = is_fill + nShift;
+		ie_fill = ie_fill + nShift;
+		
+		count = count + 1;
+	end
 end

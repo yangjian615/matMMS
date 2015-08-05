@@ -31,7 +31,7 @@ function [B_nT] = mms_sc_number2nT(B_sc)
 	%   - The first  2^15 - 1 numbers are negative
 	%   - The number 0
 	%   - The second 2^15 - 1 numbers are positive
-	%   - Normalize by 2^16 - 1
+	%   - Normalize by 2^16 - 1 (65535.0)
 	%
 	% From Olivier le Contel:
 	%

@@ -52,7 +52,7 @@
 %   2015-05-11      Take file names as inputs. Return data in OMB and 123. - MRA
 %   2015-06-21      renamed from mms_sc_bcs to mms_sc_create_l1b. - MRA
 %
-function [t, b_bcs, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration)
+function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration)
 
 	if nargin < 5
 		duration = 600.0;
@@ -67,7 +67,7 @@ function [t, b_bcs, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart
 
 	% Read the cal file
 	[transfr_fn, f] = mms_sc_read_caltab(cal_file);
-
+keyboard
 %------------------------------------%
 % Calibrate the Data                 %
 %------------------------------------%
@@ -162,14 +162,19 @@ function [t, b_bcs, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart
 	clear sc_l1a
 
 %------------------------------------%
-% Rotate to BCS                      %
+% Rotate to SMPA                     %
 %------------------------------------%
 
-	% BCS is the same as OCS, except for a translation along z,
-	% which plays no role in a coordinate transformation. Could
-	% otherwise use mms_instr_xxyz2instr('SCM_123', 'BCS')
-	sc2bcs = mms_instr_xxyz2ocs('SCM_123');
+	% Transformation from OMB to SMPA
+	omb2smpa = mms_fg_xomb2smpa();
 	
 	% Rotate
-	b_bcs = mrvector_rotate(sc2bcs, b_omb);
+	b_smpa = mrvector_rotate(omb2smpa, b_omb);
+
+%------------------------------------%
+% Rotate to BCS                      %
+%------------------------------------%
+	% Requires attitude information (z-MPA)
+	warning('SC:L1B', 'SMPA -> BCS not implemented yet.')
+	b_bcs  = zeros(size(b_omb));
 end
