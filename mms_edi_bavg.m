@@ -75,9 +75,9 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 	t_avg       = zeros(1, nOut, 'int64');
 	b_avg       = zeros(3, nOut);
 	b_std       = zeros(3, nOut);
-	recnum      = zeros(1, nOut, 'int32');
-	recnum_gd12 = zeros(1, N_gd12, 'int32');
-	recnum_gd21 = zeros(1, N_gd21, 'int32');
+	recnum      = zeros(1, nOut,   'uint32');
+	recnum_gd12 = zeros(1, N_gd12, 'uint32');
+	recnum_gd21 = zeros(1, N_gd21, 'uint32');
 	b_gd12      = zeros(3, N_gd12);
 	b_gd21      = zeros(3, N_gd21);
 	
