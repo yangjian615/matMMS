@@ -58,6 +58,7 @@
 %   2015-04-29      Remove quality selection and firing vector calculations.
 %                     Accept filenames as inputs. Select coordinate system. - MRA
 %   2015-05-21      Renamed from mms_edi_bcs to mms_edi_create_l1b. - MRA
+%   2015-08-11      Store gun and detector positions as 3xN instead of Nx3 arrays. - MRA
 %
 function edi = mms_edi_create_l1b(filenames, tstart, tend, varargin)
 
@@ -84,11 +85,11 @@ function edi = mms_edi_create_l1b(filenames, tstart, tend, varargin)
 %------------------------------------%
 % Get EDI Data                       %
 %------------------------------------%
-	% Gun positions and detectors in BCS
-	gun_gd12_bcs = mms_instr_origins_ocs('EDI1_GUN');
-	det_gd12_bcs = mms_instr_origins_ocs('EDI1_DETECTOR');
-	gun_gd21_bcs = mms_instr_origins_ocs('EDI2_GUN');
-	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR');
+	% Guns and detector positions in BCS
+	gun_gd12_bcs = mms_instr_origins_ocs('EDI1_GUN')';
+	det_gd12_bcs = mms_instr_origins_ocs('EDI1_DETECTOR')';
+	gun_gd21_bcs = mms_instr_origins_ocs('EDI2_GUN')';
+	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')';
 	
 	% Read EDI efield data
 	edi = mms_edi_read_l1a_efield(filenames, tstart, tend, 'Quality', quality);
