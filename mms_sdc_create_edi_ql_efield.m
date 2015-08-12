@@ -66,16 +66,18 @@ function cdf_file = mms_sdc_create_edi_ql_efield(sc, date_start)
 			
 		% Catch error
 		catch ME
-			% Print error
-			fprintf('Unable to create file: %s %s %s\n', sc{ii}, tstart, tend);
-			fprintf('  Error using %s (line %d)\n', ME.stack(1).name, ME.stack(1).line);
-			fprintf('  %s\n', ME.message);
+			logfile = mrstdlog();
+			logfile.alert = true;
 			
-			% Print stack
-			for ii = 2: length(ME.stack)
-				fprintf('      %s (line %d)\n', ME.stack(ii).name, ME.stack(ii).line);
-			end
-			fprintf('\n');
+			% Print error
+			mrfprintf('logerr', 'Unable to create file: %s %s %s', sc{ii}, tstart, tend);
+			mrfprintf('logerr',  ME);
+			
+			% Turn alerts back off
+			logfile.alert = false;
+			
+			% No CDF file made
+			cdf_file = '';
 		end
 	end
 end
