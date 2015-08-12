@@ -66,16 +66,43 @@
 %                       Optional data product descriptor. Should be short
 %                           (3-8 characters). Hyphens used to separate
 %                           multiple components.
+%   'RelaxedTStart':    in, required, type=boolean, default=false
+%                       Since MMS filenames contain only 'TStart', matching
+%                           files to the time interval provided is not
+%                           perfect. Normally, the first file found will be
+%                           the closest matching file that starts /before/
+%                           'TStart'. If that is the case, the default is
+%                           to exclude if from the search results. This
+%                           behavior is not ideal, however, for DFG calibration
+%                           files, which start on 2010-10-01. Set this
+%                           parameter to true to keep the first file, regardless
+%                           of its start time.
+%   'SDCroot':          in, required, type=char, default='/nfs/'
+%                       If your directory structure models that of the SDC,
+%                           then provide its root directory.
+%   'SubDirs':          in, required, type=cell, default={'%Y', '%M'}
+%                       Date-time subdirectories, specified as MrTokens tokens
+%                           (e.g. %Y = year, %M = month, %d = day). Normally,
+%                           the SDC directory chain ends with /%Y/%M (/year/month/).
+%                           If that is not the case, use 'SubDirs' to specify the
+%                           level of subdirectories. The empty string, '',
+%                           indicates no date-time subdirectories.
 %   'TStart':           in, required, type=char
 %                       Start time of the data product, formatted as:
-%                           'yyyymmddhhmmss'. Least significant fields can
+%                           'yyyymmddHHMMSS'. Least significant fields can
 %                           be dropped when files start on regular hourly
 %                           or minute boundaries.
-%   'TEnd:              in, required, type=char
+%   'TEnd':             in, required, type=char
 %                       Start time of the data product, formatted as:
 %                           'yyyymmddhhmmss'. Least significant fields can
 %                           be dropped when files start on regular hourly
 %                           or minute boundaries.
+%   'TimeOrder':        in, required, type=char, default='%Y%M%d'
+%                       In order to compare 'TStart' and 'TEnd' with the start
+%                           time of each file, the file's start time must be
+%                           in a predictable order. Specify the date-time format
+%                           of the file names using MrTokens tokens. Most files
+%                           have [year month day], which is the default.
 %   'Version':          in, required, type=char
 %                       Version number in the form: "vX.Y.Z"
 %                           X - Interface number. Increments represent
@@ -94,21 +121,26 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
-	tstart     = '';
-	tend       = '';
-	optdesc    = '';
-	version    = '';
-	timeorder  = '';
-	subdirs    = {'%Y', '%M'};
-	directory  = '';
-	sdc_root   = '/nfs/';
-	nOptArgs   = length(varargin);
+	tstart         = '';
+	tend           = '';
+	optdesc        = '';
+	version        = '';
+	timeorder      = '';
+	subdirs        = {'%Y', '%M'};
+	directory      = '';
+	sdc_root       = '/nfs/';
+	relaxed_tstart = false;
+	nOptArgs       = length(varargin);
 	
 	% Optional parameters
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
 			case 'Directory'
 				directory = varargin{ii+1};
+			case 'OptDesc'
+				optdesc = varargin{ii+1};
+			case 'RelaxedTStart'
+				relaxed_tstart = varargin{ii+1};
 			case 'SDCroot'
 				sdc_root = varargin{ii+1};
 			case 'SubDirs'
@@ -119,8 +151,6 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 				tend = varargin{ii+1};
 			case 'TimeOrder'
 				timeorder = varargin{ii+1};
-			case 'OptDesc'
-				optdesc = varargin{ii+1};
 			case 'Version'
 				version = varargin{ii+1};
 			otherwise
@@ -195,17 +225,20 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	% that if one file is found, it contains data that extends into
 	% your time period of interest.
 	%
-	if nFiles > 1 && ~isempty(tstart)
+	if nFiles > 0 && ~isempty(tstart) && ~relaxed_tstart
+		% Get the start time of the first file.
 		if nFiles == 1
 			[~, ~, ~, ~, fstart] = mms_dissect_filename( files );
 		else
 			[~, ~, ~, ~, fstart] = mms_dissect_filename( files{1} );
 		end
 
+		% If the files's start time does not match the requested tstart time
 		if ~strcmp( fstart(1:4), tstart(1:4) ) || ...
 		   ~strcmp( fstart(5:6), tstart(6:7) ) || ...
 		   ~strcmp( fstart(7:8), tstart(9:10) )
 		   
+			% Remove the first file.
 			nFiles = nFiles - 1;
 			if nFiles > 1
 				files = files(2:end);
