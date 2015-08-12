@@ -91,7 +91,9 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 %------------------------------------%
 
 	% Convert B to nano-Tesla
+	%   - Negate and scale
 	B_nT = mms_sc_number2nT(B);
+	B_nT = -1.0 * B_nT;
 
 %------------------------------------%
 % Prep for FFT                       %

@@ -143,10 +143,13 @@ function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
 %------------------------------------%
 	count = 0;
 	while istop <= nPts
+	
+% Print status
 if mod(count, 5000) == 0
 	fprintf('data = [%d, %d], fill = [%d, %d], middle = [%d, %d] of %d\n', ...
 	        istart, istop, is_fill, ie_fill, is_middle, ie_middle, nPts);
 end
+
 	%------------------------------------%
 	% Calibrate                          %
 	%------------------------------------%
@@ -174,4 +177,7 @@ end
 		
 		count = count + 1;
 	end
+	
+	% Negate and scale
+%	B_out = -1.0 * B_out;
 end
