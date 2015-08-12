@@ -159,7 +159,8 @@ function [cal_params, cal_const] = mms_fg_read_cal(filename, tstart, tstop)
 	[uniq, iuniq] = unique(t_cal);
 	if length(uniq) ~= length(t_cal)
 		% Warn about eliminating values.
-		warning('FG:Read_Cal', 'Duplicate calibration parameters. Taking unique values.')
+		mrfprintf( 'logwarn', 'FG:Read_Cal', ...
+		           'Duplicate calibration parameters. Taking unique values.' )
 		
 		% Eliminate data
 		t_cal       = t_cal(iuniq);

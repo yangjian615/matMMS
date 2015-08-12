@@ -56,9 +56,10 @@
 %
 % History:
 %   2015-04-15      Written by Matthew Argall
-%   2015-04-20      Added 'SunPulseDir' parameter.
-%   2015-05-21      Take filenames as input, not pieces of filenames.
-%   2015-07-29      Update to use latest verion of mag cal files.
+%   2015-04-20      Added 'SunPulseDir' parameter. - MRA
+%   2015-05-21      Take filenames as input, not pieces of filenames. - MRA
+%   2015-07-29      Update to use latest verion of mag cal files. - MRA
+%   2015-08-09      Direct warnings to 'logwarn' via mrfprintf. - MRA
 %
 function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] ...
 	= mms_fg_create_l2(files, hiCal_file, loCal_file, tstart, tend, varargin)
@@ -148,7 +149,7 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_omb, b_123] ...
 		% Transform to GSE
 		b_gse = mrvector_rotate(GEI2GSE, b_gei);
 	else
-		warning('FG:GSE', 'No attitude data. Cannot transform into GSE.');
+		mrfprintf('logwarn', 'FG:GSE', 'No attitude data. Cannot transform into GSE.');
 		b_gse = zeros(size(b_smpa));
 	end
 end

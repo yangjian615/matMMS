@@ -60,7 +60,8 @@
 %
 % History:
 %   2015-04-06      Written by Matthew Argall
-%   2015-05-25      Filenames taken as inputs. Return CDF TT2000 times.
+%   2015-05-25      Filenames taken as inputs. Return CDF TT2000 times. - MRA
+%   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
 function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 
@@ -97,7 +98,7 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 		
 		% Make sure the MPA axis has not changed
 		if ~min( att_hdr.('zMPA')(:,ii) == temp.('zMPA') )
-			warning('MMS_FDOA_Read_DefAtt:MPA', 'zMPA has changed.')
+			mrfprintf('logwarn', 'MMS_FDOA_Read_DefAtt:MPA', 'zMPA has changed.')
 		end
 	end
 

@@ -50,6 +50,7 @@
 %   2015-04-13      Written by Matthew Argall
 %   2015-07-27      Include entire last packet when finding poitns without
 %                       range values. - MRA
+%   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
 function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal, hiConst, loConst, hk_0x10e)
 
@@ -95,9 +96,8 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal,
 	%
 	if t(1) < t_range(1)
 		% Find the first point with range information.
-		iInRange = find( t >= t_range(1), 1, 'first');
-		wrn_msg  = sprintf('First %d points lack range info.', iInRange-1);
-		warning('mms_fg_calibrate:range', wrn_msg);
+		mrfprintf( 'logwarn', 'mms_fg_calibrate:range', ...
+		           'First %d points lack range info.', iInRange-1 );
 		
 		% Set out-of-range values to the first in-range value.
 		range_inds(1:iInRange) = range_inds(iInRange);
@@ -110,8 +110,8 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal,
 		dt_range  = median( diff( t_range ) );
 		iOutRange = find( t >= t_range(end) + dt_range, 1, 'first' );
 		if ~isempty(iOutRange)
-			wrn_msg  = sprintf('Last %d points may lack range info.', length(iOutRange));
-			warning('mms_fg_calibrate:range', wrn_msg);
+			mrfprintf('logwarn', 'mms_fg_calibrate:range', ...
+			          'Last %d points may lack range info.', length(iOutRange));
 		end
 		
 		% Set out-of-range values to the last in-range value.

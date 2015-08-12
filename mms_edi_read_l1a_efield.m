@@ -201,9 +201,9 @@ function edi_l1a_emode = mms_edi_read_efield(filenames, tstart, tend, varargin)
 		if nq_gd12 == 0 && nq_gd21 == 0
 			error('EDI_BCS:Quality', 'No beams of the selected quality found.');
 		elseif sum(iq_gd12) == 0
-			warning('EDI_BCS:Quality', 'No beams of selected quality found for Gun1');
+			mrfprintf('logwarn', 'EDI_BCS:Quality', 'No beams of selected quality found for Gun1');
 		elseif sum(iq_gd21) == 0
-			warning('EDI_BCS:Quality', 'No beams of selected quality found for Gun2');
+			mrfprintf('logwarn', 'EDI_BCS:Quality', 'No beams of selected quality found for Gun2');
 		end
 		
 		% Select data

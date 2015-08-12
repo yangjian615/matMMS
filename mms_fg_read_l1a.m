@@ -36,6 +36,7 @@
 %   2015-05-21      Written by Matthew Argall
 %   2015-07-21      "samplerate" variable is actually the sample interval. Take
 %                      reciprocal and issue warning. - MRA
+%   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
 function fg_l1a = mms_fg_read_l1a(files, tstart, tend)
 
@@ -99,7 +100,8 @@ function fg_l1a = mms_fg_read_l1a(files, tstart, tend)
 	sample_rate      = MrCDF_nRead(files, sr_name,    'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
 
 	% Warn that the sample rate is being inverted
-	warning('FG:Read_L1A', '"samplerate" variable contains dt. Inverting to get sample rate: sr = 1/dt.')
+	mrfprintf( 'logwarn', 'FG:Read_L1A', ...
+	           '"samplerate" variable contains dt. Inverting to get sample rate: sr = 1/dt.' )
 
 	% Save data structure.
 	fg_l1a = struct( 'tt2000',      t, ...

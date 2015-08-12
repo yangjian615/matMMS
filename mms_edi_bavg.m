@@ -104,6 +104,11 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 	n_tot_gd12     = 0;
 	n_tot_gd21     = 0;
 	
+	% There could be a lot of missing beams. Offset messages.
+	mrfprintf('logtext', '\n\n#####################################')
+	mrfprintf('logtext',     '# mms_edi_bavg Beam Intervals       #')
+	mrfprintf('logtext',     '#####################################\n\n')
+	
 	% Begin loop
 	while t_avg_range(1) < MrCDF_epoch2sse(t1, t0)
 	%------------------------------------%
@@ -128,7 +133,7 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 		if isempty(it_gd12_interp)
 			n_gd12 = 0;
 			trange_interp = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_interp_range, t0 ) );
-			warning('EDI:Bavg', 'No GD12 beams to interpolate: %s and %s', trange_interp{1}, trange_interp{2});
+			mrfprintf('logwarn', 'EDI:Bavg', 'No GD12 beams to interpolate: %s and %s', trange_interp{1}, trange_interp{2});
 		else
 			% Extract interpolation interval
 			t_gd12_temp = t_gd12_sse(it_gd12_interp);
@@ -149,7 +154,7 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 			if isempty(it_gd12_avg)
 				n_gd12 = 0;
 				trange_avg = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_avg_range, t0 ) );
-				warning('EDI:Bavg', 'No GD12 beams to average: %s and %s', trange_avg{1}, trange_avg{2});
+				mrfprintf('logwarn', 'EDI:Bavg', 'No GD12 beams to average: %s and %s', trange_avg{1}, trange_avg{2});
 			else
 				% Magnetic field in averaging interval
 				b_fg_gd12 = b_fg_gd12(:, it_gd12_avg);
@@ -165,7 +170,7 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 		if isempty(it_gd21_interp)
 			n_gd21 = 0;
 			trange_interp = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_interp_range, t0 ) );
-			warning('EDI:Bavg', 'No GD21 beams to interpolate: %s and %s', trange_interp{1}, trange_interp{2});
+			mrfprintf('logwarn', 'EDI:Bavg', 'No GD21 beams to interpolate: %s and %s', trange_interp{1}, trange_interp{2});
 		else
 			% Extract interpolation interval
 			t_gd21_temp = t_gd21_sse(it_gd21_interp);
@@ -186,7 +191,7 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 			if isempty(it_gd21_avg)
 				n_gd21 = 0;
 				trange_avg = MrCDF_Epoch_Encode( MrCDF_sse2epoch( t_avg_range, t0 ) );
-				warning('EDI:Bavg', 'No GD21 beams to average: %s and %s', trange_avg{1}, trange_avg{2});
+				mrfprintf('logwarn', 'EDI:Bavg', 'No GD21 beams to average: %s and %s', trange_avg{1}, trange_avg{2});
 			else
 				% Magnetic field in averaging interval
 				b_fg_gd21 = b_fg_gd21(:, it_gd21_avg);
@@ -261,6 +266,11 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 		t_avg_range    = t_avg_range + dt;
 		t_interp_range = t_interp_range + dt;
 	end
+	
+	% There could be a lot of missing beams. Offset messages.
+	mrfprintf('logtext', '\n\n#####################################')
+	mrfprintf('logtext',     '# mms_edi_bavg End Beam Intervals   #')
+	mrfprintf('logtext',     '#####################################\n\n')
 	
 %------------------------------------%
 % Trim Data                          %

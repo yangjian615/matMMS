@@ -130,7 +130,7 @@ function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
 	if isempty(z_mpa)
 		% Attitude data
 		attitude = [];
-		warning('MMS_EDI_GSE:SMPA', 'zMPA not given. Cannot transform to SMPA.');
+		mrfprintf('logwarn', 'MMS_EDI_GSE:SMPA', 'zMPA not given. Cannot transform to SMPA.');
 		cs_smpa = false;
 		
 		% Cannot transform to SMPA, so copy variables
@@ -263,7 +263,7 @@ function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
 		det_gd21_gse     = mrvector_rotate(GEI2GSE_gd21, det_gd21_gei);
 		virtual_gun2_gse = mrvector_rotate(GEI2GSE_gd21, virtual_gun2_gei);
 	else
-		warning('MMS_EDI:GSE', 'No attitude data. Cannot rotate to GSE.')
+		mrfprintf('logwarn', 'MMS_EDI:GSE', 'No attitude data. Cannot rotate to GSE.')
 		cs_gse = false;
 	end
 

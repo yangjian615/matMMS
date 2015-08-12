@@ -51,11 +51,12 @@
 %   2015-04-14      Written by Matthew Argall
 %   2015-05-11      Take file names as inputs. Return data in OMB and 123. - MRA
 %   2015-06-21      renamed from mms_sc_bcs to mms_sc_create_l1b. - MRA
+%   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
 function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration)
 
 	if nargin < 5
-		duration = 600.0;
+		duration = 64.0;
 	end
 
 %------------------------------------%
@@ -67,7 +68,7 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file
 
 	% Read the cal file
 	[transfr_fn, f] = mms_sc_read_caltab(cal_file);
-keyboard
+
 %------------------------------------%
 % Calibrate the Data                 %
 %------------------------------------%
@@ -113,10 +114,9 @@ keyboard
 		% Number of nominal samples between points
 		nsr = round( diff( t_sse(1:iBefore) ) * sr(1) );
 		if sum(nsr) ~= nBefore - 1
-			msg = sprintf( ['%d points out of cal interval. ' ...
-			                'Mean sample rate %f * expected.'], ...
-			               iBefore, mean(nsr) )
-			warning('MMS_SC_BSC:Calibrate', msg)
+			mrfprintf( 'logwarn', 'MMS_SC_BSC:Calibrate', ...
+			           '%d points out of cal interval. Mean sample rate %f * expected.', ...
+			           iBefore, mean(nsr) );
 		end
 	end
 	
@@ -129,10 +129,9 @@ keyboard
 		% Number of nominal samples between points
 		nsr = round( diff( t_sse(iAfter:end) ) * sr(end) );
 		if sum(nsr) ~= nAfter - 1
-			msg = sprintf( ['%d points out of cal interval. ' ...
-			                'Mean sample rate %f * expected.'], ...
-			               nAfter, mean(nsr) )
-			warning('MMS_SC_BSC:Calibrate', msg)
+			mrfprintf( 'logwarn', 'MMS_SC_BSC:Calibrate', ...
+			           '%d points out of cal interval. Mean sample rate %f * expected.', ...
+			           nAfter, mean(nsr) );
 		end
 	end
 
@@ -175,6 +174,6 @@ keyboard
 % Rotate to BCS                      %
 %------------------------------------%
 	% Requires attitude information (z-MPA)
-	warning('SC:L1B', 'SMPA -> BCS not implemented yet.')
+	mrfprintf('logwarn', 'SC:L1B', 'SMPA -> BCS not implemented yet.')
 	b_bcs  = zeros(size(b_omb));
 end

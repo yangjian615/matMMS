@@ -1,6 +1,6 @@
 %
 % Name
-%   mms_mag_view
+%   mms_mag_compare_l2
 %
 % Purpose
 %   Take l1a searchcoil magnetometer data, apply calibration

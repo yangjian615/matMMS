@@ -59,8 +59,9 @@
 %   2015-04-15      Written by Matthew Argall
 %   2015-05-07      Added 'SunPulseDir'. - MRA
 %   2015-06-21      Renamed from mms_sc_gse to mms_sc_create_l2. - MRA
+%   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
-function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_files, cal_file, tstart, tend, varargin)
+function [t, b_gse, b_gei, b_dmpa, b_smpa, b_omb, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_files, cal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
@@ -83,7 +84,7 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_
 			case 'zMPA'
 				zMPA     = varargin{ii+1};
 			otherwise
-				error( ['Unknown input "' varargin{ii+1} '".'] );
+				error( ['Unknown input "' varargin{ii} '".'] );
 		end
 	end
 	
@@ -100,7 +101,8 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_
 %------------------------------------%
 	if isempty(zMPA)
 		% Attitude data
-		warning('MMS_SC_GSE:SMPA', 'MPA axis not given. Cannot transform SMPA -> BCS.');
+		mrfprintf( 'logwarn', 'MMS_SC_GSE:SMPA', ...
+		           'MPA axis not given. Cannot transform SMPA -> BCS.');
 		
 		% Cannot transform to SMPA, so copy variables
 		b_bcs = b_smpa;
@@ -130,7 +132,7 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_
 	end
 
 	% Rotate to DMPA
-	b_dmpa = mrvector_rotate(smpa2dmpa, b_sin_smpa);
+	b_dmpa = mrvector_rotate(smpa2dmpa, b_smpa);
 
 %------------------------------------%
 % Rotate to GSE                      %
@@ -157,7 +159,7 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_bcs, b_cal, b_123] = mms_sc_create_
 		% Transform to GSE
 		b_gse = mrvector_rotate(GEI2GSE, b_gei);
 	else
-		warning('FG:GSE', 'No attitude data. Cannot transform into GSE.');
+		mrfprintf( 'logwarn', 'FG:GSE', 'No attitude data. Cannot transform into GSE.');
 		b_gse = zeros(size(b_smpa));
 	end
 end

@@ -50,6 +50,7 @@
 %   2015-04-14      Return a structure. - MRAs
 %   2015-04-27      Corrected check of extrapolation at end of array. - MRA
 %   2015-07-21      Was filling PERIOD with 0 instead of actual periods. - MRA
+%   2015-08-09      Write warnings to log file with mrfprintf. - MRA
 %
 function phase = mms_dss_sunpulse2phase(sunpulse, times)
 
@@ -98,8 +99,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 
 	% Warn about gaps
 	if nBigGaps > 0
-		msg = sprintf('%d gaps of more than %f seconds.', nBigGaps, double(nMinGap*T_median)*1e-9);
-		warning('SunPulse:Phase', msg);
+		mrfprintf( 'logwarn', 'SunPulse:Phase', '%d gaps of more than %f seconds.', ...
+		           nBigGaps, double(nMinGap*T_median)*1e-9 );
 	end
 
 	% Insert a pseudo sun pulse before each big gap
@@ -173,9 +174,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 		iNotIntSpin = find( abs( nSpins - round(nSpins) ) >= 0.25 );
 		if ~isempty(iNotIntSpin)
 			% Send a warning
-			msg = sprintf( '%d periods that are non-integer multiples of the median spin period.', ...
-			               sum(iNotIntSpin));
-			warning('SunPulse:Phase', msg);
+			mrfprintf( 'logwarn', 'SunPulse:Phase', '%d periods that are non-integer multiples of the median spin period.', ...
+			           sum(iNotIntSpin) );
 			
 			% Set the flag
 			T_flag(iNotIntSpin) = 2;
@@ -223,8 +223,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			T1 = dPulse(idx);
 		else
 			t_warn = spdfencodett2000( pulse(idx) );
-			msg    = sprintf('Cannot determine period before gap at %s', t_warn{1});
-			warning('SunPulse:Phase', msg);
+			mrfprintf( 'logwarn', 'SunPulse:Phase', 'Cannot determine period before gap at %s', ...
+			           t_warn{1} );
 			T1 = nan;
 		end
 		
@@ -236,8 +236,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 		%     single point stranded between two gaps.
 		if idx + 1 == iGaps(2, igap)
 			t_warn = spdfencodett2000( pulse(idx) );
-			msg    = sprintf('Cannot determine period after gap at %s', t_warn{1});
-			warning('SunPulse:Phase', msg);
+			mrfprintf( 'logwarn', 'SunPulse:Phase', 'Cannot determine period after gap at %s', ...
+			           t_warn{1} );
 			T2 = nan;
 		else
 			T2 = dPulse(idx+1);
@@ -256,9 +256,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			% Do they differ by more than half a spin?
 			if abs(nSpin1 - nSpin2) >= 0.5
 				t_warn = spdfencodett2000( pulse(idx) );
-				msg    = sprintf('Spin rates that bound gap at %s differ by >= 0.5 spins.', ...
-				                 t_warn{1});
-				warning('SunPulse:Phase', msg);
+				mrfprintf( 'logwarn', 'SunPulse:Phase', ...
+				           'Spin rates that bound gap at %s differ by >= 0.5 spins.', t_warn{1} );
 				dPulse_flag(idx) = 3;
 			end
 			
@@ -270,8 +269,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			
 			% Warn
 			t_warn = spdfencodett2000( pulse(idx) );
-			msg    = sprintf('Using period at beginning of gap %s', t_warn{1});
-			warning('SunPulse:Phase', msg);
+			mrfprintf( 'logwarn', 'SunPulse:Phase', ...
+			           'Using period at beginning of gap %s', t_warn{1} );
 		
 		% Use second spin if it is an integer to within 10%
 		elseif mod( nSpin2, 1 ) < 0.1
@@ -280,8 +279,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			
 			% Warn
 			t_warn = spdfencodett2000( pulse(idx) );
-			msg    = sprintf('Using period at end of gap %s', t_warn{1});
-			warning('SunPulse:Phase', msg);
+			mrfprintf( 'logwarn', 'SunPulse:Phase', ...
+			           'Using period at end of gap %s', t_warn{1} );
 		
 		% Use average spin
 		else
@@ -290,8 +289,8 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 			
 			% Warn
 			t_warn = spdfencodett2000( pulse(idx) );
-			msg    = sprintf('Using average period before and after gap %s', t_warn{1});
-			warning('SunPulse:Phase', msg);
+			mrfprintf( 'logwarn', 'SunPulse:Phase', ...
+			           'Using average period before and after gap %s', t_warn{1} );
 		end
 		
 		% Average period
@@ -334,14 +333,16 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 	% Warn if excessive extrapolation
 	if iBefore > 0
 		if 360.0 * (pulse(1) - times(1)) / period(1) > 3.0 * 360.0
-			warning('SunPulse:Phase', 'Extrapolating more than 3 spins before first point.');
+			mrfprintf( 'logwarn', 'SunPulse:Phase', ...
+			           'Extrapolating more than 3 spins before first point.' );
 		end
 	end
 
 	% Warn if excessive extrapolation
 	if iAfter < length(times)
 		if 360.0 * (times(end) - pulse(end)) / period(1) > 3.0 * 360.0
-			warning('SunPulse:Phase', 'Extrapolating more than 3 spins after last point.');
+			mrfprintf( 'logwarn', 'SunPulse:Phase', ...
+			           'Extrapolating more than 3 spins after last point.');
 		end
 	end
 end

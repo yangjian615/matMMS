@@ -51,10 +51,11 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Defaults
 	sdc_root        = '/nfs/';
 	save_dir        = '/nfs/edi/temp/';
+	log_dir         = '/nfs/edi/logs/';
 	attitude_dir    = fullfile(sdc_root, 'ancillary', sc, 'defatt');
 	hk_root         = fullfile(sdc_root, 'hk');
 	beam_quality    = 3;
-	create_log_file = false;
+	create_log_file = true;
 	dt              = 5.0;
 
 	% Optional arguments
@@ -84,17 +85,24 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 % Log File                           %
 %------------------------------------%
 	if create_log_file
+		% Reformat the start time
+		fstart = MrTimeParser(tstart, '%Y-%M-%dT%H:%m:%S', '%Y%M%d');
+	
 		% Create a file name
-		log_name = mms_construct_fname( sc, 'edi', 'slow', 'ql', ...
-		                                'OptDesc',   'efield', ...
-		                                'TStart',    tstart, ...
-		                                'Version',   'v0.1.1' );
+		log_name = mms_construct_filename( sc, 'edi', 'srvy', 'ql', ...
+		                                   'OptDesc',   'efield',   ...
+		                                   'TStart',    fstart,     ...
+		                                   'Version',   'v0.1.5' );
 		% Change extension to 'log'
-		[~, log_name] = fileparts(log_name)
-		log_name      = fullfile( save_dir, [log_name '.log']);
+		[~, log_name] = fileparts(log_name);
+		log_name      = fullfile( log_dir, [log_name '.log']);
 		
-		% Create the log object
-		oLog = MrErrorLogger(log_name, 'Timestamp', true)
+		% Create log object
+		%   - Delete the log file if no errors occurred.
+		logfile = mrstdlog(log_name);
+		logfile.delete_on_destroy = true;
+	else
+		mrstdlog('');
 	end
 
 %------------------------------------%
@@ -131,12 +139,12 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	%     transformation.
 	%   - Sunpulse times are used to despin data.
 	str = fullfile( attitude_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*'] );
-	[att_file, count] = MrFile_Search( str, ...
-	                                   'Closest',      true, ...
-	                                   'TStart',       tstart, ...
-	                                   'TEnd',         tend, ...
-	                                   'TimeOrder',    '%Y%D', ...
-	                                   'VersionRegex', 'V([0-9]{2})' );
+	[att_file, att_cnt] = MrFile_Search( str, ...
+	                                    'Closest',      true, ...
+	                                    'TStart',       tstart, ...
+	                                    'TEnd',         tend, ...
+	                                    'TimeOrder',    '%Y%D', ...
+	                                    'VersionRegex', 'V([0-9]{2})' );
 	
 	% EDI Slow L1A E-Field Data File
 	%    - Find last, so file descriptors are saved.
@@ -161,19 +169,20 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	                                                'TEnd',      tend, ...
 	                                                'OptDesc',   optdesc, ...
 	                                                'SDCroot',   sdc_root);
-	assert( slw_cnt + fst_cnt > 0, 'Unable to find fast or slow survey EDI files.' );
-	
+
 	% Write names to log file
 	if create_log_file
-		oLog.AddText( 'Parent files:');
-		oLog.AddText( strcat('  FG:      "', fg_file,  '"') );
-		oLog.AddText( strcat('  DSS:     "', dss_file, '"') );
-		oLog.AddText( strcat('  DefAtt:  "', att_file, '"') );
-		oLog.AddText( strcat('  EDI:     "', edi_file, '"') );
-		oLog.AddText( '' );
+		mrfprintf('logtext', 'Parent files:');
+		mrfprintf('logtext', strcat('  FG:       "', fg_file,  '"') );
+		mrfprintf('logtext', strcat('  DSS:      "', dss_file, '"') );
+		if att_cnt > 1
+			mrfprintf('logtext', strcat('  Defatt:   "', strjoin(att_file, '\n            ') ) );
+		else
+			mrfprintf('logtext', strcat('  Defatt:   "', att_file, '"') );
+		end
+		mrfprintf('logtext', strcat('  EDI slow: "', edi_slow_file, '"') );
+		mrfprintf('logtext', strcat('  EDI fast: "', edi_fast_file, '"') );
 	end
-	
-	
 
 %------------------------------------%
 % Read Data                          %
@@ -190,17 +199,6 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Sunpulse data
 	sunpulse = mms_dss_read_sunpulse(dss_file, tstart, tend, 'UniquePulse', true);
 
-	% EDI Slow data
-	if fst_cnt > 0
-		edi_fast = mms_edi_create_l2pre_efield( edi_fast_file, tstart, tend, ...
-		                                        'Attitude', defatt, ...
-		                                        'CS_GSE',   false, ...
-		                                        'CS_DMPA',  true, ...
-		                                        'Quality',  beam_quality, ...
-		                                        'Sunpulse', sunpulse, ...
-		                                        'zMPA',     zMPA );
-	end
-
 	% EDI Fast data
 	if slw_cnt > 0
 		edi_slow = mms_edi_create_l2pre_efield( edi_slow_file, tstart, tend, ...
@@ -212,11 +210,36 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		                                        'zMPA',     zMPA );
 	end
 
+	% EDI Slow data
+	if fst_cnt > 0
+		%
+		% Occasionally, a file will be found with zero records. This is a
+		% problem with L1A processing which produces files when no data
+		% is available.
+		%
+		try
+			edi_fast = mms_edi_create_l2pre_efield( edi_fast_file, tstart, tend, ...
+			                                        'Attitude', defatt, ...
+			                                        'CS_GSE',   false, ...
+			                                        'CS_DMPA',  true, ...
+			                                        'Quality',  beam_quality, ...
+			                                        'Sunpulse', sunpulse, ...
+			                                        'zMPA',     zMPA );
+		% Not the error and continue processing slow survey data.
+		catch ME
+			mrfprintf('logerr', ME);
+			fst_cnt = 0;
+		end
+	end
+	
+	% Check after we check for empty fast survey file.
+	assert( slw_cnt + fst_cnt > 0, 'Unable to find fast or slow survey EDI files.' );
+
 	% FGM data
 	fg_ql = mms_fg_read_ql(fg_file, tstart, tend);
 
 %------------------------------------%
-% Prepare Data                       %
+% Combine Slow and Fast Survey       %
 %------------------------------------%
 	% Combine slow and fast data
 	%   - Already checked the fst_cnt == 0 && slw_cnt == 0 case
@@ -279,6 +302,9 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		clear edi_slow
 	end
 
+%------------------------------------%
+% Compuate Average B                 %
+%------------------------------------%
 	% Time range that we have data
 	if isempty(edi.tt2000_gd12) && isempty(edi.tt2000_gd21)
 		error( 'No EDI E-field data available.' );
@@ -392,6 +418,14 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 %------------------------------------%
 % Gather Data                        %
 %------------------------------------%
+	% Parent files
+	if iscell(att_file)
+		parents = [ fg_file dss_file att_file edi_fast_file edi_slow_file ];
+	else
+		parents = { fg_file dss_file att_file edi_fast_file edi_slow_file };
+	end
+	iempty  = find( cellfun(@isempty, parents) );
+	parents(iempty) = [];
 
 	% Gather data to be written
 	%   - Record varying dimension must be first
@@ -402,7 +436,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	                 'directory',    save_dir,               ...
 	                 'tstart',       tstart,                 ...
 	                 'tend',         tend,                   ...
-	                 'parents',      { { fg_file dss_file att_file{:} edi_fast_file edi_slow_file } }, ...
+	                 'parents',      { parents },            ...             % Prevent array of structures
 	                 'tt2000',       b_avg.t_avg',           ...
 	                 'dt',           int64( b_avg.dt_avg ) * int64(1e9), ... % s -> ns
 	                 'B_dmpa',       single(b_avg.b_avg'),   ...
