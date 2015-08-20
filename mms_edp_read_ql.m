@@ -85,5 +85,5 @@ function edp_ql = mms_edp_read_ql(files, tstart, tend)
 
 	% Transpose the data to be row vectors.
 	edp_ql = struct( 'tt2000', t,     ...
-	                 'e_dsl',  e_dsl );
+	                 'E_dsl',  e_dsl );
 end
