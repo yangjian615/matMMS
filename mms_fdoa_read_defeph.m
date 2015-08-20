@@ -22,6 +22,7 @@
 % Returns
 %   EPHEMERIS       out, required, type=struct
 %                   Fields are:
+%                     'TT2000'    -  Time tags in CDF_TIME_TT2000 format.
 %                     'UTC'       -  Time tags in UTC.
 %                     'TAI'       -  Time tags in TAI as days since MMS reference epoch.
 %                     'Position'  -  (x,y,z) components of spacecraft position.
@@ -164,9 +165,9 @@ function [ephemeris, eph_hdr] = mms_fdoa_read_defeph(eph_files, tstart, tend)
 		ephemeris.UTC      = ephemeris.UTC(      1, iuniq );
 		ephemeris.TAI      = ephemeris.TAI(      1, iuniq );
 		ephemeris.tt2000   = ephemeris.tt2000(   1, iuniq );
-		ephemeris.position = ephemeris.Position( :, iuniq );
-		ephemeris.velocity = ephemeris.Velocity( :, iuniq );
-		ephemeris.mass     = ephemeris.Mass(     1, iuniq );
+		ephemeris.Position = ephemeris.Position( :, iuniq );
+		ephemeris.Velocity = ephemeris.Velocity( :, iuniq );
+		ephemeris.Mass     = ephemeris.Mass(     1, iuniq );
 	end
 end
 
