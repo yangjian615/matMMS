@@ -91,6 +91,10 @@ function edi = mms_edi_create_l1b(filenames, tstart, tend, varargin)
 	gun_gd21_bcs = mms_instr_origins_ocs('EDI2_GUN')';
 	det_gd21_bcs = mms_instr_origins_ocs('EDI2_DETECTOR')';
 	
+	% Gun positions on the vitural spacecraft
+	virtual_gun1_bcs = gun_gd12_bcs - det_gd21_bcs;
+	virtual_gun2_bcs = gun_gd21_bcs - det_gd12_bcs;
+	
 	% Read EDI efield data
 	edi = mms_edi_read_l1a_efield(filenames, tstart, tend, 'Quality', quality);
 
@@ -113,18 +117,22 @@ function edi = mms_edi_create_l1b(filenames, tstart, tend, varargin)
 	% Remove data in 123 system?
 	if ~cs_123
 		edi = rmfield( edi, {'fv_gd12_123', 'fv_gd21_123'} );
+	% Rotate gun positions into 123
+	else
+		edi.('virtual_gun1_123') = mrvector_rotate( edi12bcs', virtual_gun1_bcs );
+		edi.('virtual_gun2_123') = mrvector_rotate( edi22bcs', virtual_gun2_bcs );
 	end
 	
 	% Add data in BCS
 	if cs_bcs
 		edi.('gun_gd12_bcs')     = gun_gd12_bcs;
 		edi.('det_gd12_bcs')     = det_gd12_bcs;
-		edi.('virtual_gun1_bcs') = gun_gd12_bcs - det_gd21_bcs;
+		edi.('virtual_gun1_bcs') = virtual_gun1_bcs;
 		edi.('fv_gd12_bcs')      = fv_gd12_bcs;
 	
 		edi.('gun_gd21_bcs')     = gun_gd21_bcs;
 		edi.('det_gd21_bcs')     = det_gd21_bcs;
-		edi.('virtual_gun2_bcs') = gun_gd21_bcs - det_gd12_bcs;
+		edi.('virtual_gun2_bcs') = virtual_gun2_bcs;
 		edi.('fv_gd21_bcs')      = fv_gd21_bcs;
 	end
 end
