@@ -43,6 +43,7 @@
 %
 % History:
 %   2015-04-13      Written by Matthew Argall
+%   2015-08-21      Extrapolate for TIME outside range of ATTITUDE.TIME. - MRA
 %
 function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
 
@@ -61,14 +62,25 @@ function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
 	ra  = MrPhaseUnwrap(ra,  360.0);
 	dec = MrPhaseUnwrap(dec, 360.0);
 	
-	% Interpolate
-	%   - Must work with doubles, so convert to seconds since 
-	%     reference epoch.
+	% Must interpolate with doubles.
 	att_epoch = mms_fdoa_epoch2tt2000(attitude.('TAI'), 'AttTAI', true);
 	att_sse   = double(att_epoch - att_epoch(1)) * 1e-9;
 	time_sse  = double(time      - att_epoch(1)) * 1e-9;
-	ra        = interp1(att_sse, ra,  time_sse);
-	dec       = interp1(att_sse, dec, time_sse);
+	
+	% Indicate extrapolating
+	if time_sse(1) < att_sse(1)
+		nExtrap = find( time_sse >= att_sse(1), 1, 'first' ) - 1;
+		mrfprintf( 'logwarn', 'Extrapolating %d points before.', nExtrap );
+	end
+	if time_sse(end) > att_sse(end)
+		nExtrap = length(time_sse) - find( time_sse <= att_sse(end), 1, 'last' );
+		mrfprintf( 'logwarn', 'Extrapolating %d points after.', nExtrap );
+	end
+	
+	% Interpolate
+	%   - Extrapolate points outside of attitude time range.
+	ra  = interp1(att_sse, ra,  time_sse, 'linear', 'extrap');
+	dec = interp1(att_sse, dec, time_sse, 'linear', 'extrap');
 
 %------------------------------------%
 % Create Transformation Matrix       %
@@ -83,7 +95,7 @@ function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
 	      timevec(7,:) * 1e-3   + ...
 	      timevec(8,:) * 1e-6   + ...
 	      timevec(9,:) * 1e-9;
-	
+
 	% Get transformation matrix
 	gei2despun = gei2scs(timevec(1,:), timevec(2,:), timevec(3,:), ssm, ra, dec);
 end

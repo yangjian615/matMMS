@@ -65,7 +65,8 @@ function [ephemeris, eph_hdr] = mms_fdoa_read_defeph(eph_files, tstart, tend)
 		assert(nFiles > 0, 'At least one file name must be given.');
 	else
 		assert(ischar(eph_files) && isrow(eph_files), 'EPH_FILES must be a file name or cell array of file names.')
-		nFiles = 1;
+		nFiles    = 1;
+		eph_files = {eph_files};
 	end
 	
 	if nargin() < 3
