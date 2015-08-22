@@ -32,6 +32,7 @@
 %
 % History:
 %   2015-08-13      Written by Matthew Argall
+%   2015-08-22      Updated to read file version 0.2.0. - MRA
 %
 function edi_ql = mms_edi_read_ql_efield(files, tstart, tend)
 
@@ -78,15 +79,28 @@ function edi_ql = mms_edi_read_ql_efield(files, tstart, tend)
 %------------------------------------%
 
 	% Create variable names
-	E_vname = mms_construct_varname(sc, instr, 'E', 'dmpa');
-	v_vname = mms_construct_varname(sc, instr, 'v', 'ExB_dmpa');
+	E_vname    = mms_construct_varname(sc, instr, 'E',     'dmpa');
+	v_vname    = mms_construct_varname(sc, instr, 'v_ExB', 'dmpa');
+	d_vname    = mms_construct_varname(sc, instr, 'd',     'dmpa');
+	E_bc_vname = mms_construct_varname(sc, instr, 'E',     'bc_dmpa');
+	v_bc_vname = mms_construct_varname(sc, instr, 'v_ExB', 'bc_dmpa');
+	d_bc_vname = mms_construct_varname(sc, instr, 'd',     'bc_dmpa');
 
 	% Read the magnetometer data
-	[E_dmpa, t] = MrCDF_nRead(files, E_vname, 'sTime', tstart, 'eTime', tend);
-	v_ExB_dmpa  = MrCDF_nRead(files, v_vname, 'sTime', tstart, 'eTime', tend);
+	[E_dmpa, t] = MrCDF_nRead(files, E_vname,    'sTime', tstart, 'eTime', tend);
+	v_dmpa      = MrCDF_nRead(files, v_vname,    'sTime', tstart, 'eTime', tend);
+	d_dmpa      = MrCDF_nRead(files, d_vname,    'sTime', tstart, 'eTime', tend);
+	E_bc_dmpa   = MrCDF_nRead(files, E_bc_vname, 'sTime', tstart, 'eTime', tend);
+	v_bc_dmpa   = MrCDF_nRead(files, v_bc_vname, 'sTime', tstart, 'eTime', tend);
+	d_bc_dmpa   = MrCDF_nRead(files, d_bc_vname, 'sTime', tstart, 'eTime', tend);
 
 	% Transpose the data to be row vectors.
-	edi_ql = struct( 'tt2000',     t,      ...
-	                 'E_dmpa',     E_dmpa, ...
-	                 'v_ExB_dmpa', v_ExB_dmpa );
+	edi_ql = struct( 'tt2000',         t,         ...
+	                 'E_dmpa',         E_dmpa,    ...
+	                 'v_ExB_dmpa',     v_dmpa,    ...
+	                 'd_dmpa',         d_dmpa,    ...
+	                 'E_bc_dmpa',      E_bc_dmpa, ...
+	                 'v_ExB_bc_dmpa',  v_bc_dmpa, ...
+	                 'd_bc_dmpa',      d_bc_dmpa  ...
+	               );
 end
