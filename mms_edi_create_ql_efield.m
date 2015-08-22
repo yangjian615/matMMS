@@ -80,7 +80,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 				error(['Unknown input parameter: "' varargin{ii} '".']);
 		end
 	end
-
+	
 %------------------------------------%
 % Log File                           %
 %------------------------------------%
@@ -292,13 +292,19 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 			%  Combine data; select sorted, unique elements; add to EDI structure
 			field_gd12       = fields{ igd12(ii) };
 			tmp_data         = [ edi_slow.( field_gd12 ) edi_fast.( field_gd12 ) ];
-			tmp_data         = tmp_data(:, iorder_gd12);
+
+			% Gun positions are scalar in the spinning frame.
+			if ~strcmp(field_gd12, 'virtual_gun1_123')
+				tmp_data = tmp_data(:, iorder_gd12);
+			end
 			edi.(field_gd12) = tmp_data;
 			
 			% Repeat for GD21
 			field_gd21       = fields{ igd21(ii) };
 			tmp_data         = [ edi_slow.( field_gd21 ) edi_fast.( field_gd21 ) ];
-			tmp_data         = tmp_data(:, iorder_gd21);
+			if ~strcmp(field_gd21, 'virtual_gun2_123')
+				tmp_data = tmp_data(:, iorder_gd21);
+			end
 			edi.(field_gd21) = tmp_data;
 		end
 
@@ -326,7 +332,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		mms_edi_calc_efield_bc( fg_ql.tt2000, fg_ql.b_dmpa(1:3,:), ...
 		                        edi.tt2000_gd12, edi.virtual_gun1_dmpa, edi.fv_gd12_dmpa, ...
 		                        edi.tt2000_gd21, edi.virtual_gun2_dmpa, edi.fv_gd21_dmpa, dt );
-	
+
 	% Cost Function method
 	efield_cf = mms_edi_calc_efield_cf( fg_l1b.tt2000, fg_l1b.b_bcs(1:3,:), ...
 	                                    edi.tt2000_gd12, edi.virtual_gun1_123, edi.fv_gd12_123, ...

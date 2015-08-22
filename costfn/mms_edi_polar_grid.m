@@ -44,6 +44,8 @@ function grid = mms_edi_polar_grid(r, phi)
 	y = r_grid' * sin( phi_grid * deg2rad );
 	
 	% Create a structure array of grid points.
-	grid = struct( 'x', num2cell(x), ...
-	               'y', num2cell(y) );
+%	grid = struct( 'x', num2cell(x), ...
+%	               'y', num2cell(y) );
+	grid = struct( 'x', x, ...
+	               'y', y );
 end

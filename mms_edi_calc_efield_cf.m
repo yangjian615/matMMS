@@ -48,14 +48,6 @@ function [efield_cf, b_avg_bcs] = mms_edi_calc_efield_cf( t_fg, b_fg_bcs, ...
 	method = 1;
 
 %------------------------------------%
-% Beam Convergence                   %
-%------------------------------------%
-	% Setup the grid
-	r    = [0.0   5.0 0.1];
-	phi  = [0.0 360.0 0.1];
-	grid = mms_edi_polar_grid(r, phi);
-
-%------------------------------------%
 % Compuate Average B                 %
 %------------------------------------%
 	% Time range that we have data
@@ -125,6 +117,14 @@ function [efield_cf, b_avg_bcs] = mms_edi_calc_efield_cf( t_fg, b_fg_bcs, ...
 	clear bcs2edi1 edi22edi1 b_gd12_edi1 b_gd21_edi1 fv_gd21_edi1 vg1_edi1 vg2_edi1
 
 %------------------------------------%
+% Grid of Targets                    %
+%------------------------------------%
+	% Setup the grid
+	r    = [0.0 0.1   5.0];
+	phi  = [0.0 0.1 360.0];
+	grid = mms_edi_polar_grid(r, phi);
+
+%------------------------------------%
 % Step Thru Each Analysis Interval   %
 %------------------------------------%
 	% Allocate memory
@@ -167,9 +167,9 @@ function [efield_cf, b_avg_bcs] = mms_edi_calc_efield_cf( t_fg, b_fg_bcs, ...
 		% where the minimum of the cost function occurs. The drift
 		% step points from the virtual source point toward the
 		% origin.
-		[delta, imin] = min(costFn(:));
-		d_bpp(1,ii)   = -grid(imin).x;
-		d_bpp(2,ii)   = -grid(imin).y;
+		[delta, imin] =  min(costFn(:));
+		d_bpp(1,ii)   = -grid.x(imin);
+		d_bpp(2,ii)   = -grid.y(imin);
 		d_delta(ii)   =  delta;
 	end
 	
