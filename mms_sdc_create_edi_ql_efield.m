@@ -27,10 +27,10 @@ function cdf_file = mms_sdc_create_edi_ql_efield(sc, date_start)
 % Find Files                         %
 %------------------------------------%
 	% EDI L1A E-Field Data Files
-	if nargin < 2
+	if nargin < 2 || isempty(date_start)
 		date_start = datestr( now() - 3.0, 'yyyy-mm-dd' );
 	end
-	if nargin < 1
+	if nargin < 1 || isempty(sc)
 		sc = {'mms1' 'mms2' 'mms3' 'mms4'};
 	end
 	

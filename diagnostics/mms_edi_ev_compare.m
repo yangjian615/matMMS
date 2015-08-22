@@ -13,7 +13,7 @@
 %   2015-04-14      Written by Matthew Argall
 %
 
-get_data      = false;
+get_data      = true;
 tf_EdotB_zero = true;
 
 if get_data
@@ -37,7 +37,7 @@ if get_data
 	                                          'TStart',    tstart,     ...
 	                                          'TEnd',      tend);
 	assert(count > 0, ['EDI file not found: "' str '".']);
-		
+	
 	% DFG QL File
 	[fg_fname, count, str] = mms_file_search(sc, 'dfg', 'srvy', 'ql', ...
 	                                         'TStart',  tstart, ...
@@ -151,28 +151,49 @@ if get_data
 
 	% Compute Ez using E dot B = 0?
 	if tf_EdotB_zero
-		Ez = -( E(1,:) .* fg_ql.b_dmpa(1,:) + E(2,:) .* fg_ql.b_dmpa(2,:) ) ./ fg_ql.b_dmpa(3,:);
+		E(3,:) = -( E(1,:) .* fg_ql.b_dmpa(1,:) + E(2,:) .* fg_ql.b_dmpa(2,:) ) ./ fg_ql.b_dmpa(3,:);
 	end
 
 	% Compute the cross product
 	%   - v = ExB/|B|^2
-	%   - Scale: mV/m * nT / (nT)^2  -->  V/m * T / (T)^2 * 1e-6  -->  km/s * 1e3
-	v_ExB = -1e-3 * mrvector_cross( E, fg_ql.b_dmpa(1:3,:) );
+	%   - Scale: mV/m * nT / (nT)^2  -->  V/m / T * 1e-6  -->  km/s * 1e3
+	v_ExB = 1e-3 * mrvector_cross( E, fg_ql.b_dmpa(1:3,:) );
+	v_ExB = v_ExB ./ repmat( fg_ql.b_dmpa(4,:).^2, 3, 1 );
+
 
 %------------------------------------%
 % Compute VxB s/c E-Field            %
 %------------------------------------%
-	% Interpolate spacecraft velocity onto DFG
-	V = zeros( 3, length(t_fg) );
-keyboard
-	for ii = 1 : 3
-		V(ii,:) = interp1( t_eph, ephem.Velocity(ii,:), t_fg );
-	end
+	% Interpolate ephemeris position and velocity to DFG times
+	[r_gei, v_gei] = mms_fdoa_interp_ephem(ephem.tt2000, ephem.Position, fg_ql.tt2000, ephem.Velocity);
+	
+	% Rotate from GEI to DMPA
+	gei2dmpa = mms_fdoa_xgei2despun(attitude, fg_ql.tt2000, 'L');
+	v_dmpa   = mrvector_rotate(gei2dmpa, v_gei);
 	
 	% Compute the cross product
 	%   - E = -1.0 * (V x B)
-	%   - Convert: km/s * nT  -->  m/s * T * 1e6  -->  V / m * 1e6  -->  mV/m * 1e-3
-	E_VxB = -1e-3 * mrvector_cross( V, fg_ql.b_dmpa(1:3,:) );
+	%   - Convert: km/s * nT  -->  m/s * T * 1e-6  -->  V / m * 1e-6  -->  mV/m * 1e-3
+	E_VxB = -1e-3 * mrvector_cross( v_dmpa, fg_ql.b_dmpa(1:3,:) );
+
+
+%------------------------------------%
+% Co-Rotation E-Field                %
+%------------------------------------%
+	% Rotation vector of Earth in GEI
+	w_gei = [0, 0, 2.0*pi / (24.0*60.0*60.0)];
+	
+	% Rotation vector of Earth in DMPA
+	r_dmpa = mrvector_rotate( gei2dmpa, r_gei );
+	w_dmpa = mrvector_rotate( gei2dmpa, w_gei );
+	
+	% Co-rotation velocity at the position of the spacecraft
+	v_CoRot = mrvector_cross( w_dmpa, r_dmpa );
+	
+	% Co-rotation electric field
+	%   - E = -(v x B)
+	%   - Convert: km/s * nT  -->  m/s * T * 1e-6  -->  V / m * 1e-6  -->  mV/m * 1e-3
+	E_CoRot = -1e-3 .* mrvector_cross( v_CoRot, fg_ql.b_dmpa(1:3,:) );
 end
 
 %------------------------------------%
@@ -189,27 +210,31 @@ subplot(4,1,1)
 plot( t_fg, fg_ql.b_dmpa );
 title([ 'Magnetic and Electric Fields'] );
 ylabel( {'B', '(nT)'} );
+legend( {'B_{x}', 'B_{y}', 'B_{z}', '|B|'} );
 
 % Ex
 subplot(4,1,2)
-plot( t_edp, edp_ql.E_dsl(1,:), ...
+plot( t_edp, edp_ql.E_dsl(1,:),  ...
       t_edi, edi_ql.E_dmpa(1,:), ...
-      t_fg,  E_VxB(1,:) );
+      t_fg,  E_VxB(1,:),         ...
+      t_fg,  E_CoRot(1,:) );
 ylabel( {'Ex', '(mV/m)'} );
-legend( {'E_{EDP}', 'E_{EDI}', 'E_{S/C}' } );
+legend( {'E_{EDP}', 'E_{EDI}', 'E_{S/C}', 'E_{CoRot}' } );
 
 % Ey
 subplot(4,1,3)
 plot( t_edp, edp_ql.E_dsl(2,:), ...
       t_edi, edi_ql.E_dmpa(2,:), ...
-      t_fg,  E_VxB(2,:) );
+      t_fg,  E_VxB(2,:),         ...
+      t_fg,  E_CoRot(2,:) );
 ylabel( {'Ey', '(mV/m)'} );
 
 % Ey
 subplot(4,1,4)
 plot( t_edp, edp_ql.E_dsl(3,:), ...
       t_edi, edi_ql.E_dmpa(3,:), ...
-      t_fg,  E_VxB(3,:) );
+      t_fg,  E_VxB(3,:),         ...
+      t_fg,  E_CoRot(3,:) );
 xlabel( ['Time (seconds since ' tstart] );
 ylabel( {'Ez', '(mV/m)'} );
 
@@ -227,23 +252,27 @@ subplot(4,1,1)
 plot( t_fg, fg_ql.b_dmpa );
 title([ 'Magnetic Field and Drift Velocity'] );
 ylabel( {'B', '(nT)'} );
+legend( {'B_{x}', 'B_{y}', 'B_{z}', '|B|'} );
 
 % Vx
 subplot(4,1,2)
 plot( t_edi, edi_ql.v_ExB_dmpa(1,:), ...
-      t_fg,  v_ExB(1,:) );
+      t_fg,  v_ExB(1,:),             ...
+      t_fg,  v_CoRot(1,:) );
 ylabel( {'Vx', '(km/s)'} );
-legend( {'V_{EDI}', 'V_{ExB}'} );
+legend( {'V_{EDI}', 'V_{ExB}', 'V_{CoRot}'} );
 
 % Vy
 subplot(4,1,3)
-plot( t_edi, edi_ql.v_ExB_dmpa(1,:), ...
-      t_fg,  v_ExB(1,:) );
+plot( t_edi, edi_ql.v_ExB_dmpa(2,:), ...
+      t_fg,  v_ExB(2,:),             ...
+      t_fg,  v_CoRot(2,:) );
 ylabel( {'Vy', '(km/s)'} );
 
 % Vy
 subplot(4,1,4)
 plot( t_edi, edi_ql.v_ExB_dmpa(3,:), ...
-      t_fg,  v_ExB(3,:) );
+      t_fg,  v_ExB(3,:),             ...
+      t_fg,  v_CoRot(3,:) );
 xlabel( ['Time (seconds since ' tstart] );
 ylabel( {'Vz', '(km/s)'} );
