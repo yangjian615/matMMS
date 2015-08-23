@@ -58,12 +58,12 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 	%     there is no way to determine beam orientation.
 	tvec = MrCDF_Epoch_Breakdown( [t_fg(1), t_fg(end)] );
 	
-	% Round down to the nearest 5 seconds and recompute
-	tvec(:,6)     = tvec(:,6) - mod(tvec(:,6), 5);
+	% Round down to the nearest multiple of DT seconds and recompute
+	tvec(:,6)     = tvec(:,6) - mod(tvec(:,6), dt);
 	tvec(:,7:end) = 0.0;
 	tedge         = MrCDF_Epoch_Compute(tvec);
 	t0            = tedge(1);
-	t1            = tedge(2) + int64(dt * 1d9);
+	t1            = tedge(2) + int64(dt * 1e9);
 	
 	% Number of points
 	N_fg   = length(t_fg);
