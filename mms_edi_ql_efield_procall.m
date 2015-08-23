@@ -1,18 +1,18 @@
 %
 % Name
-%   mms_sdc_proc_edi_ql_efield
+%   mms_edi_ql_efield_procall
 %
 % Purpose
-%   Find all EDI L1A electric field-mode data files and calculate the electric field.
+%   Process all EDI E-field, changing L1A data into QL data.
 %
 % Calling Sequence
-%   FILES = mms_sdc_proc_edi_ql_efield(SC, TSTART, TEND)
-%     Read and process all data from MMS spacecraft SC between the times
-%     TSTART and TEND. Data is saved to CDF files named FILES.
-%
 %   FILES = mms_sdc_proc_edi_ql_efield()
 %     Process all data from all spacecraft from the beginning of the mission
 %     until three days before the current date.
+%
+%   FILES = mms_sdc_proc_edi_ql_efield(SC, TSTART, TEND)
+%     Read and process all data from MMS spacecraft SC between the times
+%     TSTART and TEND. Data is saved to CDF files named FILES.
 %
 % Parameters
 %   SC:             in, optional, type=char/cell, default={ 'mms1', 'mms2', 'mms3', 'mms4' }
@@ -29,8 +29,9 @@
 %   2015-06-03      Written by Matthew Argall
 %   2015-08-07      Generate dates instead of looking for files then extracting dates. - MRA
 %   2015-08-12      Look for fast & slow files and take union of dates. - MRA
+%   2015-08-22      Renamed from mms_sdc_proc_edi_ql_efield to mms_edi_ql_efield_procall. - MRA
 %
-function files = mms_sdc_proc_edi_ql_efield(sc, tstart, tend)
+function files = mms_edi_ql_efield_procall(sc, tstart, tend)
 
 %------------------------------------%
 % Find Files                         %

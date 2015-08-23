@@ -1,6 +1,6 @@
 %
 % Name
-%   mms_edi_create_l2pre_efield
+%   mms_edi_l2pre_efield_create
 %
 % Purpose
 %   Turn level 1A EDI electric-field mode data into level 2-pre quality data
@@ -10,13 +10,13 @@
 %   we have not used the beam information to calculate the electric field yet.
 %
 % Calling Sequence
-%   EDI = mms_edi_create_l2pre_efield(FILENAMES, TSTART, TEND)
+%   EDI = mms_edi_l2pre_efield_create(FILENAMES, TSTART, TEND)
 %     Read EDI electric field mode data from files named FILENAMES
 %     between the time interval of [TSTART, TEND]. Return a data
 %     structure EDI with fields given below. Times should be provided
 %     in ISO format: 'yyyy-mm-ddThh:mm_ss'.
 %
-%   [GD12_GSE, GD21_GSE] = mms_edi_create_l2pre_efield(__, 'ParamName', ParamValue)
+%   [GD12_GSE, GD21_GSE] = mms_edi_l2pre_efield_create(__, 'ParamName', ParamValue)
 %     Include any of the parameter name-value pairs below.
 %
 % Parameters
@@ -74,7 +74,7 @@
 %   2015-06-20  Renamed from mms_edi_bcs to mms_edi_create_l2. - MRA
 %   2015-07-20  Renamed from mms_edi_create_l2 to mms_edi_create_l2pre_efield. - MRA
 %
-function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
+function edi = mms_edi_l2pre_efield_create(filenames, tstart, tend, varargin)
 
 	% Defaults
 	sunpulse = [];
@@ -118,10 +118,10 @@ function edi = mms_edi_create_l2(filenames, tstart, tend, varargin)
 % Get EDI Data                       %
 %------------------------------------%
 	% EDI
-	edi = mms_edi_create_l1b(filenames, tstart, tend, ...
-	                         'CS_123',  cs_123, ...
-	                         'CS_BCS',  true, ...
-	                         'Quality', quality);
+	edi = mms_edi_l1b_efield_create(filenames, tstart, tend, ...
+	                                'CS_123',  cs_123, ...
+	                                'CS_BCS',  true, ...
+	                                'Quality', quality);
 
 %------------------------------------%
 % Rotate to SMPA                     %

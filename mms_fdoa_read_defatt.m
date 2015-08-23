@@ -74,6 +74,7 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 		assert(nFiles > 0, 'At least one file name must be given.');
 	else
 		assert(ischar(att_files) && isrow(att_files), 'ATT_FILES must be a file name or cell array of file names.')
+		att_files = { att_files };
 		nFiles = 1;
 	end
 
