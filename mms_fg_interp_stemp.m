@@ -24,7 +24,7 @@
 %   T_OUT           in, required, type = int64 (cdf tt2000 times)
 %
 % Returns
-%   STEMP           out, required, type=float
+%   STEMP_OUT       out, required, type=float
 %                   Interpolated sensor temperature. Has the same number of
 %                       elements as T_OUT.
 %
@@ -33,8 +33,13 @@
 %
 % History:
 %   2015-07-27      Written by Matthew Argall
+%   2015-08-23      Output array different from input. Fixed typos.
+%                     Extrapolate, if necessary. - MRA
 %
-function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
+function stemp_out = mms_fg_interp_stemp(t_stemp, stemp, t_out)
+
+	% Output array
+	stemp_out = stemp;
 
 	% Temperature correction cadence
 	%   - Configuration
@@ -57,7 +62,7 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 	%   - IGAPS   is the index before a gap
 	%   - IGAPS+1 is the index after  a gap
 	igaps    = find( double(dt_temp) / 1e9 > t_maxgap );
-	ngaps    = length( igaps, 1 );
+	ngaps    = length( igaps );
 	
 	% Warn about gaps
 	if ngaps > 0
@@ -73,8 +78,8 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 	% Step through each gap
 	for ii = 1 : ngaps
 		% Number of consecutive points
-		istart = igaps[ii+1];
-		istop  = igaps{ii] + 1;
+		istart = igaps(ii+1);
+		istop  = igaps(ii) + 1;
 		npts   = istop - istart + 1;
 	
 		%
@@ -85,8 +90,8 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 		%   - http://exelisvis.com/docs/SMOOTH.html
 		%   - http://www.mathworks.com/help/curvefit/smooth.html?searchHighlight=smooth
 		if npts > 1
-			nsmooth             = min( [t_smooth_param, npts] );
-			stemp(istart:istop) = smooth( stemp(istart:istop), nsmooth );
+			nsmooth                 = min( [t_smooth_param, npts] );
+			stemp_out(istart:istop) = smooth( stemp_out(istart:istop), nsmooth );
 		end
 	end
 
@@ -98,8 +103,12 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 	% true temperature sample (given by T_STEMP).
 	%
 	
+	% Convert to double
+	t_sse_stemp = double(t_stemp - t_stemp(1)) * 1d-9;
+	t_sse_out   = double(t_out   - t_stemp(1)) * 1d-9;
+	
 	% Locate T_OUT within T_STEMP
-	iloc = MrValue_Locate(t_stemp, t_out);
+	iloc = MrValue_Locate(t_sse_stemp, t_sse_out);
 	
 	% Find how far away the lower/higher nearest neighbor is
 	tf_up   = iloc == 0;
@@ -117,15 +126,21 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 	
 	% Warn about large gaps
 	if ngap > 0
-		warning('HK_10e:Interpolate', '%d points inter/extrapolated %f seconds from nearest temperature reading.\n'
-		                              'Maximum difference is %f seconds.', ngap, t_maxgap, max(t_gap(:)));
+		mrfprintf('logwarn', 'HK_10e:Interpolate', ...
+		          [ '%d points inter/extrapolated %f seconds from nearest temperature reading.\n' ...
+		            'Maximum difference is %f seconds.' ], ngap, t_maxgap, max(t_gap(:)));
 	end
 
 %------------------------------------%
 % Interpolate Temperature            %
 %------------------------------------%
+	% Warn about extrapolation
+	if t_out(1) < t_stemp(1) || t_out(end) > t_stemp(end)
+		mrfprintf('logwarn', 'HK_10e:InterpTemp', 'Extrapolating sensor temperature data.');
+	end
+
 	% Linearly interpolate data
-	stemp = interpol(t_stemp, stemp, t_out, 'linear');
+	stemp_out = interp1(t_sse_stemp, stemp, t_sse_out, 'linear', 'extrap');
 
 %------------------------------------%
 % Smooth Between Gaps in Output Data %
@@ -141,7 +156,8 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 	
 	% Warn about gaps
 	if ngaps > 0
-		warning('HK_10e:Smooth', '%d gaps > %f seconds in output data.', ngaps, t_out_maxgap)
+		mrfprintf('logwarn', 'HK_10e:InterpTemp', ...
+		          '%d gaps > %f seconds in output data.', ngaps, t_out_maxgap);
 	end
 	
 	% Ensure the first and last intervals are captured
@@ -150,8 +166,8 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 	% Step through each data interval
 	for ii = 1 : ngaps
 		% Number of consecutive points
-		istart = igaps[ii] + 1;
-		istop  = igaps[ii+1];
+		istart = igaps(ii) + 1;
+		istop  = igaps(ii+1);
 		npts   = istop - istart + 1;
 	
 		% Smooth
@@ -162,7 +178,7 @@ function stemp = mms_fg_interp_stemp(t_stemp, stemp, t_out)
 			nsmooth = min( [ round(t_out_smooth / dt_med), npts ] );
 			
 			% Smooth -- STEMP now has the same number of points as T_OUT
-			stemp(istart:istop) = smooth( stemp(istart:istop), nsmooth );
+			stemp_out(istart:istop) = smooth( stemp_out(istart:istop), nsmooth );
 		end
 	end
 end

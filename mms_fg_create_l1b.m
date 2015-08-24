@@ -95,11 +95,26 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_fg_create_l1b(files, hiCal_file,
 %------------------------------------%
 % Calibrate Mag Data                 %
 %------------------------------------%
+	% Pick temperatures for correct instrument
+	[~, instr] = mms_dissect_filename(files);
+	if iscell(instr)
+		instr = instr{1};
+	end
+	if strcmp(instr, 'dfg')
+		t_temp = hk_0x10e.tt2000;
+		stemp  = hk_0x10e.dfg_stemp;
+		etemp  = hk_0x10e.dfg_etemp;
+	else
+		t_temp = hk_0x10e.tt2000;
+		stemp  = hk_0x10e.afg_stemp;
+		etemp  = hk_0x10e.afg_etemp;
+	end
+
 	% Calibrate
-	[b_omb, mpa] = mms_fg_calibrate( fg_l1a.b_123, fg_l1a.tt2000,    ...
-	                                 fg_l1a.range, fg_l1a.tt2000_ts, ...
+	[b_omb, mpa] = mms_fg_calibrate( fg_l1a.tt2000,    fg_l1a.b_123, ...
+	                                 fg_l1a.tt2000_ts, fg_l1a.range, ...
 	                                 hiCal, loCal, hiConst, loConst, ...
-	                                 hk_0x10e );
+	                                 t_temp, stemp, etemp );
 
 	% Extract data
 	if nargout() > 5

@@ -51,12 +51,17 @@
 %   2015-07-27      Include entire last packet when finding poitns without
 %                       range values. - MRA
 %   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
+%   2015-08-23      Chnaged order of inputs. Pass in temperatures, not struct. - MRA
 %
-function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal, hiConst, loConst, hk_0x10e)
+function [B_omb, mpa] = mms_fg_calibrate( t, B_123, t_range, range, ...
+                                          hiCal, loCal, hiConst, loConst, ...
+                                          t_temp, stemp, etemp )
 
 	% Were in-flight sensor temperatures given?
 	if nargin < 9
-		hk_0x10e = [];
+		t_temp = [];
+		stemp  = [];
+		etemp  = [];
 	end
 
 	%
@@ -76,7 +81,7 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal,
 	%
 
 	% histc() does not take int64.
-	t_sse       = MrCDF_epoch2sse(t, t_range(1));
+	t_sse       = MrCDF_epoch2sse(t,       t_range(1));
 	t_range_sse = MrCDF_epoch2sse(t_range, t_range(1));
 	
 	% Map each T_FG onto the values of RANGE.
@@ -130,12 +135,11 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal,
 % Interpolate Temperature            %
 %------------------------------------%
 	% Interpolate sensor temperatures onto data time stamps.
-	if isempty( hk_0x10e )
-		stemp   = [];
+	if isempty( t_temp )
 		histemp = [];
 		lostemp = [];
 	else
-		stemp = mms_fg_interp_temp( hk_0x10e.tt2000, hk_0x10e.stemp, t );
+		stemp = mms_fg_interp_stemp( t_temp, stemp, t );
 	end
 
 %------------------------------------%
@@ -148,7 +152,7 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal,
 	if nHi > 0
 		% Grab the sensor temperature
 		if ~isempty(stemp)
-			histemp = stemp(hiCal)
+			histemp = stemp(hirange);
 		end
 		
 		% Apply calibration parameters
@@ -160,7 +164,7 @@ function [B_omb, mpa] = mms_fg_calibrate(B_123, t, range, t_range, hiCal, loCal,
 	if nLo > 0
 		% Grab the sensor temperature
 		if ~isempty(stemp)
-			histemp = stemp(loCal)
+			lostemp = stemp(lorange);
 		end
 		
 		% Apply calibration parameters
