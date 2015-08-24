@@ -104,7 +104,7 @@ function files = mms_edi_ql_efield_procall(sc, tstart, tend)
 		for jj = 1 : length(dates)
 			% Create the data
 			try
-				files{count+1} = mms_edi_create_ql_efield(sc{ii}, fstart{jj}, fend{jj});
+				files{count+1} = mms_edi_ql_efield_create(sc{ii}, fstart{jj}, fend{jj});
 				count          = count + 1;
 				
 				if nargout < 1

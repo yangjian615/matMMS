@@ -14,15 +14,19 @@
 %
 
 get_data      = true;
-tf_EdotB_zero = true;
+tf_EdotB_zero = false;
 
 if get_data
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
+
+% '2015-08-01T03:00:00'
+% '2015-08-01T08:00:00'
+
 	sc         = 'mms2';
-	tstart     = '2015-07-22T09:00:00';
-	tend       = '2015-07-22T17:00:00';
+	tstart     = '2015-08-01T03:00:00';
+	tend       = '2015-08-01T15:00:00';
 	sdc_root   = '/nfs/';
 	edi_dir    = '/nfs/edi/temp/';
 	att_dir    = fullfile('/nfs', 'ancillary', sc, 'defatt');
@@ -166,23 +170,7 @@ if get_data
 
 
 %------------------------------------%
-% Compute VxB s/c E-Field            %
-%------------------------------------%
-	% Interpolate ephemeris position and velocity to DFG times
-	[r_gei, v_gei] = mms_fdoa_interp_ephem(ephem.tt2000, ephem.Position, fg_ql.tt2000, ephem.Velocity);
-	
-	% Rotate from GEI to DMPA
-	gei2dmpa = mms_fdoa_xgei2despun(attitude, fg_ql.tt2000, 'L');
-	v_dmpa   = mrvector_rotate(gei2dmpa, v_gei);
-	
-	% Compute the cross product
-	%   - E = -1.0 * (V x B)
-	%   - Convert: km/s * nT  -->  m/s * T * 1e-6  -->  V / m * 1e-6  -->  mV/m * 1e-3
-	E_VxB = -1e-3 * mrvector_cross( v_dmpa, fg_ql.b_dmpa(1:3,:) );
-
-
-%------------------------------------%
-% Co-Rotation E-Field                %
+% Co-Rotation Velocity               %
 %------------------------------------%
 	% Rotation vector of Earth in GEI
 	w_gei = [0, 0, 2.0*pi / (24.0*60.0*60.0)];
@@ -193,11 +181,25 @@ if get_data
 	
 	% Co-rotation velocity at the position of the spacecraft
 	v_CoRot = mrvector_cross( w_dmpa, r_dmpa );
+
+
+%------------------------------------%
+% Compute VxB s/c E-Field            %
+%------------------------------------%
+	% Interpolate ephemeris position and velocity to DFG times
+	[r_gei, v_gei] = mms_fdoa_interp_ephem(ephem.tt2000, ephem.Position, fg_ql.tt2000, ephem.Velocity);
 	
-	% Co-rotation electric field
-	%   - E = -(v x B)
+	% Rotate from GEI to DMPA
+	gei2dmpa = mms_fdoa_xgei2despun(attitude, fg_ql.tt2000, 'L');
+	v_dmpa   = mrvector_rotate(gei2dmpa, v_gei);
+	
+	% Subtract the corotation velocity
+	v_dmpa = v_dmpa - v_CoRot;
+	
+	% Compute the cross product
+	%   - E = -1.0 * (V x B)
 	%   - Convert: km/s * nT  -->  m/s * T * 1e-6  -->  V / m * 1e-6  -->  mV/m * 1e-3
-	E_CoRot = -1e-3 .* mrvector_cross( v_CoRot, fg_ql.b_dmpa(1:3,:) );
+	E_VxB = -1e-3 * mrvector_cross( v_dmpa, fg_ql.b_dmpa(1:3,:) );
 end
 
 %------------------------------------%
@@ -220,25 +222,22 @@ legend( {'B_{x}', 'B_{y}', 'B_{z}', '|B|'} );
 subplot(4,1,2)
 plot( t_edp, edp_ql.E_dsl(1,:),  ...
       t_edi, edi_ql.E_bc_dmpa(1,:), ...
-      t_fg,  E_VxB(1,:),         ...
-      t_fg,  E_CoRot(1,:) );
+      t_fg,  E_VxB(1,:)  );
 ylabel( {'Ex', '(mV/m)'} );
-legend( {'E_{EDP}', 'E_{EDI}', 'E_{S/C}', 'E_{CoRot}' } );
+legend( {'E_{EDP}', 'E_{EDI}', 'E_{S/C}' } );
 
 % Ey
 subplot(4,1,3)
 plot( t_edp, edp_ql.E_dsl(2,:), ...
       t_edi, edi_ql.E_bc_dmpa(2,:), ...
-      t_fg,  E_VxB(2,:),         ...
-      t_fg,  E_CoRot(2,:) );
+      t_fg,  E_VxB(2,:)  );
 ylabel( {'Ey', '(mV/m)'} );
 
 % Ey
 subplot(4,1,4)
 plot( t_edp, edp_ql.E_dsl(3,:), ...
       t_edi, edi_ql.E_bc_dmpa(3,:), ...
-      t_fg,  E_VxB(3,:),         ...
-      t_fg,  E_CoRot(3,:) );
+      t_fg,  E_VxB(3,:)  );
 xlabel( ['Time (seconds since ' tstart] );
 ylabel( {'Ez', '(mV/m)'} );
 
@@ -261,22 +260,19 @@ legend( {'B_{x}', 'B_{y}', 'B_{z}', '|B|'} );
 % Vx
 subplot(4,1,2)
 plot( t_edi, edi_ql.v_ExB_bc_dmpa(1,:), ...
-      t_fg,  v_ExB(1,:),             ...
-      t_fg,  v_CoRot(1,:) );
+      t_fg,  v_ExB(1,:)  );
 ylabel( {'Vx', '(km/s)'} );
-legend( {'V_{EDI}', 'V_{ExB}', 'V_{CoRot}'} );
+legend( {'V_{EDI}', 'V_{ExB}'} );
 
 % Vy
 subplot(4,1,3)
 plot( t_edi, edi_ql.v_ExB_bc_dmpa(2,:), ...
-      t_fg,  v_ExB(2,:),             ...
-      t_fg,  v_CoRot(2,:) );
+      t_fg,  v_ExB(2,:) );
 ylabel( {'Vy', '(km/s)'} );
 
 % Vy
 subplot(4,1,4)
 plot( t_edi, edi_ql.v_ExB_bc_dmpa(3,:), ...
-      t_fg,  v_ExB(3,:),             ...
-      t_fg,  v_CoRot(3,:) );
+      t_fg,  v_ExB(3,:)  );
 xlabel( ['Time (seconds since ' tstart] );
 ylabel( {'Vz', '(km/s)'} );
