@@ -59,8 +59,8 @@ function hk_10e = mms_hk_read_0x10e(files, tstart, tend)
 	[sc, instr, mode, level, ~, ~, optdesc] = mms_dissect_filename(files);
 
 	% Make sure correct files were given.
-	assert( min( strcmp(instr,   'hk')       == 1, 'Only housekeeping (HK) files are allowed.' );
-	assert( min( strcmp(mode,    'fields') ) == 1, 'Only fields files are allowed' );
+	assert( min( strcmp(instr,   'fields') ) == 1, 'Only "fields" files are allowed.' );
+	assert( min( strcmp(mode,    'hk') )     == 1, 'Only housekeeping (HK) files are allowed' );
 	assert( min( strcmp(level,   'l1b') )    == 1, 'Only L1B files are allowed.' );
 	assert( min( strcmp(optdesc, '10e') )    == 1, 'Only 10E files are allowed.' );
 
@@ -78,10 +78,10 @@ function hk_10e = mms_hk_read_0x10e(files, tstart, tend)
 %------------------------------------%
 
 	% Create variable names
-	afg_stemp_name = mms_construct_varname(sc, instr, 'afgstemp');
-	dfg_stemp_name = mms_construct_varname(sc, instr, 'dfgstemp');
-	afg_etemp_name = mms_construct_varname(sc, instr, 'afgetemp');
-	dfg_etemp_name = mms_construct_varname(sc, instr, 'dfgetemp');
+	afg_stemp_name = mms_construct_varname(sc, optdesc, 'afgstemp');
+	dfg_stemp_name = mms_construct_varname(sc, optdesc, 'dfgstemp');
+	afg_etemp_name = mms_construct_varname(sc, optdesc, 'afgetemp');
+	dfg_etemp_name = mms_construct_varname(sc, optdesc, 'dfgetemp');
 
 	% Read the magnetometer data
 	[afg_stemp, tt2000] = MrCDF_nRead(files, afg_stemp_name, 'sTime', tstart, 'eTime', tend, 'ColumnMajor', true);
