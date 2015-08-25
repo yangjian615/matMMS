@@ -43,7 +43,7 @@ if get_data
 	                                                'TStart',    tstart,  ...
 	                                                'TEnd',      tend);
 	assert(count > 0, ['Unable to find FSM file: "' srchstr '".']);
-		
+	
 	% Attitude files
 	att_ftest = fullfile( att_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*'] );
 	[defatt_files, count] = MrFile_Search(att_ftest, ...
@@ -59,7 +59,7 @@ if get_data
 	%------------------------------------%
 	
 	% DFG
-	fg_l1b = mms_fg_read_l1b(fname_dfg_l1b);
+	fg_l1b = mms_fg_read_l1b(fname_fg_l1b);
 	fg_ql  = mms_fg_read_ql(fname_fg_ql);
 	
 	% Attitude
@@ -76,7 +76,8 @@ b_dmpa2gei = mrvector_rotate( permute(gei2dmpa, [2,1,3]), fg_ql.b_dmpa(1:3, :) )
 
 % Rotate from BCS to GEI with quaternions
 Q         = attitude.q;
-%Q(1:3,:)  = mrvector_normalize( Q(1:3,:) * pi/180 );
+%Q(1:3,:)  = mrvector_normalize( Q(1:3,:) );
+Q         = mrquaternion_invert(Q);
 Q(4,:)    = Q(4,:) * pi/180.0;
 qbcs2gei  = mms_fdoa_xgei2bcs( attitude.tt2000, Q, fg_l1b.tt2000, 'inverse' );
 b_bcs2gei = mrquaternion_rotate( fg_l1b.b_bcs(1:3,:), qbcs2gei );
