@@ -92,7 +92,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		log_name = mms_construct_filename( sc, 'edi', 'srvy', 'ql', ...
 		                                   'OptDesc',   'efield',   ...
 		                                   'TStart',    fstart,     ...
-		                                   'Version',   'v0.2.0' );
+		                                   'Version',   'v0.2.1' );
 		% Change extension to 'log'
 		[~, log_name] = fileparts(log_name);
 		log_name      = fullfile( log_dir, [log_name '.log']);
@@ -109,19 +109,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 % Find Files                         %
 %------------------------------------%
 
-	% FG QL Data File
-	instr   = 'dfg';
-	mode    = 'srvy';
-	level   = 'ql';
-	optdesc = '';
-	[fg_file, count, str] = mms_file_search(sc, instr, mode, level, ...
-	                                        'TStart',    tstart, ...
-	                                        'TEnd',      tend, ...
-	                                        'OptDesc',   optdesc, ...
-	                                        'SDCroot',   sdc_root);
-	assert(count > 0, ['DFG file not found: "' str '".']);
-
-	% FG L1A Data File
+	% FG L1B Data File
 	instr   = 'dfg';
 	mode    = 'srvy';
 	level   = 'l1b';
@@ -185,7 +173,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Write names to log file
 	if create_log_file
 		mrfprintf('logtext', 'Parent files:');
-		mrfprintf('logtext', strcat('  FG:       "', fg_file,  '"') );
+		mrfprintf('logtext', strcat('  FG:       "', fg_l1b_file,  '"') );
 		mrfprintf('logtext', strcat('  DSS:      "', dss_file, '"') );
 		if att_cnt > 1
 			mrfprintf('logtext', strcat('  Defatt:   "', strjoin(att_file, '\n            ') ) );
@@ -212,18 +200,15 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	sunpulse = mms_dss_read_sunpulse(dss_file, tstart, tend, 'UniquePulse', true);
 
 	% EDI Fast data
+	edi_slow = [];
 	if slw_cnt > 0
-		edi_slow = mms_edi_create_l2pre_efield( edi_slow_file, tstart, tend, ...
-		                                        'Attitude', defatt,          ...
-		                                        'CS_GSE',   false,           ...
-		                                        'CS_DMPA',  true,            ...
-		                                        'CS_123',   true,            ...
-		                                        'Quality',  beam_quality,    ...
-		                                        'Sunpulse', sunpulse,        ...
-		                                        'zMPA',     zMPA );
+		edi_slow = mms_edi_l1b_efield_create( edi_slow_file, tstart, tend, ...
+		                                        'CS_BCS',   true,          ...
+		                                        'Quality',  beam_quality  );
 	end
 
 	% EDI Slow data
+	edi_fast = [];
 	if fst_cnt > 0
 		%
 		% Occasionally, a file will be found with zero records. This is a
@@ -231,149 +216,163 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		% is available.
 		%
 		try
-			edi_fast = mms_edi_create_l2pre_efield( edi_fast_file, tstart, tend, ...
-			                                        'Attitude', defatt,          ...
-			                                        'CS_GSE',   false,           ...
-			                                        'CS_DMPA',  true,            ...
-			                                        'CS_123',   true,            ...
-			                                        'Quality',  beam_quality,    ...
-			                                        'Sunpulse', sunpulse,        ...
-			                                        'zMPA',     zMPA );
+			edi_fast = mms_edi_l1b_efield_create( edi_slow_file, tstart, tend, ...
+			                                        'CS_BCS',   true,          ...
+			                                        'Quality',  beam_quality  );
 		% Not the error and continue processing slow survey data.
 		catch ME
 			mrfprintf('logerr', ME);
-			fst_cnt = 0;
 		end
 	end
 	
 	% Check after we check for empty fast survey file.
 	assert( slw_cnt + fst_cnt > 0, 'Unable to find fast or slow survey EDI files.' );
 
+	% Combine slow and fast survey data
+	edi = mms_edi_srvy_combine( edi_slow, edi_fast );
+	clear edi_slow edi_fast
+
 	% FGM data
-	fg_ql  = mms_fg_read_ql(fg_file,      tstart, tend);
 	fg_l1b = mms_fg_read_l1b(fg_l1b_file, tstart, tend);
 
 %------------------------------------%
-% Combine Slow and Fast Survey       %
+% Compuate Average B                 %
 %------------------------------------%
-	% Combine slow and fast data
-	%   - Already checked the fst_cnt == 0 && slw_cnt == 0 case
-	if fst_cnt > 0 && slw_cnt > 0
-		% Create the combined structure
-		edi = struct();
-		
-		% Sort and combine times.
-		[edi.('tt2000_gd12'), isort_gd12] = sort( [edi_slow.tt2000_gd12 edi_fast.tt2000_gd12] );
-		[edi.('tt2000_gd21'), isort_gd21] = sort( [edi_slow.tt2000_gd21 edi_fast.tt2000_gd21] );
-		
-		% Find unique times
-		[~, iuniq_gd12] = unique( edi.tt2000_gd12 );
-		[~, iuniq_gd21] = unique( edi.tt2000_gd21 );
-		
-		% Sorted, unique order
-		iorder_gd12 = isort_gd12( iuniq_gd12 );
-		iorder_gd21 = isort_gd21( iuniq_gd21 );
-		
-		% Remove the time fields from the slow and fast structures
-		rmfield(edi_slow, { 'tt2000_gd12', 'tt2000_gd21'} );
-		rmfield(edi_fast, { 'tt2000_gd12', 'tt2000_gd21'} );
-	
-		% Get the names of each remaining field.
-		fields  = fieldnames( edi_slow );
-		nFields = length( fields );
-		
-		% Find fields related to gd12
-		igd12 = find( ~cellfun( @isempty, regexp( fields, '(gd12|gun1)', 'once' ) ) );
-		igd21 = find( ~cellfun( @isempty, regexp( fields, '(gd21|gun2)', 'once' ) ) );
-
-		% Step through each field.
-		%   - Both guns have the same fields.
-		for ii = 1 : nFields / 2
-			%  Combine data; select sorted, unique elements; add to EDI structure
-			field_gd12       = fields{ igd12(ii) };
-			tmp_data         = [ edi_slow.( field_gd12 ) edi_fast.( field_gd12 ) ];
-
-			% Gun positions are scalar in the spinning frame.
-			if ~strcmp(field_gd12, 'virtual_gun1_123')
-				tmp_data = tmp_data(:, iorder_gd12);
-			end
-			edi.(field_gd12) = tmp_data;
-			
-			% Repeat for GD21
-			field_gd21       = fields{ igd21(ii) };
-			tmp_data         = [ edi_slow.( field_gd21 ) edi_fast.( field_gd21 ) ];
-			if ~strcmp(field_gd21, 'virtual_gun2_123')
-				tmp_data = tmp_data(:, iorder_gd21);
-			end
-			edi.(field_gd21) = tmp_data;
-		end
-
-		% Clear data that we no longer need
-		clear edi_fast edi_slow tmp_data iuniq_gd12 iuniq_gd21 isort_gd12 isort_gd21 ...
-		      iorder_gd12 iorder_gd21 fields nFields igd12 igd21 field_gd12 field_gd21
-	
-	% Take only fast survey data.
-	elseif fst_cnt > 0
-		edi = edi_fast;
-		clear edi_fast
-		
-	% Take only slow survey data.
+	% Time range that we have data
+	if isempty(edi.tt2000_gd12) && isempty(edi.tt2000_gd12)
+		error( 'No EDI E-field data available.' );
+	elseif isempty(edi.tt2000_gd12)
+		t0 = edi.tt2000_gd21(1);
+		t1 = edi.tt2000_gd21(end);
+	elseif isempty(edi.tt2000_gd12)
+		t0 = edi.tt2000_gd12(1);
+		t1 = edi.tt2000_gd12(end);
 	else
-		edi = edi_slow;
-		clear edi_slow
+		t0 = min( [edi.tt2000_gd12(1)   edi.tt2000_gd21(1)  ] );
+		t1 = max( [edi.tt2000_gd12(end) edi.tt2000_gd21(end)] );
 	end
+	
+	% Breakdown into time vectors
+	tvec = MrCDF_Epoch_Breakdown( [t0, t1] );
+	
+	% Round down to the nearest DT seconds and recompute
+	tvec(:,6)     = tvec(:,6) - mod(tvec(:,6), dt);
+	tvec(:,7:end) = 0.0;
+	tedge         = MrCDF_Epoch_Compute(tvec);
+	t0            = tedge(1);
+	t1            = tedge(2) + int64(dt * 1d9);
 
+	% Find FGM data within this time interval
+	%   - Prune out |B|
+	ifg      = find( fg_l1b.tt2000 >= t0 & fg_l1b.tt2000 <= t1 );
+	t_fg     = fg_l1b.tt2000(ifg);
+	b_fg_bcs = fg_l1b.b_bcs(1:3, ifg);
+
+	% Compute the averaged magnetic field
+	b_avg_bcs = mms_edi_bavg(t_fg, b_fg_bcs, edi.tt2000_gd12, edi.tt2000_gd21, dt);
+	
+	% Clear unneeded data
+	clear t0 t1 tvec tedge ifg t_fg b_fg_bcs
+
+%------------------------------------%
+% Beam Width                         %
+%------------------------------------%
+	% Number of beam hits per gun
+	n12 = length( edi.tt2000_gd12 );
+	n21 = length( edi.tt2000_gd21 );
+	
+	% Rotate interpolated B-field into EDI1 coordinate system
+	bcs2edi1    = mms_instr_xxyz2instr('BCS',  'EDI1');
+	b_gd12_edi1 = mrvector_rotate( bcs2edi1, b_avg_bcs.b_gd12 );
+	b_gd21_edi1 = mrvector_rotate( bcs2edi1, b_avg_bcs.b_gd21 );
+	
+	% Combine data
+	b_gdu_edi1 = [ b_gd12_edi1      b_gd21_edi1      ];
+	fa_az      = [ edi.azimuth_gd12 edi.azimuth_gd21 ];
+	fa_pol     = [ edi.polar_gd12   edi.polar_gd21   ];
+	gun_id     = [ ones(1,n12)      ones(1,n21) + 1  ];
+	
+	% Beam width
+	beam_width = mms_edi_beam_width( fa_az, fa_pol, b_gdu_edi1, gun_id );
+
+	% Clear unneeded data
+	clear n12 n21 bcs2edi1 b_gd12_edi1 b_gd21_edi1 fa_az fa_pol
+	
+%------------------------------------%
+% Rotate BCS to SMPA                 %
+%------------------------------------%
+	% BCS -> SMPA
+	bcs2smpa = mms_fg_xbcs2smpa( zMPA );
+	
+	% Averaged data
+	t_avg       = b_avg_bcs.t_avg;
+	b_avg_smpa  = mrvector_rotate( bcs2smpa, b_avg_bcs.b_avg  );
+	b_std_smpa  = mrvector_rotate( bcs2smpa, b_avg_bcs.b_std  );
+	b_gd12_smpa = mrvector_rotate( bcs2smpa, b_avg_bcs.b_gd12 );
+	b_gd21_smpa = mrvector_rotate( bcs2smpa, b_avg_bcs.b_gd21 );
+	recnum      = b_avg_bcs.recnum;
+	recnum_gd12 = b_avg_bcs.recnum_gd12;
+	recnum_gd21 = b_avg_bcs.recnum_gd21;
+	clear b_avg_bcs
+	
+	% Beam data
+	t_gd12       = edi.tt2000_gd12;
+	t_gd21       = edi.tt2000_gd21;
+	pos_vg1_smpa = mrvector_rotate( bcs2smpa, edi.virtual_gun1_bcs );
+	pos_vg2_smpa = mrvector_rotate( bcs2smpa, edi.virtual_gun2_bcs );
+	fv_gd12_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd12_bcs      );
+	fv_gd21_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd21_bcs      );
+	q_gd12       = edi.quality_gd12;
+	q_gd21       = edi.quality_gd21;
+	clear edi
+	
+%------------------------------------%
+% Despin SMPA to DMPA                %
+%------------------------------------%
+	% Despin using sunpulse times
+	smpa2dmpa_avg  = mms_dss_xdespin( sunpulse, t_avg  );
+	smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, t_gd12 );
+	smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, t_gd21 );
+	
+	% Averaged data
+	%   - Clear data when finished
+	b_avg_dmpa = [ mrvector_rotate( smpa2dmpa_avg,  b_avg_smpa  ) ];
+	b_std_dmpa = [ mrvector_rotate( smpa2dmpa_avg,  b_std_smpa  ) ];
+	b_gdu_dmpa = [ mrvector_rotate( smpa2dmpa_gd12, b_gd12_smpa ) ...
+	               mrvector_rotate( smpa2dmpa_gd21, b_gd21_smpa ) ];
+	recnum_gdu = [ recnum_gd12 recnum_gd21 ];
+	clear smpa2dmpa_avg b_avg_smpa b_gd12_smpa b_gd21_smpa recnum_gd12 recnum_gd21
+	
+	% Beam data
+	%   - Clear data when finished
+	pos_vg_dmpa = [ mrvector_rotate( smpa2dmpa_gd12, pos_vg1_smpa ), ...
+	                mrvector_rotate( smpa2dmpa_gd21, pos_vg2_smpa ) ];
+	fv_gdu_dmpa = [ mrvector_rotate( smpa2dmpa_gd12, fv_gd12_smpa ), ...
+	                mrvector_rotate( smpa2dmpa_gd21, fv_gd21_smpa ) ];
+	clear smpa2dmpa_gd12 smpa2dmpa_gd21 pos_vg1_smpa pos_vg2_dmpa fv_gd12_smpa fv_gd21_smpa
+	
 %------------------------------------%
 % Compute E-Field                    %
 %------------------------------------%
 
-	% Beam Convergence Method
-	[efield_bc, b_interp] = ...
-		mms_edi_calc_efield_bc( fg_ql.tt2000, fg_ql.b_dmpa(1:3,:), ...
-		                        edi.tt2000_gd12, edi.virtual_gun1_dmpa, edi.fv_gd12_dmpa, ...
-		                        edi.tt2000_gd21, edi.virtual_gun2_dmpa, edi.fv_gd21_dmpa, dt );
-
-	% Cost Function method
-	efield_cf = mms_edi_calc_efield_cf( fg_l1b.tt2000, fg_l1b.b_bcs(1:3,:), ...
-	                                    edi.tt2000_gd12, edi.virtual_gun1_123, edi.fv_gd12_123, ...
-	                                    edi.tt2000_gd21, edi.virtual_gun2_123, edi.fv_gd21_123, dt );
-
-	% Rotate from BCS to DMPA
-	if ~isempty(zMPA)
-		% Create the transformation and transform
-		bcs2smpa = mms_fg_xbcs2smpa(zMPA);
-		E_smpa   = mrvector_rotate( bcs2smpa, efield_cf.E_cf_bcs );
-		v_smpa   = mrvector_rotate( bcs2smpa, efield_cf.v_cf_bcs );
-		d_smpa   = mrvector_rotate( bcs2smpa, efield_cf.d_cf_bcs );
-	else
-		mrfprintf('logwarn', 'z-MPA axis not available. Cannot rotate cost function results to SMPA.');
-		E_smpa = efield_cf.E_cf_bcs;
-		v_smpa = efield_cf.v_cf_bcs;
-		d_smpa = efield_cf.d_cf_bcs;
-	end
+	% Cost Function
+	[E_cf, v_ExB_cf, d_cf, d_delta_cf] = ...
+		mms_edi_calc_efield_cf( b_avg_dmpa, pos_vg_dmpa, fv_gdu_dmpa, beam_width, recnum, recnum_gdu );
 	
-	% Remove BCS fields
-	efield_cf = rmfield( efield_cf, {'E_cf_bcs', 'v_cf_bcs', 'd_cf_bcs'} );
-	
-	% Despin and create structure tags for data
-	smpa2dmpa = mms_dss_xdespin( sunpulse, efield_cf.tt2000_cf );
-	efield_cf.('E_cf_dmpa') = single( mrvector_rotate( smpa2dmpa, E_smpa ) );
-	efield_cf.('v_cf_dmpa') = single( mrvector_rotate( smpa2dmpa, v_smpa ) );
-	efield_cf.('d_cf_dmpa') = single( mrvector_rotate( smpa2dmpa, d_smpa ) );
-
-	% Clear unneeded data.
-	clear fg_ql fg_l1b defatt att_hdr zMPA sunpulse E_smpa v_smpa d_smpa
+	% Beam convergence
+	[E_bc, v_ExB_bc, d_bc, d_std_bc, q_bc] = ...
+		mms_edi_calc_efield_bc( t_avg, b_avg_dmpa, pos_vg_dmpa, fv_gdu_dmpa, recnum, recnum_gdu, gun_id );
 
 %------------------------------------%
 % Gather Data                        %
 %------------------------------------%
 	% Parent files
 	if iscell(att_file)
-		parents = [ fg_file dss_file att_file edi_fast_file edi_slow_file ];
+		parents = [ fg_l1b_file dss_file att_file edi_fast_file edi_slow_file ];
 	else
-		parents = { fg_file dss_file att_file edi_fast_file edi_slow_file };
+		parents = { fg_l1b_file dss_file att_file edi_fast_file edi_slow_file };
 	end
-	iempty  = find( cellfun(@isempty, parents) );
+	iempty          = find( cellfun(@isempty, parents) );
 	parents(iempty) = [];
 	
 	% Metadata structure
@@ -386,22 +385,57 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	               'tend',         tend,       ...
 	               'parents',      { parents } ...             % Prevent array of structures
 	             );
+	
+	% Separate gun information
+	tf_gd12 = gun_id == 1;
+	tf_gd21 = gun_id == 2;
+	clear gun_id
+	
+	% Averaged data
+	b_interp_dmpa = struct( 't_avg',       t_avg,                            ...
+	                        'dt_avg',      int64(dt*1e9),                    ...
+	                        'b_avg',       single( b_avg_dmpa             ), ...
+	                        'b_std',       single( b_std_dmpa             ), ...
+	                        'b_gd12',      single( b_gdu_dmpa(:, tf_gd12) ), ...
+	                        'b_gd21',      single( b_gdu_dmpa(:, tf_gd21) ), ...
+	                        'recnum',      recnum,                           ...
+	                        'recnum_gd12', recnum_gdu(tf_gd12),              ...
+	                        'recnum_gd21', recnum_gdu(tf_gd21)               ...
+	                      );
+	clear b_avg_dmpa b_gdu_dmpa recnum recnum_gdu
+	
+	% E-field Cost Function
+	efield_cf = struct( 'tt2000',  t_avg,                ...
+	                    'E',       single( E_cf       ), ...
+	                    'v_ExB',   single( v_ExB_cf   ), ...
+	                    'd',       single( d_cf       ), ...
+	                    'd_delta', single( d_delta_cf )  ...
+	                  );
+	clear E_cf v_ExB_cf d d_delta
+	
+	% E-field Beam Convergence
+	efield_bc = struct( 'tt2000',  t_avg,              ...
+	                    'E',       single( E_bc     ), ...
+	                    'v_ExB',   single( v_ExB_bc ), ...
+	                    'd',       single( d_bc     ), ...
+	                    'd_std',   single( d_std_bc ), ...
+	                    'quality', q_bc                ...
+	                  );
+	clear t_avg E_bc v_ExB_bc d_bc d_std_bc
 
 	% Gather data to be written
 	%   - Record varying dimension must be first
-	beams = struct( 'tt2000_gd12',  edi.tt2000_gd12,               ...
-	                'tt2000_gd21',  edi.tt2000_gd21,               ...
-	                'pos_vg1_dmpa', single(edi.virtual_gun1_dmpa), ...
-	                'pos_vg2_dmpa', single(edi.virtual_gun2_dmpa), ...
-	                'fv_gd12_dmpa', single(edi.fv_gd12_dmpa),      ...
-	                'fv_gd21_dmpa', single(edi.fv_gd21_dmpa),      ...
-	                'quality_gd12', edi.quality_gd12,              ...
-	                'quality_gd21', edi.quality_gd21               ...
+	beams = struct( 'tt2000_gd12',  t_gd12,                            ...
+	                'tt2000_gd21',  t_gd21,                            ...
+	                'pos_vg1_dmpa', single( pos_vg_dmpa(:, tf_gd12) ), ...
+	                'pos_vg2_dmpa', single( pos_vg_dmpa(:, tf_gd21) ), ...
+	                'fv_gd12_dmpa', single( fv_gdu_dmpa(:, tf_gd12) ), ...
+	                'fv_gd21_dmpa', single( fv_gdu_dmpa(:, tf_gd21) ), ...
+	                'quality_gd12', q_gd12,                            ...
+	                'quality_gd21', q_gd21                             ...
 	              );
-
-	% Clear data
-	clear edi b_avg
+	clear tf_gd12 tf_gd21 t_gd12 t_gd21 pos_vg_dmpa fv_gdu_dmpa q_gd12 q_gd21
 
 	% Write data to a file
-	edi_ql_file = mms_edi_write_ql_efield(meta, beams, efield_cf, efield_bc, b_interp);
+	edi_ql_file = mms_edi_ql_efield_write(meta, beams, efield_cf, efield_bc, b_interp_dmpa);
 end

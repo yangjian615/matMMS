@@ -172,12 +172,16 @@ if get_data
 %------------------------------------%
 % Co-Rotation Velocity               %
 %------------------------------------%
+	% Interpolate ephemeris position and velocity to DFG times
+	[r_gei, v_gei] = mms_fdoa_interp_ephem(ephem.tt2000, ephem.Position, fg_ql.tt2000, ephem.Velocity);
+	
 	% Rotation vector of Earth in GEI
 	w_gei = [0, 0, 2.0*pi / (24.0*60.0*60.0)];
 	
-	% Rotation vector of Earth in DMPA
-	r_dmpa = mrvector_rotate( gei2dmpa, r_gei );
-	w_dmpa = mrvector_rotate( gei2dmpa, w_gei );
+	% Rotate position and spin vector into DMPA
+	gei2dmpa = mms_fdoa_xgei2despun(attitude, fg_ql.tt2000, 'L');
+	r_dmpa   = mrvector_rotate( gei2dmpa, r_gei );
+	w_dmpa   = mrvector_rotate( gei2dmpa, w_gei );
 	
 	% Co-rotation velocity at the position of the spacecraft
 	v_CoRot = mrvector_cross( w_dmpa, r_dmpa );
@@ -186,20 +190,18 @@ if get_data
 %------------------------------------%
 % Compute VxB s/c E-Field            %
 %------------------------------------%
-	% Interpolate ephemeris position and velocity to DFG times
-	[r_gei, v_gei] = mms_fdoa_interp_ephem(ephem.tt2000, ephem.Position, fg_ql.tt2000, ephem.Velocity);
-	
-	% Rotate from GEI to DMPA
-	gei2dmpa = mms_fdoa_xgei2despun(attitude, fg_ql.tt2000, 'L');
-	v_dmpa   = mrvector_rotate(gei2dmpa, v_gei);
 	
 	% Subtract the corotation velocity
+	v_dmpa = mrvector_rotate(gei2dmpa, v_gei);
 	v_dmpa = v_dmpa - v_CoRot;
 	
 	% Compute the cross product
 	%   - E = -1.0 * (V x B)
 	%   - Convert: km/s * nT  -->  m/s * T * 1e-6  -->  V / m * 1e-6  -->  mV/m * 1e-3
-	E_VxB = -1e-3 * mrvector_cross( v_dmpa, fg_ql.b_dmpa(1:3,:) );
+	%   - In the frame of the spacecraft V = V_plamsa. However, to calculate the
+	%     VxB electric field, we must transform into the frame of the plamsa. In the
+	%     plasma frame, V_plamsa = 0 and V_sc = -V_plamsa
+	E_VxB = 1e-3 * mrvector_cross( v_dmpa, fg_ql.b_dmpa(1:3,:) );
 end
 
 %------------------------------------%

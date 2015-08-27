@@ -28,60 +28,20 @@
 % History:
 %   2015-08-18      Written by Matthew Argall
 %
-function [efield_bc, b_avg_dmpa] = mms_edi_calc_efield_bc( t_fg, b_fg_dmpa, ...
-                                                           t_gd12, pos_vg1_dmpa, fv_gd12_dmpa, ...
-                                                           t_gd21, pos_vg2_dmpa, fv_gd21_dmpa, dt )
-
-	if nargin < 3
-		dt = 5.0;
-	end
-
-%------------------------------------%
-% Compuate Average B                 %
-%------------------------------------%
-	% Time range that we have data
-	if isempty(t_gd12) && isempty(t_gd21)
-		error( 'No EDI E-field data available.' );
-	elseif isempty(t_gd12)
-		t0 = t_gd21(1);
-		t1 = t_gd21(end);
-	elseif isempty(t_gd21)
-		t0 = t_gd12(1);
-		t1 = t_gd12(end);
-	else
-		t0 = min( [t_gd12(1)   t_gd21(1)  ] );
-		t1 = max( [t_gd12(end) t_gd21(end)] );
-	end
-	
-	% Breakdown into time vectors
-	tvec = MrCDF_Epoch_Breakdown( [t0, t1] );
-	
-	% Round down to the nearest DT seconds and recompute
-	tvec(:,6)     = tvec(:,6) - mod(tvec(:,6), dt);
-	tvec(:,7:end) = 0.0;
-	tedge         = MrCDF_Epoch_Compute(tvec);
-	t0            = tedge(1);
-	t1            = tedge(2) + int64(dt * 1d9);
-
-	% Find FGM data within this time interval
-	ifg       = find(t_fg >= t0 & t_fg <= t1);
-	t_fg      = t_fg(ifg);
-	b_fg_dmpa = b_fg_dmpa(:, ifg);
-
-	% Compute the averaged magnetic field
-	b_avg_dmpa = mms_edi_bavg(t_fg, b_fg_dmpa, t_gd12, t_gd21, dt);
+function [E v_ExB d d_std q] = ...
+	mms_edi_calc_efield_bc( t_avg, b_avg, pos_gdu, fv_gdu, recnum, recnum_gdu, gun_id )
 
 %------------------------------------%
 % Beam Convergence                   %
 %------------------------------------%
-	szOut = size(b_avg_dmpa.b_avg);
+	szOut = size(b_avg);
 
 	% Allocate memory
-	E_dmpa     = zeros( szOut, 'double');
-	v_dmpa     = zeros( szOut, 'double');
-	d_dmpa     = zeros( szOut, 'double');
-	d_std_dmpa = zeros( szOut, 'double');
-	quality    = zeros( 1, szOut(2), 'uint8');
+	E     = zeros( szOut, 'double');
+	v_ExB = zeros( szOut, 'double');
+	d     = zeros( szOut, 'double');
+	d_std = zeros( szOut, 'double');
+	q     = zeros( 1, szOut(2), 'uint8');
 
 	% Declare global variables for the drift step function
 	global plot_beams;      plot_beams      = false;
@@ -89,39 +49,19 @@ function [efield_bc, b_avg_dmpa] = mms_edi_calc_efield_bc( t_fg, b_fg_dmpa, ...
 	global use_v10502;      use_v10502      = false;
 
 	% Step through each interval
-	for ii = 1 : length(b_avg_dmpa.recnum)
-		recnum = b_avg_dmpa.recnum(ii);
-		
-		% B field data
-		B_tt2000 = b_avg_dmpa.t_avg(ii);
-		B_dmpa   = b_avg_dmpa.b_avg(:, ii);
-
-		% GDU data that corresponds to the B field data: position and firing vectors
-		iigd12_b_avgIntrp = find( b_avg_dmpa.recnum_gd12 == recnum );
-		iigd21_b_avgIntrp = find( b_avg_dmpa.recnum_gd21 == recnum );
-
-		% Virtual gun positions
-		gd_virtual_dmpa = [ pos_vg1_dmpa(:, iigd12_b_avgIntrp), ...
-		                    pos_vg2_dmpa(:, iigd21_b_avgIntrp) ];
-		
-		% Firing Vectors
-		gd_fv_dmpa = [ fv_gd12_dmpa(:, iigd12_b_avgIntrp), ...
-		               fv_gd21_dmpa(:, iigd21_b_avgIntrp) ];
-		
-		% Gun ID of each data point
-		n_gd12                = size( iigd12_b_avgIntrp, 2 );
-		gd_ID                 = ones( 1, size(gd_virtual_dmpa, 2) );
-		gd_ID( n_gd12+1:end ) = 2;
+	for ii = 1 : szOut(2)
+		% Find data for current interval
+		inds = find( recnum_gdu == recnum(ii) );
 
 		% Compute the electric field
-		if size(gd_virtual_dmpa, 2) > 2
-			[ d_temp d_std_temp v_temp E_temp q_temp] ...
-				= edi_drift_step( '', ...
-				                  B_tt2000, ...
-				                  B_dmpa, ...
-				                  gd_virtual_dmpa, ...
-				                  gd_fv_dmpa, ...
-				                  gd_ID );
+		if length(inds) > 1
+			[ d_temp d_std_temp v_temp E_temp q_temp ] ...
+				= edi_drift_step( '',                  ...
+				                  t_avg(ii),           ...
+				                  b_avg(:,ii),         ...
+				                  pos_gdu(:,inds),     ...
+				                  fv_gdu(:,inds),      ...
+				                  gun_id(inds) );
 
 			% Replace NaN with fill value
 			if isnan(E_temp(1))
@@ -140,21 +80,10 @@ function [efield_bc, b_avg_dmpa] = mms_edi_calc_efield_bc( t_fg, b_fg_dmpa, ...
 		end
 
 		% Store results
-		E_dmpa(:, ii)     = E_temp;
-		v_dmpa(:, ii)     = v_temp;
-		d_dmpa(:, ii)     = d_temp;
-		d_std_dmpa(:, ii) = d_std_temp;
-		quality(ii)       = q_temp;
+		E(:, ii)     = E_temp;
+		v_ExB(:, ii) = v_temp;
+		d(:, ii)     = d_temp;
+		d_std(:, ii) = d_std_temp;
+		q(ii)        = q_temp;
 	end
-
-%------------------------------------%
-% Gather Data                        %
-%------------------------------------%
-	efield_bc = struct( 'tt2000_bc',     b_avg_dmpa.t_avg,    ...
-	                    'E_bc_dmpa',     single(E_dmpa),      ...
-	                    'v_bc_dmpa',     single(v_dmpa),      ...
-	                    'd_bc_dmpa',     single(d_dmpa),      ...
-	                    'd_std_bc_dmpa', single(d_std_dmpa),  ...
-	                    'quality_bc',    quality              ...
-	                  );
 end
