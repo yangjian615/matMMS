@@ -230,7 +230,7 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 				%    number of points which occur at the same times as the
 				%    averaged magnetic field
 		end
-	
+
 	%------------------------------------%
 	% Store the Interpolated Data        %
 	%------------------------------------%

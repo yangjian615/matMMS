@@ -121,6 +121,18 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	                                            'SDCroot',   sdc_root);
 	assert(count > 0, ['DFG L1B file not found: "' str '".']);
 
+	% FG L1B Data File
+	instr   = 'dfg';
+	mode    = 'srvy';
+	level   = 'ql';
+	optdesc = '';
+	[fg_ql_file, count, str] = mms_file_search(sc, instr, mode, level, ...
+	                                           'TStart',    tstart, ...
+	                                           'TEnd',      tend, ...
+	                                           'OptDesc',   optdesc, ...
+	                                           'SDCroot',   sdc_root);
+	assert(count > 0, ['DFG L1B file not found: "' str '".']);
+
 	% Digital Sun Sensor L1B Data File
 	instr   = 'fields';
 	mode    = 'hk';
@@ -173,7 +185,8 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Write names to log file
 	if create_log_file
 		mrfprintf('logtext', 'Parent files:');
-		mrfprintf('logtext', strcat('  FG:       "', fg_l1b_file,  '"') );
+		mrfprintf('logtext', strcat('  FG L1B:   "', fg_l1b_file,  '"') );
+		mrfprintf('logtext', strcat('  FG QL:    "', fg_ql_file,  '"') );
 		mrfprintf('logtext', strcat('  DSS:      "', dss_file, '"') );
 		if att_cnt > 1
 			mrfprintf('logtext', strcat('  Defatt:   "', strjoin(att_file, '\n            ') ) );
@@ -234,6 +247,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 
 	% FGM data
 	fg_l1b = mms_fg_read_l1b(fg_l1b_file, tstart, tend);
+	fg_ql  = mms_fg_read_ql(fg_ql_file,   tstart, tend);
 
 %------------------------------------%
 % Compuate Average B                 %
@@ -270,9 +284,9 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 
 	% Compute the averaged magnetic field
 	b_avg_bcs = mms_edi_bavg(t_fg, b_fg_bcs, edi.tt2000_gd12, edi.tt2000_gd21, dt);
-	
+
 	% Clear unneeded data
-	clear t0 t1 tvec tedge ifg t_fg b_fg_bcs
+	clear tvec tedge ifg t_fg b_fg_bcs
 
 %------------------------------------%
 % Beam Width                         %
@@ -296,24 +310,25 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	beam_width = mms_edi_beam_width( fa_az, fa_pol, b_gdu_edi1, gun_id );
 
 	% Clear unneeded data
-	clear n12 n21 bcs2edi1 b_gd12_edi1 b_gd21_edi1 fa_az fa_pol
+	clear n12 n21 bcs2edi1 b_gd12_edi1 b_gd21_edi1 fa_az fa_pol b_avg_bcs
+	
+%------------------------------------%
+% Bavg in DMPA                       %
+%------------------------------------%
+	% Exctract data in time interval
+	%   - Time stamps are always the same
+	ifg       = find(fg_ql.tt2000 > t0 & fg_ql.tt2000 < t1);
+	t_fg      = fg_ql.tt2000(ifg);
+	b_fg_dmpa = fg_ql.b_dmpa(1:3,ifg);
+	
+	% Compute the average magnetic field
+	b_avg_dmpa = mms_edi_bavg(t_fg, b_fg_dmpa, edi.tt2000_gd12, edi.tt2000_gd21, dt);
 	
 %------------------------------------%
 % Rotate BCS to SMPA                 %
 %------------------------------------%
 	% BCS -> SMPA
 	bcs2smpa = mms_fg_xbcs2smpa( zMPA );
-	
-	% Averaged data
-	t_avg       = b_avg_bcs.t_avg;
-	b_avg_smpa  = mrvector_rotate( bcs2smpa, b_avg_bcs.b_avg  );
-	b_std_smpa  = mrvector_rotate( bcs2smpa, b_avg_bcs.b_std  );
-	b_gd12_smpa = mrvector_rotate( bcs2smpa, b_avg_bcs.b_gd12 );
-	b_gd21_smpa = mrvector_rotate( bcs2smpa, b_avg_bcs.b_gd21 );
-	recnum      = b_avg_bcs.recnum;
-	recnum_gd12 = b_avg_bcs.recnum_gd12;
-	recnum_gd21 = b_avg_bcs.recnum_gd21;
-	clear b_avg_bcs
 	
 	% Beam data
 	t_gd12       = edi.tt2000_gd12;
@@ -330,18 +345,8 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 % Despin SMPA to DMPA                %
 %------------------------------------%
 	% Despin using sunpulse times
-	smpa2dmpa_avg  = mms_dss_xdespin( sunpulse, t_avg  );
 	smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, t_gd12 );
 	smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, t_gd21 );
-	
-	% Averaged data
-	%   - Clear data when finished
-	b_avg_dmpa = [ mrvector_rotate( smpa2dmpa_avg,  b_avg_smpa  ) ];
-	b_std_dmpa = [ mrvector_rotate( smpa2dmpa_avg,  b_std_smpa  ) ];
-	b_gdu_dmpa = [ mrvector_rotate( smpa2dmpa_gd12, b_gd12_smpa ) ...
-	               mrvector_rotate( smpa2dmpa_gd21, b_gd21_smpa ) ];
-	recnum_gdu = [ recnum_gd12 recnum_gd21 ];
-	clear smpa2dmpa_avg b_avg_smpa b_gd12_smpa b_gd21_smpa recnum_gd12 recnum_gd21
 	
 	% Beam data
 	%   - Clear data when finished
@@ -351,17 +356,27 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	                mrvector_rotate( smpa2dmpa_gd21, fv_gd21_smpa ) ];
 	clear smpa2dmpa_gd12 smpa2dmpa_gd21 pos_vg1_smpa pos_vg2_dmpa fv_gd12_smpa fv_gd21_smpa
 	
+	% Averaged data
+	%   - Clear data when finished
+	t_avg      = b_avg_dmpa.t_avg;
+	b_ave_dmpa = b_avg_dmpa.b_avg;
+	b_std_dmpa = b_avg_dmpa.b_std;
+	b_gdu_dmpa = [ b_avg_dmpa.b_gd12      b_avg_dmpa.b_gd21 ];
+	recnum     = b_avg_dmpa.recnum;
+	recnum_gdu = [ b_avg_dmpa.recnum_gd12 b_avg_dmpa.recnum_gd21 ];
+	clear b_avg_dmpa
+	
 %------------------------------------%
 % Compute E-Field                    %
 %------------------------------------%
 
 	% Cost Function
 	[E_cf, v_ExB_cf, d_cf, d_delta_cf] = ...
-		mms_edi_calc_efield_cf( b_avg_dmpa, pos_vg_dmpa, fv_gdu_dmpa, beam_width, recnum, recnum_gdu );
+		mms_edi_calc_efield_cf( b_ave_dmpa, pos_vg_dmpa, fv_gdu_dmpa, beam_width, recnum, recnum_gdu );
 	
 	% Beam convergence
 	[E_bc, v_ExB_bc, d_bc, d_std_bc, q_bc] = ...
-		mms_edi_calc_efield_bc( t_avg, b_avg_dmpa, pos_vg_dmpa, fv_gdu_dmpa, recnum, recnum_gdu, gun_id );
+		mms_edi_calc_efield_bc( t_avg, b_ave_dmpa, pos_vg_dmpa, fv_gdu_dmpa, recnum, recnum_gdu, gun_id );
 
 %------------------------------------%
 % Gather Data                        %
@@ -394,7 +409,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Averaged data
 	b_interp_dmpa = struct( 't_avg',       t_avg,                            ...
 	                        'dt_avg',      int64(dt*1e9),                    ...
-	                        'b_avg',       single( b_avg_dmpa             ), ...
+	                        'b_avg',       single( b_ave_dmpa             ), ...
 	                        'b_std',       single( b_std_dmpa             ), ...
 	                        'b_gd12',      single( b_gdu_dmpa(:, tf_gd12) ), ...
 	                        'b_gd21',      single( b_gdu_dmpa(:, tf_gd21) ), ...
@@ -402,7 +417,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	                        'recnum_gd12', recnum_gdu(tf_gd12),              ...
 	                        'recnum_gd21', recnum_gdu(tf_gd21)               ...
 	                      );
-	clear b_avg_dmpa b_gdu_dmpa recnum recnum_gdu
+	clear b_ave_dmpa b_gdu_dmpa recnum recnum_gdu
 	
 	% E-field Cost Function
 	efield_cf = struct( 'tt2000',  t_avg,                ...
