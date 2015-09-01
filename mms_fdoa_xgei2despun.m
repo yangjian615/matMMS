@@ -63,9 +63,9 @@ function [gei2despun, ra, dec] = mms_fdoa_xgei2despun(attitude, time, type)
 	dec = MrPhaseUnwrap(dec, 360.0);
 	
 	% Must interpolate with doubles.
-	att_epoch = mms_fdoa_epoch2tt2000(attitude.('TAI'), 'AttTAI', true);
-	att_sse   = double(att_epoch - att_epoch(1)) * 1e-9;
-	time_sse  = double(time      - att_epoch(1)) * 1e-9;
+	t0       = attitude.tt2000(1);
+	att_sse  = double(attitude.tt2000 - t0) * 1e-9;
+	time_sse = double(time            - t0) * 1e-9;
 	
 	% Indicate extrapolating
 	if time_sse(1) < att_sse(1)

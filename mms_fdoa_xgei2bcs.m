@@ -60,7 +60,7 @@ function Q = mms_fdoa_xgei2bcs(t_att, q, time, arg4)
 	% Inteprolate the quaternions
 	%   - Use SLERP for smoother interpolation.
 	Q = mrquaternion_interp( double(t_att - t0), q, double(time - t0), 'slerp' );
-	
+
 	% Invert
 	%   - DEFATT quaternions transform from BCS to J2000
 	if tf_inverse

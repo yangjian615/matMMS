@@ -13,18 +13,18 @@
 %   2015-07-13      Written by Matthew Argall
 %
 %***************************************************************************
-get_data = false;
+get_data = true;
 
 if get_data
 	%------------------------------------%
 	% Inputs                             %
 	%------------------------------------%
-	sc      = 'mms1';
+	sc      = 'mms2';
 	instr   = 'dfg';
 	mode    = 'srvy';
 	optdesc = '';
-	tstart  = '2015-06-17T00:00:00';
-	tend    = '2015-06-17T24:00:00';
+	tstart  = '2015-05-09T16:08:00';
+	tend    = '2015-05-09T16:13:00';
 	att_dir = fullfile('/nfs', 'ancillary', sc, 'defatt');
 	
 	%------------------------------------%
@@ -59,8 +59,8 @@ if get_data
 	%------------------------------------%
 	
 	% DFG
-	fg_l1b = mms_fg_read_l1b(fname_fg_l1b);
-	fg_ql  = mms_fg_read_ql(fname_fg_ql);
+	fg_l1b = mms_fg_read_l1b(fname_fg_l1b, tstart, tend);
+	fg_ql  = mms_fg_read_ql(fname_fg_ql,   tstart, tend);
 	
 	% Attitude
 	attitude = mms_fdoa_read_defatt(defatt_files, tstart, tend);
@@ -76,11 +76,12 @@ b_dmpa2gei = mrvector_rotate( permute(gei2dmpa, [2,1,3]), fg_ql.b_dmpa(1:3, :) )
 
 % Rotate from BCS to GEI with quaternions
 Q         = attitude.q;
-%Q(1:3,:)  = mrvector_normalize( Q(1:3,:) );
-Q         = mrquaternion_invert(Q);
-Q(4,:)    = Q(4,:) * pi/180.0;
-qbcs2gei  = mms_fdoa_xgei2bcs( attitude.tt2000, Q, fg_l1b.tt2000, 'inverse' );
+% Q(1:3,:)  = mrvector_normalize( Q(1:3,:) );
+% Q         = mrquaternion_invert(Q);
+% Q(4,:)    = Q(4,:) * pi/180.0;
+qbcs2gei  = mms_fdoa_xgei2bcs( attitude.tt2000, Q, fg_l1b.tt2000 );
 b_bcs2gei = mrquaternion_rotate( fg_l1b.b_bcs(1:3,:), qbcs2gei );
+
 
 
 %------------------------------------%
@@ -104,25 +105,21 @@ title([ upper(sc) ' ' upper(instr) ' DMPA ' tstart(1:10)] );
 xlabel( 'Time UTC' );
 ylabel( {'|B|', '(nT)'} );
 legend('b_{bcs}', 'bcs2gei', 'dmpa2gei');
-ylim([-50,50]);
 
 % X-component
 subplot(4,1,2)
 plot( t_l1b, b_bcs(1,:), t_l1b, b_bcs2gei(1,:), t_ql, b_dmpa2gei(1,:) );
 xlabel( 'Time UTC' );
 ylabel( {'B_{X}', '(nT)'} );
-ylim([-50,50]);
 
 % Y-component
 subplot(4,1,3)
 plot( t_l1b, b_bcs(2,:), t_l1b, b_bcs2gei(2,:), t_ql, b_dmpa2gei(2,:) );
 xlabel( 'Time UTC' );
 ylabel( {'B_{Y}', '(nT)'} );
-ylim([-50,50]);
 
 % Z-component
 subplot(4,1,4)
 plot( t_l1b, b_bcs(3,:), t_l1b, b_bcs2gei(3,:), t_ql, b_dmpa2gei(3,:) );
 xlabel( 'Time UTC' );
 ylabel( {'B_{Z}', '(nT)'} );
-ylim([-50,50]);
