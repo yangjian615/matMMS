@@ -34,7 +34,7 @@ function srvy = mms_edi_srvy_combine(slow_srvy, fast_srvy)
 
 	% No data
 	if ~tf_fast && ~tf_slow
-		srvy = [];
+		srvy = struct();
 
 	% No fast data
 	elseif ~tf_fast
@@ -63,7 +63,7 @@ function srvy = mms_edi_srvy_combine(slow_srvy, fast_srvy)
 		
 		% Remove the time fields from the slow and fast structures
 		rmfield(slow_srvy, { 'tt2000_gd12', 'tt2000_gd21'} );
-		rmfield(edi_fast, { 'tt2000_gd12', 'tt2000_gd21'} );
+		rmfield(fast_srvy, { 'tt2000_gd12', 'tt2000_gd21'} );
 	
 		% Get the names of each remaining field.
 		fields  = fieldnames( slow_srvy );
@@ -82,16 +82,20 @@ function srvy = mms_edi_srvy_combine(slow_srvy, fast_srvy)
 			tmp_data         = [ slow_srvy.( field_gd12 ) fast_srvy.( field_gd12 ) ];
 
 			% Gun positions are scalar in the spinning frame.
-			if ~strcmp(field_gd12, 'virtual_gun1_123')
+			if isempty(regexp(field_gd12, '(gun|det|virtual)_(gd[12]{2}|gun[12])_(bcs|123)'))
 				tmp_data = tmp_data(:, iorder_gd12);
+			else
+				tmp_data = tmp_data(:, 1);
 			end
 			srvy.(field_gd12) = tmp_data;
 			
 			% Repeat for GD21
 			field_gd21       = fields{ igd21(ii) };
 			tmp_data         = [ slow_srvy.( field_gd21 ) fast_srvy.( field_gd21 ) ];
-			if ~strcmp(field_gd21, 'virtual_gun2_123')
+			if isempty(regexp(field_gd21, '(gun|det|virtual)_(gd[12]{2}|gun[12])_(bcs|123)'))
 				tmp_data = tmp_data(:, iorder_gd21);
+			else
+				tmp_data = tmp_data(:, 1);
 			end
 			srvy.(field_gd21) = tmp_data;
 		end

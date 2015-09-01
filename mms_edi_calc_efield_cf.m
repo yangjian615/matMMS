@@ -68,9 +68,6 @@ function [E, v_ExB, d, d_delta] = ...
 	d_delta = zeros(1, N);
 	
 	for ii = 1 : N
-if mod( ii-1, 500 ) == 0
-	fprintf('Beam %d of %d\n', ii, N)
-end
 		% Magnetic field for current interval
 		B = b_avg(:, ii);
 		
@@ -98,8 +95,10 @@ end
 	%------------------------------------%
 	% Cost Function & Drift Step         %
 	%------------------------------------%
+		% Compute the cost function
+		%   - (Two vectorized versions were slower by 0.2s)
 		costFn = mms_edi_cost_function( fv_bpp, pos_bpp, bw, grid );
-	
+
 		% The virtual source point is located at the grid point
 		% where the minimum of the cost function occurs. The drift
 		% step points from the virtual source point toward the
@@ -131,13 +130,13 @@ end
 	me     = 9.10938291e-31;                          % kg
 	q      = 1.60217657e-19;                          % C
 	B_mag  = mrvector_magnitude( b_avg );
-	T_gyro = repmat( (2*pi*me/q) ./ B_mag, 3, 1 );    % s
+	T_gyro = repmat( (1e9*2*pi*me/q) ./ B_mag, 3, 1 );    % s
 
 	% Drift Velocity
 	%   - Convert m/s -> km/s
 	v_ExB = 1e-3 * (d ./ T_gyro);           % km/s
 	
 	% Electric Field
-	%   - Convert from V/m to mV/m with 1e-3
-	E = mrvector_cross( b_avg, d ) ./ (1e3 * T_gyro);
+	%   - Convert from V/m to mV/m with 1e-6
+	E = mrvector_cross( b_avg, d ) ./ (1e6 * T_gyro);
 end

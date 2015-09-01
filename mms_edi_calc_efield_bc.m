@@ -44,9 +44,11 @@ function [E v_ExB d d_std q] = ...
 	q     = zeros( 1, szOut(2), 'uint8');
 
 	% Declare global variables for the drift step function
-	global plot_beams;      plot_beams      = false;
-	global rotation_method; rotation_method = 2;
-	global use_v10502;      use_v10502      = false;
+	global plot_beams;      plot_beams            = false;
+	global rotation_method; rotation_method       = 2;
+	global use_v10502;      use_v10502            = false;
+	                        sinx_wt_Q_xovr_angles = [ 8.0 30 ];
+	global sinx_wt_Q_xovr;  sinx_wt_Q_xovr        = sind (sinx_wt_Q_xovr_angles).^4.0; % breakpoints for quality ranges for sin^x weighting
 
 	% Step through each interval
 	for ii = 1 : szOut(2)

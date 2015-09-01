@@ -92,7 +92,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		log_name = mms_construct_filename( sc, 'edi', 'srvy', 'ql', ...
 		                                   'OptDesc',   'efield',   ...
 		                                   'TStart',    fstart,     ...
-		                                   'Version',   'v0.2.1' );
+		                                   'Version',   'v0.2.2' );
 		% Change extension to 'log'
 		[~, log_name] = fileparts(log_name);
 		log_name      = fullfile( log_dir, [log_name '.log']);
@@ -202,8 +202,9 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 %------------------------------------%
 	% Attitude data
 	if isempty(att_file)
+		mrfprintf('logwarn', 'No attitude data. Assuming zMPA = [0; 0; 1].');
 		defatt  = [];
-		zMPA    = [];
+		zMPA    = [0; 0; 1];
 	else
 		[defatt, att_hdr] = mms_fdoa_read_defatt(att_file, tstart, tend);
 		zMPA = att_hdr.zMPA(:,1);
@@ -229,12 +230,13 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		% is available.
 		%
 		try
-			edi_fast = mms_edi_l1b_efield_create( edi_slow_file, tstart, tend, ...
+			edi_fast = mms_edi_l1b_efield_create( edi_fast_file, tstart, tend, ...
 			                                        'CS_BCS',   true,          ...
 			                                        'Quality',  beam_quality  );
 		% Not the error and continue processing slow survey data.
 		catch ME
 			mrfprintf('logerr', ME);
+			edi_fast_file = '';
 		end
 	end
 	
@@ -258,7 +260,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	elseif isempty(edi.tt2000_gd12)
 		t0 = edi.tt2000_gd21(1);
 		t1 = edi.tt2000_gd21(end);
-	elseif isempty(edi.tt2000_gd12)
+	elseif isempty(edi.tt2000_gd21)
 		t0 = edi.tt2000_gd12(1);
 		t1 = edi.tt2000_gd12(end);
 	else
@@ -310,7 +312,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	beam_width = mms_edi_beam_width( fa_az, fa_pol, b_gdu_edi1, gun_id );
 
 	% Clear unneeded data
-	clear n12 n21 bcs2edi1 b_gd12_edi1 b_gd21_edi1 fa_az fa_pol b_avg_bcs
+	clear bcs2edi1 b_gd12_edi1 b_gd21_edi1 fa_az fa_pol b_avg_bcs
 	
 %------------------------------------%
 % Bavg in DMPA                       %
@@ -330,16 +332,22 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% BCS -> SMPA
 	bcs2smpa = mms_fg_xbcs2smpa( zMPA );
 	
+	% BCS positions are not time dependent
+	%   - Make them time-dependent by replicating them.
+	%   - Added benefit of creating an empty array if no beams are in interval
+	vg1_bcs = repmat( edi.virtual_gun1_bcs, 1, n12 );
+	vg2_bcs = repmat( edi.virtual_gun2_bcs, 1, n21 );
+	
 	% Beam data
 	t_gd12       = edi.tt2000_gd12;
 	t_gd21       = edi.tt2000_gd21;
-	pos_vg1_smpa = mrvector_rotate( bcs2smpa, edi.virtual_gun1_bcs );
-	pos_vg2_smpa = mrvector_rotate( bcs2smpa, edi.virtual_gun2_bcs );
-	fv_gd12_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd12_bcs      );
-	fv_gd21_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd21_bcs      );
+	pos_vg1_smpa = mrvector_rotate( bcs2smpa, vg1_bcs );
+	pos_vg2_smpa = mrvector_rotate( bcs2smpa, vg2_bcs );
+	fv_gd12_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd12_bcs );
+	fv_gd21_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd21_bcs );
 	q_gd12       = edi.quality_gd12;
 	q_gd21       = edi.quality_gd21;
-	clear edi
+	clear edi vg1_bcs vg2_bcs n12 n21
 	
 %------------------------------------%
 % Despin SMPA to DMPA                %
@@ -347,7 +355,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Despin using sunpulse times
 	smpa2dmpa_gd12 = mms_dss_xdespin( sunpulse, t_gd12 );
 	smpa2dmpa_gd21 = mms_dss_xdespin( sunpulse, t_gd21 );
-	
+
 	% Beam data
 	%   - Clear data when finished
 	pos_vg_dmpa = [ mrvector_rotate( smpa2dmpa_gd12, pos_vg1_smpa ), ...
@@ -373,7 +381,7 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	% Cost Function
 	[E_cf, v_ExB_cf, d_cf, d_delta_cf] = ...
 		mms_edi_calc_efield_cf( b_ave_dmpa, pos_vg_dmpa, fv_gdu_dmpa, beam_width, recnum, recnum_gdu );
-	
+
 	% Beam convergence
 	[E_bc, v_ExB_bc, d_bc, d_std_bc, q_bc] = ...
 		mms_edi_calc_efield_bc( t_avg, b_ave_dmpa, pos_vg_dmpa, fv_gdu_dmpa, recnum, recnum_gdu, gun_id );

@@ -28,7 +28,7 @@
 % History:
 %   2015-08-18      Written by Matthew Argall
 %
-function costFn = mms_edi_cost_function(fv_bpp, pos_bpp, beam_width, grid)
+function costFn = mms_edi_cost_function_loop(fv_bpp, pos_bpp, beam_width, grid)
 	
 	% Check sizes
 	N     = length(beam_width);

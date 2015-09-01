@@ -86,9 +86,9 @@ function b_avg = mms_edi_bavg(t_fg, b_fg, t_gd12, t_gd21, dt)
 %------------------------------------%
 
 	% Interpolation requires floats. Convert to seconds
-	t_fg_sse   = MrCDF_epoch2sse(t_fg,   t0);
-	t_gd12_sse = MrCDF_epoch2sse(t_gd12, t0);
-	t_gd21_sse = MrCDF_epoch2sse(t_gd21, t0);
+	t_fg_sse   = double(t_fg   - t0) * 1e-9;
+	t_gd12_sse = double(t_gd12 - t0) * 1e-9;
+	t_gd21_sse = double(t_gd21 - t0) * 1e-9;
 
 	% Initial conditions
 	%    - TT:             Start at the first magnetometer data point.

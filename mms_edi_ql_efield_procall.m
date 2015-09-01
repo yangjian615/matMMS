@@ -39,14 +39,17 @@ function files = mms_edi_ql_efield_procall(sc, tstart, tend)
 	% EDI L1A E-Field Data Files
 	if nargin < 3
 		tend = datestr( now() - 3.0, 'yyyy-mm-dd' );
-		tend = [tend 'T24:00:00'];
 	end
-	if nargin < 2
-		tstart = '2015-03-17T00:00:00';
+	if nargin < 2 || isempty(tstart)
+		tstart = '2015-03-17';
 	end
-	if nargin < 1
+	if nargin < 1 || isempty(sc)
 		sc = { 'mms1' 'mms2' 'mms3' 'mms4' };
 	end
+	
+	% Full day
+	tstart = [tstart 'T00:00:00'];
+	tend   = [tend   'T24:00:00'];
 
 %------------------------------------%
 % Process Data for Each Spacecraft   %

@@ -57,9 +57,9 @@
 %   SIGMA = mms_edi_beam_width(FV, B, GUN_ID)
 %     Provide the firing vectors FV in cartesian coordinates instead
 %     of the gun firing angles. FV and B are expected to be in the
-%     same coordinate system.
+%     EDI1 instrument coordinate system.
 %
-%   [SIGMA, ALPHA] = mms_edi_beam_width(AZIMUTH, POLAR, B, GUN_ID)
+%   [SIGMA, ALPHA] = mms_edi_beam_width(__)
 %     Return the angle between the semi-major axis of the uncertainty
 %     ellipse and unit vector perpendicular to the magnetic field.
 %
@@ -113,6 +113,8 @@
 %
 % History:
 %   2015-08-18      Written by Matthew Argall
+%   2015-08-28      If AZIMUTH and POLAR are given, rotate firing vectors
+%                     from EDI2 to EDI1 coordinates. - MRA
 %
 function [sigma, alpha] = mms_edi_beam_width(arg1, arg2, arg3, arg4, varargin)
 %------------------------------------%
@@ -190,9 +192,9 @@ function [sigma, alpha] = mms_edi_beam_width(arg1, arg2, arg3, arg4, varargin)
 	% All must be same size
 	assert( szFV(1) == 0 || szFV(1) == 3, 'FV must be 3xN.' );
 	assert( isequal( szB, [3, N] ), 'B must be 3xN.' );
-	assert( nAz == 0 || nAz == N, 'AZIMUTH has incorrect number of elements.' );
-	assert( nPol == 0 || nPol == N, 'POLAR has incorrect number of elements.' );
-	assert( nGunID == 1 || nGunID == N, 'Incorrect number of Gun IDs.' );
+	assert( nAz == 0     || nAz     == N, 'AZIMUTH has incorrect number of elements.' );
+	assert( nPol == 0    || nPol    == N, 'POLAR has incorrect number of elements.' );
+	assert( nGunID == 1  || nGunID  == N, 'Incorrect number of Gun IDs.' );
 	
 	% Gun ID must be 1 || 2
 	assert( isempty( setdiff( gun_id, [1 2] ) ), 'GUN_ID must be 1 or 2.' )
@@ -226,6 +228,12 @@ function [sigma, alpha] = mms_edi_beam_width(arg1, arg2, arg3, arg4, varargin)
 		fv(1,:) = sinPol .* cosAz;
 		fv(2,:) = sinPol .* sinAz;
 		fv(3,:) = cosPol;
+		
+		% Rotate Gun2 Firing vectors from EDI2 to EDI1 coordinates
+		%          | 1  0  0 |
+		%   edi1 = | 0 -1  0 | edi2
+		%          | 0  0 -1 |
+		fv(2:3, gun_id==2) = -fv(2:3, gun_id==2);
 
 	% Compute the firing angles
 	else
