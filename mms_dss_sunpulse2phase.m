@@ -301,8 +301,10 @@ function phase = mms_dss_sunpulse2phase(sunpulse, times)
 % Compuate the Spin Phase            %
 %------------------------------------%
 	% Determine where TIMES is located within the sun pulse array.
-	sp_sse = MrCDF_epoch2sse( pulse );
-	t_sse  = MrCDF_epoch2sse( times, pulse(1) );
+%	sp_sse = MrCDF_epoch2sse( pulse );
+%	t_sse  = MrCDF_epoch2sse( times, pulse(1) );
+	sp_sse = double(pulse - pulse(1)) * 1e-9;
+	t_sse  = double(times - pulse(1)) * 1e-9;
 	inds   = MrValue_Locate(sp_sse, t_sse, 'RoundUp', true);
 	
 	% Calculate the phase in degrees
