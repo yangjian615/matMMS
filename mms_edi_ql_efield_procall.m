@@ -80,22 +80,21 @@ function files = mms_edi_ql_efield_procall(sc, tstart, tend)
 		                                       'TStart',  tstart,   ...
 		                                       'TEnd',    tend );
 		
-		
-		% Make sure we have a cell array
-		if nSlow < 2
-			slow_files = { slow_files };
-		end
-		if nFast < 2
-			fast_files = { fast_files };
-		end
-		
 		% Extract the start times
-		[~, ~, ~, ~, fstart_slow] = mms_dissect_filename( slow_files );
-		[~, ~, ~, ~, fstart_fast] = mms_dissect_filename( fast_files );
+		if nSlow > 0 && nFast > 0
+			files = [slow_files fast_files]
+		elseif nSlow > 0
+			files = slow_files;
+		elseif nFast > 0
+			files = fast_files;
+		end
+		
+		% Dissect the file names
+		[~, ~, ~, ~, fstart] = mms_dissect_filename( files );
 	
 		% All dates in which we have data
-		fdates = union( fstart_slow, fstart_fast );
-		
+		fdates = unique( fstart );
+
 		% Reformat them
 		dates  = MrTimeParser(fdates, '%Y%M%d', '%Y-%M-%d');
 		fstart = strcat( dates, 'T00:00:00' );

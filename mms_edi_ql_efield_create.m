@@ -339,12 +339,15 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	vg2_bcs = repmat( edi.virtual_gun2_bcs, 1, n21 );
 	
 	% Beam data
+	%   - For scalar quantities, extract data.
 	t_gd12       = edi.tt2000_gd12;
 	t_gd21       = edi.tt2000_gd21;
 	pos_vg1_smpa = mrvector_rotate( bcs2smpa, vg1_bcs );
 	pos_vg2_smpa = mrvector_rotate( bcs2smpa, vg2_bcs );
 	fv_gd12_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd12_bcs );
 	fv_gd21_smpa = mrvector_rotate( bcs2smpa, edi.fv_gd21_bcs );
+	tof_gd12     = edi.tof_gd12;
+	tof_gd21     = edi.tof_gd21;
 	q_gd12       = edi.quality_gd12;
 	q_gd21       = edi.quality_gd21;
 	clear edi vg1_bcs vg2_bcs n12 n21
@@ -446,19 +449,22 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	                  );
 	clear t_avg E_bc v_ExB_bc d_bc d_std_bc
 
-	% Gather data to be written
-	%   - Record varying dimension must be first
+	% Beam data
 	beams = struct( 'tt2000_gd12',  t_gd12,                            ...
 	                'tt2000_gd21',  t_gd21,                            ...
 	                'pos_vg1_dmpa', single( pos_vg_dmpa(:, tf_gd12) ), ...
 	                'pos_vg2_dmpa', single( pos_vg_dmpa(:, tf_gd21) ), ...
 	                'fv_gd12_dmpa', single( fv_gdu_dmpa(:, tf_gd12) ), ...
 	                'fv_gd21_dmpa', single( fv_gdu_dmpa(:, tf_gd21) ), ...
+	                'tof_gd12',     tof_gd12,                          ...
+	                'tof_gd21',     tof_gd21,                          ...
 	                'quality_gd12', q_gd12,                            ...
 	                'quality_gd21', q_gd21                             ...
 	              );
 	clear tf_gd12 tf_gd21 t_gd12 t_gd21 pos_vg_dmpa fv_gdu_dmpa q_gd12 q_gd21
 
-	% Write data to a file
+%------------------------------------%
+% Write to File                      %
+%------------------------------------%
 	edi_ql_file = mms_edi_ql_efield_write(meta, beams, efield_cf, efield_bc, b_interp_dmpa);
 end

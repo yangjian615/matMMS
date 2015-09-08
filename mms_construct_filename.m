@@ -85,7 +85,7 @@
 %                               data products should be reprocessed.
 %
 function fname = mms_construct_filename(sc, instr, mode, level, varargin)
-
+	
 %------------------------------------%
 % Inputs                             %
 %------------------------------------%
@@ -130,18 +130,23 @@ function fname = mms_construct_filename(sc, instr, mode, level, varargin)
 		version = 'v*';
 	end
 
-%------------------------------------%
-% Create File Name                   %
-%------------------------------------%
-
 	% Separate the optional descriptor from the start time.
 	if ~isempty(optDesc)
 		optDesc = [optDesc '_'];
 	end
 
+%------------------------------------%
+% Create File Name                   %
+%------------------------------------%
+
 	% Construct the file name.
-	fname = [sc '_' instr '_' mode '_' level '_' optDesc tstart '_' version '.cdf'];
-	
+	fname = strcat(sc, '_', instr, '_', mode, '_', level, '_', optDesc, tstart, '_', version, '.cdf');
+
+	% Return a single string if only one file name was made
+	if iscell(fname) && length(fname) == 1
+		fname = fname{1};
+	end
+
 	% Prepend a directory?
 	if ~isempty(directory)
 		fname = fullfile(directory, fname);

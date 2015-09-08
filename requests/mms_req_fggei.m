@@ -55,8 +55,9 @@ function fname = mms_req_fggei(sc, instr, mode, tstart, tend, outdir)
 	
 	% Constants
 	attdir  = fullfile('/nfs', 'ancillary', sc, 'defatt');
-%	cal_dir = fullfile('/nfs', 'mag_cal');
-	cal_dir = fullfile('/home', 'argall', 'data', 'mms', 'fg_cal');
+	cal_dir = fullfile('/nfs', 'mag_cal');
+	hk_dir  = fullfile('/nfs', 'hk');
+%	cal_dir = fullfile('/home', 'argall', 'data', 'mms', 'fg_cal');
 	
 %------------------------------------%
 % Find Files                         %
@@ -69,6 +70,7 @@ function fname = mms_req_fggei(sc, instr, mode, tstart, tend, outdir)
 	
 	% HI-CAL
 	[fname_hi, count, fsrch] = mms_file_search(sc, instr, 'hirangecal', 'l2pre', ...
+	                                            'RelaxedTStart', true, ...
 	                                            'SDCroot', cal_dir, ...
 	                                            'SubDirs', '', ...
 	                                            'TStart', tstart, ...
@@ -77,10 +79,19 @@ function fname = mms_req_fggei(sc, instr, mode, tstart, tend, outdir)
 	
 	% LO-CAL
 	[fname_lo, count, fsrch] = mms_file_search(sc, instr, 'lorangecal', 'l2pre', ...
+	                                            'RelaxedTStart', true, ...
 	                                            'SDCroot', cal_dir, ...
 	                                            'SubDirs', '', ...
 	                                            'TStart', tstart, ...
 	                                            'TEnd',   tend);
+	assert(count > 0, ['No LoCal file found: "' fsrch '".']);
+	
+	% HK
+	[fname_hk, count, fsrch] = mms_file_search(sc, 'fields', 'hk', 'l1b', ...
+	                                            'OptDesc', '10e',  ...
+	                                            'SDCroot', hk_dir, ...
+	                                            'TStart',  tstart,  ...
+	                                            'TEnd',    tend);
 	assert(count > 0, ['No LoCal file found: "' fsrch '".']);
 	
 	% Attitude
@@ -96,13 +107,13 @@ function fname = mms_req_fggei(sc, instr, mode, tstart, tend, outdir)
 %------------------------------------%
 % Create L2                          %
 %------------------------------------%
-
 	% Get attitude data
 	attitude = mms_fdoa_read_defatt(fname_att, tstart, tend);
 
 	% Create GEI data
-	[tt2000, ~, b_gei] = mms_fg_create_l2(fname_fg, fname_hi, fname_lo, tstart, tend, ...
-	                                      'Attitude', attitude);
+	[tt2000, b_gse] = mms_fg_create_l2(fname_fg, fname_hi, fname_lo, tstart, tend, ...
+	                                      'Attitude', attitude, ...
+	                                      'hk_file',  fname_hk);
 	
 %------------------------------------%
 % Write the Data                     %
@@ -112,7 +123,7 @@ function fname = mms_req_fggei(sc, instr, mode, tstart, tend, outdir)
 
 	% Create a file name
 	fname = mms_construct_filename(sc, instr, mode, 'l2', ...
-	                               'OptDesc',   'gei', ...
+	                               'OptDesc',   'gse', ...
 	                               'TStart',    fstart, ...
 	                               'Directory', outdir, ...
 	                               'Version',   version);
@@ -127,13 +138,14 @@ function fname = mms_req_fggei(sc, instr, mode, tstart, tend, outdir)
 	% Write to the file
 	fprintf(fid, '                          %s              %s              %s              %s\n', 'UTC', 'Bx', 'By', 'Bz');
 	for ii = 1 : length(tt2000)
-		fprintf( fid, '%s   %13.6f   %13.6f   %13.6f\n', utc{ii}, b_gei(:,ii) );
+		fprintf( fid, '%s   %13.6f   %13.6f   %13.6f\n', utc{ii}, b_gse(:,ii) );
 	end
 	
 	% Close the file
 	fclose(fid);
 	
 	if nargout() == 0
+		fprintf('File written to: %s.\n', fname)
 		clear fname
 	end
 end
