@@ -82,7 +82,7 @@ function files = mms_edi_ql_efield_procall(sc, tstart, tend)
 		
 		% Extract the start times
 		if nSlow > 0 && nFast > 0
-			files = [slow_files fast_files]
+			files = [slow_files fast_files];
 		elseif nSlow > 0
 			files = slow_files;
 		elseif nFast > 0
