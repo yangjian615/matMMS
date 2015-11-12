@@ -32,31 +32,40 @@
 %   2015-06-03      Written by Matthew Argall
 %   2015-08-23      Renamed from mms_sdc_create_edi_ql_efield to mms_edi_ql_efield_procone. - MRA
 %
-function cdf_file = mms_edi_ql_efield_procone(sc, date_start)
+function cdf_file = mms_edi_ql_efield_procone(sc, mode, date_start)
 
 %------------------------------------%
-% Find Files                         %
+% Inputs                             %
 %------------------------------------%
 	% EDI L1A E-Field Data Files
-	if nargin < 2
+	if nargin < 3
 		date_start = datestr( now() - 3.0, 'yyyy-mm-dd' );
+	end
+	if nargin < 2 || isempty(mode)
+		mode = 'srvy';
 	end
 	if nargin < 1 || isempty(sc)
 		sc = {'mms1' 'mms2' 'mms3' 'mms4'};
 	end
 	
-% Error
-%	theDate  = '2015-05-02';   % mms4
-	
-% SpinPeriod = 0
-%	theDate  = '2015-04-22';   % mms3
-%	theDate  = '2015-04-24';   % mms2
+	% Constants
+	sdc_root        = '/nfs/';
+	attitude_dir    = fullfile(sdc_root, 'ancillary', sc, 'defatt');
+	beam_quality    = 3;
+	create_log_file = true;
+	dt              = 5.0;
+	hk_root         = fullfile(sdc_root, 'hk');
+	log_dir         = '/nfs/edi/logs/ql/';
+	mode            = 'srvy';
+	ql_dir          = '/nfs/edi/ql/';
+	sl_dir          = '/nfs/edi/sl/';
 
 %------------------------------------%
 % Create Data                        %
 %------------------------------------%
 	if ischar(sc)
-		sc = { sc };
+		sc           = { sc };
+		attitude_dir = { attitude_dir };
 	end
 	
 	% Process the entire day.
@@ -68,8 +77,19 @@ function cdf_file = mms_edi_ql_efield_procone(sc, date_start)
 		% Create the E-field file.
 		try
 			% Create the data
-			cdf_file = mms_edi_ql_efield_create(sc{ii}, tstart, tend);
-			
+			cdf_file = mms_edi_ql_efield_create( sc{ii}, tstart, tend,              ...
+			                                     'AttitudeDir',   attitude_dir{ii}, ...
+			                                     'BeamQuality',   beam_quality,     ...
+			                                     'CreateLogFile', create_log_file,  ...
+			                                     'dt',            dt,               ...
+			                                     'HKdir',         hk_root,          ...
+			                                     'Mode',          mode,             ...
+			                                     'SDCroot',       sdc_root,         ...
+			                                     'SlowLookDir',   sl_dir,           ...
+			                                     'QuickLookDir',  ql_dir            ...
+			                                   );
+
+
 			% Notify where the file has been saved
 			if nargout < 1
 				fprintf('File written to %s\n', cdf_file);

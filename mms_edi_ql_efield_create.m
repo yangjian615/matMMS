@@ -43,20 +43,19 @@
 %   2015-06-20      Writing to CDF file now occurs in separate function. - MRA
 %   2015-07-20      Renamed from mms_sdc_edi_ql_efield to mms_edi_create_ql_efield. - MRA
 %
-function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
-
-% MMS2: May 9, 2015  16:08 - 16:13
-% MMS4: May 6, 2015  15:30 - 15:35
+function edi_ql_file = mms_edi_ql_efield_create(sc, tstart, tend, varargin)
 
 	% Defaults
 	sdc_root        = '/nfs/';
-	save_dir        = '/nfs/edi/temp/';
-	log_dir         = '/nfs/edi/logs/';
 	attitude_dir    = fullfile(sdc_root, 'ancillary', sc, 'defatt');
-	hk_root         = fullfile(sdc_root, 'hk');
 	beam_quality    = 3;
 	create_log_file = true;
 	dt              = 5.0;
+	hk_root         = fullfile(sdc_root, 'hk');
+	log_dir         = '/nfs/edi/logs/';
+	mode            = 'srvy';
+	ql_dir          = '/nfs/edi/ql/';
+	sl_dir          = '/nfs/edi/sl/';
 
 	% Optional arguments
 	nOptArgs = length(varargin);
@@ -72,14 +71,24 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 				dt = varargin{ii+1};
 			case 'HKdir'
 				hk_root = varargin{ii+1};
+			case 'Mode'
+				mode = varargin{ii+1};
 			case 'SDCroot'
 				sdc_root = varargin{ii+1};
-			case 'SaveDir'
-				save_dir = varargin{ii+1};
+			case 'SlowLookDir'
+				ql_dir = varargin{ii+1};
+			case 'QuickLookDir'
+				ql_dir = varargin{ii+1};
 			otherwise
 				error(['Unknown input parameter: "' varargin{ii} '".']);
 		end
 	end
+	
+	% Constants
+	instr   = 'edi';
+	level   = 'ql';
+	optdesc = 'efield';
+	version = 'v0.4.0';
 	
 %------------------------------------%
 % Log File                           %
@@ -89,10 +98,10 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		fstart = MrTimeParser(tstart, '%Y-%M-%dT%H:%m:%S', '%Y%M%d');
 	
 		% Create a file name
-		log_name = mms_construct_filename( sc, 'edi', 'srvy', 'ql', ...
-		                                   'OptDesc',   'efield',   ...
+		log_name = mms_construct_filename( sc, instr, mode, level,  ...
+		                                   'OptDesc',   optdesc,    ...
 		                                   'TStart',    fstart,     ...
-		                                   'Version',   'v0.2.2' );
+		                                   'Version',   version );
 		% Change extension to 'log'
 		[~, log_name] = fileparts(log_name);
 		log_name      = fullfile( log_dir, [log_name '.log']);
@@ -110,38 +119,24 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 %------------------------------------%
 
 	% FG L1B Data File
-	instr   = 'dfg';
-	mode    = 'srvy';
-	level   = 'l1b';
-	optdesc = '';
-	[fg_l1b_file, count, str] = mms_file_search(sc, instr, mode, level, ...
-	                                            'TStart',    tstart, ...
-	                                            'TEnd',      tend, ...
-	                                            'OptDesc',   optdesc, ...
+	[fg_l1b_file, count, str] = mms_file_search(sc, 'dfg', 'srvy', 'l1b', ...
+	                                            'TStart',    tstart,      ...
+	                                            'TEnd',      tend,        ...
 	                                            'SDCroot',   sdc_root);
 	assert(count > 0, ['DFG L1B file not found: "' str '".']);
 
 	% FG L1B Data File
-	instr   = 'dfg';
-	mode    = 'srvy';
-	level   = 'ql';
-	optdesc = '';
-	[fg_ql_file, count, str] = mms_file_search(sc, instr, mode, level, ...
-	                                           'TStart',    tstart, ...
-	                                           'TEnd',      tend, ...
-	                                           'OptDesc',   optdesc, ...
+	[fg_ql_file, count, str] = mms_file_search(sc, 'dfg', 'srvy', 'ql', ...
+	                                           'TStart',    tstart,     ...
+	                                           'TEnd',      tend,       ...
 	                                           'SDCroot',   sdc_root);
 	assert(count > 0, ['DFG L1B file not found: "' str '".']);
 
 	% Digital Sun Sensor L1B Data File
-	instr   = 'fields';
-	mode    = 'hk';
-	level   = 'l1b';
-	optdesc = '101';
-	[dss_file, count, str] = mms_file_search(sc, instr, mode, level, ...
-	                                         'TStart',    tstart, ...
-	                                         'TEnd',      tend, ...
-	                                         'OptDesc',   optdesc, ...
+	[dss_file, count, str] = mms_file_search(sc, 'fields', 'hk', 'l1b', ...
+	                                         'TStart',    tstart,       ...
+	                                         'TEnd',      tend,         ...
+	                                         'OptDesc',   '101',        ...
 	                                         'SDCroot',   hk_root);
 	assert(count > 0, ['DFG file not found: "' str '".']);
 
@@ -152,34 +147,26 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	%   - Sunpulse times are used to despin data.
 	str = fullfile( attitude_dir, [upper(sc) '_DEFATT_%Y%D_%Y%D.V*'] );
 	[att_file, att_cnt] = MrFile_Search( str, ...
-	                                    'Closest',      true, ...
-	                                    'TStart',       tstart, ...
-	                                    'TEnd',         tend, ...
-	                                    'TimeOrder',    '%Y%D', ...
-	                                    'VersionRegex', 'V([0-9]{2})' );
+	                                     'Closest',      true,   ...
+	                                     'TStart',       tstart, ...
+	                                     'TEnd',         tend,   ...
+	                                     'TimeOrder',    '%Y%D', ...
+	                                     'VersionRegex', 'V([0-9]{2})' );
 	
 	% EDI Slow L1A E-Field Data File
 	%    - Find last, so file descriptors are saved.
-	instr   = 'edi';
-	mode    = 'slow';
-	level   = 'l1a';
-	optdesc = 'efield';
-	[edi_slow_file, slw_cnt, str] = mms_file_search(sc, instr, mode, level, ...
-	                                                'TStart',    tstart, ...
-	                                                'TEnd',      tend, ...
-	                                                'OptDesc',   optdesc, ...
+	[edi_slow_file, slw_cnt, str] = mms_file_search(sc, instr, 'slow', 'l1a', ...
+	                                                'TStart',    tstart,      ...
+	                                                'TEnd',      tend,        ...
+	                                                'OptDesc',   optdesc,     ...
 	                                                'SDCroot',   sdc_root);
 	
 	% EDI Fast L1A E-Field Data File
 	%    - Find last, so file descriptors are saved.
-	instr   = 'edi';
-	mode    = 'fast';
-	level   = 'l1a';
-	optdesc = 'efield';
-	[edi_fast_file, fst_cnt, str] = mms_file_search(sc, instr, mode, level, ...
-	                                                'TStart',    tstart, ...
-	                                                'TEnd',      tend, ...
-	                                                'OptDesc',   optdesc, ...
+	[edi_fast_file, fst_cnt, str] = mms_file_search(sc, instr, 'fast', 'l1a', ...
+	                                                'TStart',    tstart,      ...
+	                                                'TEnd',      tend,        ...
+	                                                'OptDesc',   optdesc,     ...
 	                                                'SDCroot',   sdc_root);
 
 	% Write names to log file
@@ -219,6 +206,10 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 		edi_slow = mms_edi_l1b_efield_create( edi_slow_file, tstart, tend, ...
 		                                        'CS_BCS',   true,          ...
 		                                        'Quality',  beam_quality  );
+		
+		% Remove the energy field
+		%   - It has incorrect time tags before v0.9.0
+		edi_slow = rmfield(edi_slow, {'energy_gd12', 'energy_gd21'});
 	end
 
 	% EDI Slow data
@@ -233,6 +224,11 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 			edi_fast = mms_edi_l1b_efield_create( edi_fast_file, tstart, tend, ...
 			                                        'CS_BCS',   true,          ...
 			                                        'Quality',  beam_quality  );
+		
+			% Remove the energy field
+			%   - It has incorrect time tags before v0.9.0
+			edi_fast = rmfield(edi_fast, {'energy_gd12', 'energy_gd21'});
+			
 		% Not the error and continue processing slow survey data.
 		catch ME
 			mrfprintf('logerr', ME);
@@ -393,6 +389,9 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 % Gather Data                        %
 %------------------------------------%
 	% Parent files
+	%   - Concatenate slow and fast survey file names
+	%   - Remove filenames if any were empty
+	%   - Strip off the directory.
 	if iscell(att_file)
 		parents = [ fg_l1b_file dss_file att_file edi_fast_file edi_slow_file ];
 	else
@@ -400,13 +399,15 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	end
 	iempty          = find( cellfun(@isempty, parents) );
 	parents(iempty) = [];
+	[~, name, ext]  = cellfun(@fileparts, parents, 'UniformOutput', false);
+	parents         = strcat(name, ext);
 	
 	% Metadata structure
 	meta = struct( 'sc',           sc,         ...
 	               'instr',        instr,      ...
 	               'mode',         'srvy',     ...
 	               'optdesc',      optdesc,    ...
-	               'directory',    save_dir,   ...
+	               'directory',    sl_dir,     ...
 	               'tstart',       tstart,     ...
 	               'tend',         tend,       ...
 	               'parents',      { parents } ...             % Prevent array of structures
@@ -464,7 +465,28 @@ function edi_ql_file = mms_edi_create_ql_efield(sc, tstart, tend, varargin)
 	clear tf_gd12 tf_gd21 t_gd12 t_gd21 pos_vg_dmpa fv_gdu_dmpa q_gd12 q_gd21
 
 %------------------------------------%
-% Write to File                      %
+% Slow-Look                          %
 %------------------------------------%
-	edi_ql_file = mms_edi_ql_efield_write(meta, beams, efield_cf, efield_bc, b_interp_dmpa);
+	edi_sl_file = mms_edi_sl_efield_write(meta, beams, efield_cf, efield_bc, b_interp_dmpa);
+
+%------------------------------------%
+% Quick-Look                         %
+%------------------------------------%
+
+	% Change output directory
+	meta.directory = ql_dir;
+	
+	% Pick out quick-look data
+	ql_data = struct( 'tt2000',     efield_cf.tt2000, ...
+	                  'dt_avg',     b_interp_dmpa.dt_avg,  ...
+	                  'E',          efield_cf.E,      ...
+	                  'v_ExB',      efield_cf.v_ExB,  ...
+	                  'E_bc',       efield_bc.E,      ...
+	                  'v_ExB_bc',   efield_bc.v_ExB,  ...
+	                  'quality_bc', efield_bc.quality ...
+	                );
+	clear efield_cf efield_bc beams b_interp_dmpa
+	
+	% Write the file
+	edi_ql_file = mms_edi_ql_efield_write(meta, ql_data);
 end

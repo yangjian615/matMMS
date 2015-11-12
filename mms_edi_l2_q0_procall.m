@@ -1,16 +1,16 @@
 %
 % Name
-%   mms_edi_ql_efield_procall
+%   mms_edi_l2_q0_procall
 %
 % Purpose
-%   Process all EDI E-field, changing L1A data into QL data.
+%   Process all EDI E-field to create q0 data files.
 %
 % Calling Sequence
-%   FILES = mms_sdc_proc_edi_ql_efield()
+%   FILES = mms_edi_l2_q0_procall()
 %     Process all data from all spacecraft from the beginning of the mission
 %     until three days before the current date.
 %
-%   FILES = mms_sdc_proc_edi_ql_efield(SC, TSTART, TEND)
+%   FILES = mms_edi_l2_q0_procall(SC, TSTART, TEND)
 %     Read and process all data from MMS spacecraft SC between the times
 %     TSTART and TEND. Data is saved to CDF files named FILES.
 %
@@ -26,15 +26,12 @@
 % Required Products None
 %
 % History:
-%   2015-06-03      Written by Matthew Argall
-%   2015-08-07      Generate dates instead of looking for files then extracting dates. - MRA
-%   2015-08-12      Look for fast & slow files and take union of dates. - MRA
-%   2015-08-22      Renamed from mms_sdc_proc_edi_ql_efield to mms_edi_ql_efield_procall. - MRA
+%   2015-09-10      Written by Matthew Argall
 %
-function files = mms_edi_ql_efield_procall(sc, mode, tstart, tend)
+function files = mms_edi_l2_q0_procall(sc, mode, tstart, tend)
 
 %------------------------------------%
-% Find Files                         %
+% Inputs                             %
 %------------------------------------%
 	% EDI L1A E-Field Data Files
 	if nargin < 4
@@ -43,24 +40,17 @@ function files = mms_edi_ql_efield_procall(sc, mode, tstart, tend)
 	if nargin < 3 || isempty(tstart)
 		tstart = '2015-03-17';
 	end
-	if nargin < 2 || isempty(tstart)
+	if nargin < 2 || isempty(mode)
 		mode = 'srvy';
 	end
 	if nargin < 1 || isempty(sc)
 		sc = { 'mms1' 'mms2' 'mms3' 'mms4' };
 	end
-	
+
 	% Constants
-	beam_quality    = 3;
 	create_log_file = true;
-	dt              = 5.0;
-	log_dir         = '/nfs/edi/logs/ql/';
-	mode            = 'srvy';
+	save_dir        = '/nfs/edi/q0/';
 	sdc_root        = '/nfs/';
-	ql_dir          = '/nfs/edi/ql/';
-	sl_dir          = '/nfs/edi/sl/';
-	attitude_dir    = fullfile(sdc_root, 'ancillary', sc, 'defatt');
-	hk_root         = fullfile(sdc_root, 'hk');
 
 %------------------------------------%
 % Process Data for Each Spacecraft   %
@@ -73,7 +63,7 @@ function files = mms_edi_ql_efield_procall(sc, mode, tstart, tend)
 	% Full day
 	tstart = [tstart 'T00:00:00'];
 	tend   = [tend   'T24:00:00'];
-	
+
 	files = {};
 	count = 0;
 
@@ -120,17 +110,10 @@ function files = mms_edi_ql_efield_procall(sc, mode, tstart, tend)
 		for jj = 1 : length(dates)
 			try
 				% Create the data
-				files{count+1} = mms_edi_ql_efield_create(sc{ii}, fstart{jj}, fend{jj},     ...
-				                                          'AttitudeDir',   attitude_dir{ii},...
-				                                          'BeamQuality',   beam_quality,    ...
-				                                          'CreateLogFile', create_log_file, ...
-				                                          'dt',            dt,              ...
-				                                          'HKdir',         hk_root,         ...
-				                                          'Mode',          mode,            ...
-				                                          'SDCroot',       sdc_root,        ...
-				                                          'SlowLookDir',   sl_dir,          ...
-				                                          'QuickLookDir',  ql_dir           ...
-				                                        );
+				files{count+1} = mms_edi_l2_q0_create(sc{ii}, fstart{jj}, fend{jj},     ...
+				                                      'CreateLogFile', create_log_file, ...
+				                                      'Mode',          mode,            ...
+				                                      'SaveDir',       save_dir);
 				
 				% Count the file
 				count = count + 1;
