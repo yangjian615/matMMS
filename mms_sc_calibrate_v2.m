@@ -123,6 +123,10 @@ function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
 	% Middle portion to be kept
 %	is_middle = floor(0.375 * NFFT) + 1;
 %	ie_middle = floor(0.625 * NFFT);
+
+	%
+	% Keep the middle point, only
+	%
 	is_middle = NFFT / 2.0;
 	ie_middle = NFFT / 2.0;
 	nShift    = ie_middle - is_middle + 1;
