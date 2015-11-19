@@ -19,12 +19,12 @@ if get_data
 	%------------------------------------%
 	% Inputs                             %
 	%------------------------------------%
-	sc      = 'mms2';
+	sc      = 'mms1';
 	instr   = 'dfg';
 	mode    = 'srvy';
 	optdesc = '';
-	tstart  = '2015-05-09T16:08:00';
-	tend    = '2015-05-09T16:13:00';
+	tstart  = '2015-08-16T00:00:00';
+	tend    = '2015-08-16T24:00:00';
 	att_dir = fullfile('/nfs', 'ancillary', sc, 'defatt');
 	
 	%------------------------------------%
@@ -72,6 +72,9 @@ end
 
 % Rotate from DMPA to GEI with RA and Dec
 gei2dmpa   = mms_fdoa_xgei2despun( attitude, fg_ql.tt2000, 'L' );
+
+keyboard
+
 b_dmpa2gei = mrvector_rotate( permute(gei2dmpa, [2,1,3]), fg_ql.b_dmpa(1:3, :) );
 
 % Rotate from BCS to GEI with quaternions

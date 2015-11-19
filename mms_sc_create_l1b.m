@@ -148,7 +148,7 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file
 	b_omb = zeros(3, nPts);
 	for ii = 1 : nCal
 		b_omb(:, istart(ii):iend(ii)) ...
-			= mms_sc_calibrate(sc_l1a.b_123(:, istart(ii):iend(ii)), sr(inds(ii)), transfr_fn, f, duration);
+			= mms_sc_calibrate_v2(sc_l1a.b_123(:, istart(ii):iend(ii)), sr(inds(ii)), transfr_fn, f, duration);
 	end
 	
 	% Extract data

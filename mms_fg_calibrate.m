@@ -101,6 +101,9 @@ function [B_omb, mpa] = mms_fg_calibrate( t, B_123, t_range, range, ...
 	%
 	if t(1) < t_range(1)
 		% Find the first point with range information.
+		iInRange = find( t >= t_range(1), 1, 'first');
+		
+		% Find the first point with range information.
 		mrfprintf( 'logwarn', 'mms_fg_calibrate:range', ...
 		           'First %d points lack range info.', iInRange-1 );
 		
@@ -109,7 +112,7 @@ function [B_omb, mpa] = mms_fg_calibrate( t, B_123, t_range, range, ...
 	end
 	if t(end) > t_range(end)
 		% Find the last point with range information.
-		iInRange = find( t <= ( t_range(end) ), 1, 'last');
+		iInRange = find( t <= t_range(end), 1, 'last');
 		
 		% Look for the remaining points in the packet.
 		dt_range  = median( diff( t_range ) );

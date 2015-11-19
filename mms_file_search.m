@@ -131,7 +131,7 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	sdc_root       = '/nfs/';
 	relaxed_tstart = false;
 	nOptArgs       = length(varargin);
-	
+
 	% Optional parameters
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
