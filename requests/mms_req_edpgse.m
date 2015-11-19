@@ -40,8 +40,8 @@ function fname = mms_req_edpgse(sc, instr, mode, tstart, tend, outdir)
 
 	% Default inputs
 	sc      = 'mms4';
-	tstart  = '2015-08-15T13:20:00';
-	tend    = '2015-08-15T13:30:00';
+	tstart  = '2015-10-16T13:00:00';
+	tend    = '2015-10-16T13:15:00';
 
 	% Output directory
 	if nargin() < 6
@@ -127,7 +127,7 @@ function fname = mms_req_edpgse(sc, instr, mode, tstart, tend, outdir)
 	% Create a file name
 	fname = mms_construct_filename(sc, 'edp', 'srvy', 'l2',       ...
 	                               'OptDesc',   'dce2d-unh-gse',    ...
-	                               'TStart',    '20150815132000', ...
+	                               'TStart',    '20151016130000', ...
 	                               'Directory', outdir,           ...
 	                               'Version',   version);
 	fname(end-2:end) = 'dat';
