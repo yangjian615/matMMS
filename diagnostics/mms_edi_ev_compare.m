@@ -24,11 +24,11 @@ if get_data
 % '2015-08-01T03:00:00'
 % '2015-08-01T08:00:00'
 
-	sc         = 'mms2';
-	tstart     = '2015-08-01T03:00:00';
-	tend       = '2015-08-01T15:00:00';
+	sc         = 'mms3';
+	tstart     = '2015-08-16T00:00:00';
+	tend       = '2015-08-16T24:00:00';
 	sdc_root   = '/nfs/';
-	edi_dir    = '/nfs/edi/temp/';
+	edi_dir    = '/nfs/edi/ql/';
 	att_dir    = fullfile('/nfs', 'ancillary', sc, 'defatt');
 	eph_dir    = fullfile('/nfs', 'ancillary', sc, 'defeph');
 	

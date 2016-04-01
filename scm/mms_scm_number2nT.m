@@ -1,13 +1,13 @@
 %
 % Name
-%   mms_sc_number2nT
+%   mms_scm_number2nT
 %
 % Purpose
 %   Convert a 32-bit integer to a 32-bit double. This converts magnetometer
 %   search coil values from numbers to nano-tesla.
 %
 % Calling Sequence
-%   B_NT = mms_sc_number2nT(B_SC);
+%   B_NT = mms_scm_number2nT(B_SC);
 %     Convert searchcoil magnetometer data from a number B_SC to
 %     nano-tesla, B_nT.
 %
@@ -24,7 +24,7 @@
 %   2015-03-24      Written by Matthew Argall
 %   2015-05-11      Mark
 %
-function [B_nT] = mms_sc_number2nT(B_sc)
+function [B_nT] = mms_scm_number2nT(B_sc)
 	
 	%
 	% Translate from a number to nano-tesla (32-bit int to 32-bit float)

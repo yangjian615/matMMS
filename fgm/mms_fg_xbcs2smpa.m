@@ -31,7 +31,7 @@ function bcs2smpa = mms_fg_xbcs2smpa(mpa)
 	smpay = mrvector_cross(smpaz, [1 0 0]);
 	smpay = mrvector_normalize(smpay);
 	smpax = mrvector_cross(smpay, smpaz);
-	
+
 	% Create the rotation matrix
 	bcs2smpa        = zeros( [3 size(mpa)] );
 	bcs2smpa(:,1,:) = smpax;

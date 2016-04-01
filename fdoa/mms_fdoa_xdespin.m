@@ -92,6 +92,12 @@ function bcs2despun = mms_fdoa_xdespin(attitude, time, type, instr, arg5)
 	sinPhase = sin(phase + offset);
 	
 	% Create the rotation matrix
+	% - PHASE is from the sun to the x-axis. We want the phase from
+	%   the x-axis to the sun. To accomplish this, we transpose the
+	%   typical transformation matrix about Z
+	%       |  cos  sin  0 |       |  cos -sin  0 |
+	%   T = | -sin  cos  0 |  -->  |  sin  cos  0 |
+	%       |   0    0   1 |       |   0    0   1 |
 	bcs2despun        =  zeros(3, 3, length(time));
 	bcs2despun(1,1,:) =  cosPhase;
 	bcs2despun(2,1,:) =  sinPhase;

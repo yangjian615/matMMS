@@ -39,7 +39,7 @@
 function fname = mms_req_edpgse(sc, instr, mode, tstart, tend, outdir)
 
 	% Default inputs
-	sc      = 'mms4';
+	sc      = 'mms1';
 	tstart  = '2015-10-16T13:00:00';
 	tend    = '2015-10-16T13:15:00';
 
@@ -97,12 +97,12 @@ function fname = mms_req_edpgse(sc, instr, mode, tstart, tend, outdir)
 	[t_edp, isort] = sort(t_edp);
 	e_dsl          = [edp_ql_slow.E_dsl, edp_ql_fast.E_dsl];
 	e_dsl          = e_dsl(:,isort);
-	
+keyboard
 %------------------------------------%
 % Rotate to GSE                      %
 %------------------------------------%
 	% Transformation matrix
-	gei2dsl = mms_fdoa_xgei2despun(attitude, t_edp);
+	gei2dsl = mms_fdoa_xgei2despun(attitude, t_edp, 'L');
 	dsl2gei = permute(gei2dsl, [2,1,3]);
 	
 	% Transform to GEI
@@ -139,7 +139,7 @@ function fname = mms_req_edpgse(sc, instr, mode, tstart, tend, outdir)
 	fid = fopen(fname, 'w');
 	
 	% Write to the file
-	fprintf(fid, '                          %s              %s              %s              %s\n', 'UTC', 'Bx', 'By', 'Bz');
+	fprintf(fid, '                          %s              %s              %s              %s\n', 'UTC', 'Ex', 'Ey', 'Ez');
 	for ii = 1 : length(t_edp)
 		fprintf( fid, '%s   %13.6f   %13.6f   %13.6f\n', utc{ii}, e_gse(:,ii) );
 	end

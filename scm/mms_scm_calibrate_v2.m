@@ -47,7 +47,7 @@
 % History:
 %   2015-07-30      Written by Matthew Argall
 %
-function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
+function [B_out, t_out] = mms_scm_calibrate_v2(B, sr, transfr_fn, f, duration)
 
 	%
 	% Calibration intervals are of length DURATION. Given data sampling rate,
@@ -70,7 +70,7 @@ function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
 	end
 	
 	% Parameters
-	tf_window = false;
+	tf_window = true;
 	
 	% Number of points
 	nPts = size(B, 2);
@@ -84,7 +84,7 @@ function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
 
 	% Convert B to nano-Tesla
 	%   - Negate and scale
-	B_nT = mms_sc_number2nT(B);
+	B_nT = mms_scm_number2nT(B);
 	B_nT = -1.0 * B_nT;
 
 %------------------------------------%
@@ -106,7 +106,7 @@ function [B_out, t_out] = mms_sc_calibrate_v2(B, sr, transfr_fn, f, duration)
 	assert( NFFT <= nPts, 'FFT length greater than data interval.' )
 
 	% Interpolate the transfer function
-	compensate_array = mms_sc_tf_compensate(transfr_fn, f, NFFT, df);
+	compensate_array = mms_scm_tf_compensate(transfr_fn, f, NFFT, df);
 
 %------------------------------------%
 % Outline Calibration Intervals      %

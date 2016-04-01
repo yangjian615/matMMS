@@ -125,8 +125,8 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	tend           = '';
 	optdesc        = '';
 	version        = '';
+	subdirs        = '';
 	timeorder      = '';
-	subdirs        = {'%Y', '%M'};
 	directory      = '';
 	sdc_root       = '/nfs/';
 	relaxed_tstart = false;
@@ -160,7 +160,11 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 	
 	% Time order
 	if strcmp(timeorder, '')
-		timeorder = '%Y%M%d';
+		if strcmp(mode, 'brst')
+			timeorder = '%Y%M%d%H%m%S';
+		else
+			timeorder = '%Y%M%d';
+		end
 	end
 	
 	% Check time formats
@@ -172,13 +176,21 @@ function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, va
 		assert( MrTokens_IsMatch(tend, '%Y-%M-%dT%H:%m:%S'), ...
 		        'TEnd must be an ISO-8601 string: "yyyy-mm-ddThh:mm:ss".' );
 	end
-
-	% Subdirectories
-	assert( ischar(subdirs) || iscell(subdirs), 'SUBDIRS must be a string or cell array of strings.' );
-	if ischar(subdirs)
-		subdirs = { subdirs };
-	end
 	
+	% Subdirectories
+	if isempty(subdirs)
+		if strcmp(mode, 'brst')
+			subdirs = {'%Y', '%M', '%d'};
+		else
+			subdirs = {'%Y', '%M'};
+		end
+	else
+		% Turn char to cell for ease of use.
+		assert( ischar(subdirs) || iscell(subdirs), 'SUBDIRS must be a string or cell array of strings.' );
+		if ischar(subdirs)
+			subdirs = { subdirs };
+		end
+	end
 
 %------------------------------------%
 % Directory                          %

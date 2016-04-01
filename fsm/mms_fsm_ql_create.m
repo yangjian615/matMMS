@@ -50,9 +50,9 @@
 function fsm_ql = mms_fsm_create_ql(sc, tstart, tend, varargin)
 
 	% Inputs for testing
-	sc     = 'mms1';
-	tstart = '2015-08-28T00:00:00';
-	tend   = '2015-08-28T24:00:00';
+%	sc     = 'mms1';
+%	tstart = '2015-08-15T00:00:00';
+%	tend   = '2015-08-15T24:00:00';
 
 %------------------------------------%
 % Defaults                           %
@@ -63,9 +63,9 @@ function fsm_ql = mms_fsm_create_ql(sc, tstart, tend, varargin)
 	fgm_instr    = 'dfg';
 	fgm_mode     = 'fast';
 	fgm_optdesc  = '';
-	save_dir     = '';
-	scm_mode     = 'srvy';
-	scm_optdesc  = 'scm';
+	save_dir     = '/nfs/fsm';
+	scm_mode     = 'fast';
+	scm_optdesc  = 'scf';
 	scm_cal_dir  = '';
 	
 	% Default merging parameters
@@ -381,6 +381,7 @@ function files = mms_fsm_ql_files(sc, tstart, tend, fgm_instr, fgm_mode, fgm_opt
 %------------------------------------%
 % Output Files                       %
 %------------------------------------%
+
 	% Prevent the formation of an array of structures by
 	% create cell arrays.
 	files = struct( 'nfgm',       nfgm,       ...

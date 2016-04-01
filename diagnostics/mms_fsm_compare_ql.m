@@ -24,9 +24,9 @@ sc      = 'mms1';
 instr   = 'dfg-scm';
 mode    = 'srvy';
 level   = 'ql';
-tstart  = '2015-08-28T00:00:00';
-tend    = '2015-08-28T24:00:00';
-fsm_dir = '/nfs/fsm';
+tstart  = '2015-08-15T00:00:00';
+tend    = '2015-08-15T24:00:00';
+fsm_dir = '/nfs/fsm/temp';
 
 %------------------------------------%
 % Find the FSM & FGM File            %

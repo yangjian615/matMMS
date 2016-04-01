@@ -1,6 +1,6 @@
 %
 % Name
-%   mms_sc_gse
+%   mms_scm_l2_create
 %
 % Purpose
 %   Turn level 1A SCM data into level 2 quality data. L2 implies
@@ -13,21 +13,21 @@
 %     3. Transform to GSE
 %
 % Calling Sequence
-%   [T, B_GSE] = mms_sc_create_l2(SC_FILES, CAL_FILE, TSTART, TEND)
+%   [T, B_GSE] = mms_scm_l2_create(SC_FILES, CAL_FILE, TSTART, TEND)
 %     Find and read search coil magnetometer and transfer function
 %     data from files SC_FILES and CAL_FILE during the time interval
 %     [TSTART, TEND]. Return the data and its time tags B_GSE and T.
 %
-%   [..., B_DMPA] = mms_sc_create_l2(__)
+%   [..., B_DMPA] = mms_scm_l2_create(__)
 %     Also return the magnetic field in DMPA.
 %
-%   [..., B_SMPA] = mms_sc_create_l2(__)
+%   [..., B_SMPA] = mms_scm_l2_create(__)
 %     Also return the magnetic field in SMPA.
 %
-%   [..., B_BCS] = mms_sc_create_l2(__)
+%   [..., B_BCS] = mms_scm_l2_create(__)
 %     Also return the magnetic field in BCS.
 %
-%   [__] = mms_sc_create_l2(__, 'ParamName', ParamValue)
+%   [__] = mms_scm_l2_create(__, 'ParamName', ParamValue)
 %     Any parameter name-value pair found below.
 %
 % Parameters
@@ -61,7 +61,8 @@
 %   2015-06-21      Renamed from mms_sc_gse to mms_sc_create_l2. - MRA
 %   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
-function [t, b_gse, b_gei, b_dmpa, b_smpa, b_omb, b_bcs, b_cal, b_123] = mms_sc_create_l2(sc_files, cal_file, tstart, tend, varargin)
+function [t, b_gsm, b_gse, b_gei, b_dmpa, b_bcs, b_smpa, b_omb, b_123] ...
+	= mms_scm_l2_create(sc_files, cal_file, tstart, tend, varargin)
 
 %------------------------------------%
 % Inputs                             %
@@ -94,7 +95,7 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_omb, b_bcs, b_cal, b_123] = mms_sc_
 %------------------------------------%
 % Calibrated & Rotate to BCS         %
 %------------------------------------%
-	[t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration);
+	[t, b_bcs, b_smpa, b_omb, b_123] = mms_scm_l1b_create(sc_files, cal_file, tstart, tend, duration);
 
 %------------------------------------%
 % BCS --> SMPA                       %
@@ -125,7 +126,8 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_omb, b_bcs, b_cal, b_123] = mms_sc_
 	%
 	
 	% Despin sunpulse or attitude
-	if isempty(attitude)
+	%   - Use sunpulse if it was given, otherwise use attitude
+	if ~isempty(sunpulse)
 		smpa2dmpa = mms_dss_xdespin( sunpulse, t );
 	else
 		smpa2dmpa = mms_fdoa_xdespin( attitude, t, 'L' );
@@ -138,28 +140,10 @@ function [t, b_gse, b_gei, b_dmpa, b_smpa, b_omb, b_bcs, b_cal, b_123] = mms_sc_
 % Rotate to GSE                      %
 %------------------------------------%
 	if ~isempty(attitude)
-		% Transform into GEI
-		gei2despun = mms_fdoa_xgei2despun(attitude, t, 'L');
-		despun2gei = permute(gei2despun, [2, 1, 3]);
-		b_gei      = mrvector_rotate(despun2gei, b_dmpa);
-
-		% Transform matrix GEI -> GSE
-		%   - Modified Julian Date (mjd).
-		%   - UTC seconds since midnight (ssm).
-		timevec = MrCDF_Epoch_Breakdown(t)';
-		mjd     = date2mjd(timevec(1,:), timevec(2,:), timevec(3,:));
-		ssm = timevec(4,:) * 3600.0 + ...
-			  timevec(5,:) * 60.0   + ...
-			  timevec(6,:)          + ...
-			  timevec(7,:) * 1e-3   + ...
-			  timevec(8,:) * 1e-6   + ...
-			  timevec(9,:) * 1e-9;
-		GEI2GSE = gei2gse(mjd, ssm);
-
-		% Transform to GSE
-		b_gse = mrvector_rotate(GEI2GSE, b_gei);
+		[b_gsm, b_gse, b_gei] = mms_rot_despun2gsm(t, b_dmpa, attitude, 'P');
 	else
 		mrfprintf( 'logwarn', 'FG:GSE', 'No attitude data. Cannot transform into GSE.');
-		b_gse = zeros(size(b_smpa));
+		b_gse = NaN(size(b_dmpa));
+		b_gsm = NaN(size(b_dmpa));
 	end
 end

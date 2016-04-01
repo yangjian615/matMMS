@@ -1,6 +1,6 @@
 %
 % Name
-%   mms_sc_calibrate
+%   mms_scm_l1b_create
 %
 % Purpose
 %   Read searchcoil magnetometer (SCM) level 1A data and turn it
@@ -18,17 +18,17 @@
 %       c) Inverse fourier transform
 %
 % Calling Sequence
-%   [T, B_BCS] = mms_sc_create_l1b(SC_FILES, CAL-FILE, TSTART, TEND)
+%   [T, B_BCS] = mms_scm_l1b_create(SC_FILES, CAL-FILE, TSTART, TEND)
 %     Find and read search coil magnetometer and transfer function
 %     data from files SC_FILES and CAL_FILE during
 %     the time interval [TSTART, TEND]. Calibrate the data and
 %     transform into the spacecraft body frame (BCS). Return the data
 %     and its time tags B_BCS and T.
 %
-%   [T, B_BCS] = mms_sc_create_l1b(__, DURATION)
+%   [T, B_BCS] = mms_scm_l1b_create(__, DURATION)
 %     Specify the length of each calibration interval.
 %
-%   [..., B_OMB, B_123] = mms_sc_create_l1b(__)
+%   [..., B_OMB, B_123] = mms_scm_l1b_create(__)
 %     Also return data in the OMB and 123 coordinate systems.
 %
 % Parameters
@@ -53,7 +53,7 @@
 %   2015-06-21      renamed from mms_sc_bcs to mms_sc_create_l1b. - MRA
 %   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
 %
-function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file, tstart, tend, duration)
+function [t, b_bcs, b_smpa, b_omb, b_123] = mms_scm_l1b_create(sc_files, cal_file, tstart, tend, duration)
 
 	if nargin < 5
 		duration = 64.0;
@@ -64,10 +64,10 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file
 %------------------------------------%
 
 	% Read the L1A files
-	sc_l1a = mms_sc_read_l1a(sc_files, tstart, tend);
+	sc_l1a = mms_scm_l1a_read(sc_files, tstart, tend);
 
 	% Read the cal file
-	[transfr_fn, f] = mms_sc_read_caltab(cal_file);
+	[transfr_fn, f] = mms_scm_read_caltab(cal_file);
 
 %------------------------------------%
 % Calibrate the Data                 %
@@ -148,7 +148,7 @@ function [t, b_bcs, b_smpa, b_omb, b_123] = mms_sc_create_l1b(sc_files, cal_file
 	b_omb = zeros(3, nPts);
 	for ii = 1 : nCal
 		b_omb(:, istart(ii):iend(ii)) ...
-			= mms_sc_calibrate_v2(sc_l1a.b_123(:, istart(ii):iend(ii)), sr(inds(ii)), transfr_fn, f, duration);
+			= mms_scm_calibrate_v2(sc_l1a.b_123(:, istart(ii):iend(ii)), sr(inds(ii)), transfr_fn, f, duration);
 	end
 	
 	% Extract data

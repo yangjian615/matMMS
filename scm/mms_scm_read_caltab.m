@@ -20,7 +20,7 @@
 % History:
 %   2015-03-21      Written by Matthew Argall
 %
-function [response, freqs] = mms_sc_read_caltab(filename)
+function [response, freqs] = mms_scm_read_caltab(filename)
 
 	% Ensure the file exists
 	assert( exist(filename, 'file') == 2, ['File does not exist: "' filename '".']);

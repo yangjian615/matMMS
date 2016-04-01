@@ -52,7 +52,7 @@
 %   2015-05-08      Model FFT windowing after the FSM strategy. - MRA
 %   2015-05-10      Replaced Hamming and Tukey windows with a constant window of 1.0. - MRA
 %
-function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
+function [B_out, t_out] = mms_scm_calibrate(B, sr, transfr_fn, f, duration)
 
 	%
 	% Calibration intervals are of length DURATION. Given data sampling rate,
@@ -92,7 +92,7 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 
 	% Convert B to nano-Tesla
 	%   - Negate and scale
-	B_nT = mms_sc_number2nT(B);
+	B_nT = mms_scm_number2nT(B);
 	B_nT = -1.0 * B_nT;
 
 %------------------------------------%
@@ -114,7 +114,7 @@ function [B_out, t_out] = mms_sc_calibrate(B, sr, transfr_fn, f, duration)
 	assert( NFFT <= nPts, 'FFT length greater than data interval.' )
 
 	% Interpolate the transfer function
-	compensate_array = mms_sc_tf_compensate(transfr_fn, f, NFFT, df);
+	compensate_array = mms_scm_tf_compensate(transfr_fn, f, NFFT, df);
 
 %------------------------------------%
 % First Chunk of Data                %

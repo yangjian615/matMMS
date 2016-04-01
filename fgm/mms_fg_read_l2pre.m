@@ -68,7 +68,7 @@ function fg_l2pre = mms_fg_read_l2pre(files, tstart, tend)
 	if nFiles > 1
 		assert( min( strcmp(instr, instr{1}) ) == 1, 'All files must be from the same instrument.' );
 		assert( min( strcmp(mode, mode{1}) )   == 1, 'All files must have the same telemetry mode.' );
-	else
+	end
 	assert( min( strcmp(level, 'l2pre') ) == 1, 'Only QL files are allowed.' );
 
 	% We now know all the files match, so keep on the the first value.

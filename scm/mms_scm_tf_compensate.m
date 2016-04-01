@@ -6,7 +6,7 @@
 %   Routine to compute the compensation array for a transfer function.
 %
 % Calling Sequence
-%   COMP = mms_sc_tf_compensate(TRANSFR_FN, F, N, DF)
+%   COMP = mms_scm_tf_compensate(TRANSFR_FN, F, N, DF)
 %     This computes the complex array COMP by interpolation of the
 %     transfer function, TRANSFR_FN, at given frequencies, F, and puts
 %     the complex conjugate values in the upper half of the compensation
@@ -40,7 +40,7 @@
 % History:
 %   2015-03-22      Written by Matthew Argall
 %
-function comp = mms_sc_tf_compensate(transfr_fn, f, N, df)
+function comp = mms_scm_tf_compensate(transfr_fn, f, N, df)
 
 	% Pivot at the Nyquist frequency. The resulting array will
 	% have real frequency components from 1 to N/2 and complex

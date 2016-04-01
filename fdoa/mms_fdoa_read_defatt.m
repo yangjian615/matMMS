@@ -15,8 +15,8 @@
 %
 % Parameters
 %   SC              in, required, type=char
-%   TSTART          in, required, type=char
-%   TEND            in, required, type=char
+%   TSTART          in, optional, type=char, default=''
+%   TEND            in, optional, type=char, default=''
 %   ATT_DIR         in, required, type=char
 %
 % Returns
@@ -62,11 +62,12 @@
 %   2015-04-06      Written by Matthew Argall
 %   2015-05-25      Filenames taken as inputs. Return CDF TT2000 times. - MRA
 %   2015-08-09      Direct warnings to 'logwarn' with mrfprintf. - MRA
+%   2015-12-08      TSTART and TEND parameters are optional. - MRA
 %
 function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 
 %------------------------------------%
-% Check Files                        %
+% Check Inputs                       %
 %------------------------------------%
 	% Number of files given
 	if iscell(att_files)
@@ -76,6 +77,12 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 		assert(ischar(att_files) && isrow(att_files), 'ATT_FILES must be a file name or cell array of file names.')
 		att_files = { att_files };
 		nFiles = 1;
+	end
+	
+	% Start and end times
+	if nargin < 3
+		tstart = '';
+		tend   = '';
 	end
 
 %------------------------------------%
@@ -120,29 +127,35 @@ function [attitude, att_hdr] = mms_fdoa_read_defatt(att_files, tstart, tend)
 %------------------------------------%
 % Time Interval                      %
 %------------------------------------%
-	% Convert input times to TT2000
-	trange = MrTimeParser({tstart, tend}, '%Y-%M-%dT%H:%m:%S', '%Y-%M-%dT%H:%m:%S.%1%2%3');
-	trange = spdfparsett2000(trange);
-	
 	% Convert TAI to TT2000
 	tt2000 = mms_fdoa_epoch2tt2000(attitude.('TAI'), 'AttTAI', true);
+
+	% Select subinterval
+	if ~isempty(tstart)
+		% Convert input times to TT2000
+		trange = MrTimeParser({tstart, tend}, '%Y-%M-%dT%H:%m:%S', '%Y-%M-%dT%H:%m:%S.%1%2%3');
+		trange = spdfparsett2000(trange);
 	
-	% Indices to keep
-	irange    = zeros(1, 2);
-	irange(1) = find( tt2000 >= trange(1), 1, 'first' );
-	irange(2) = find( tt2000 <= trange(2), 1, 'last' );
+		% Indices to keep
+		irange    = zeros(1, 2);
+		irange(1) = find( tt2000 >= trange(1), 1, 'first' );
+		irange(2) = find( tt2000 <= trange(2), 1, 'last' );
 	
-	% Number of data returned
-	names   = fieldnames(attitude);
-	nFields = length(names);
+		% Number of data returned
+		names   = fieldnames(attitude);
+		nFields = length(names);
 	
-	% Get rid of unwanted data
-	for ii = 1 : nFields
-		attitude.( names{ii} ) = attitude.( names{ii} )(:, irange(1):irange(2));
+		% Get rid of unwanted data
+		for ii = 1 : nFields
+			attitude.( names{ii} ) = attitude.( names{ii} )(:, irange(1):irange(2));
+		end
+	
+		% Add tt2000 times to the structure
+		tt2000 = tt2000(irange(1):irange(2));
 	end
 	
-	% Add tt2000 times to the structure
-	attitude.( 'tt2000' ) = tt2000(irange(1):irange(2));
+	% Add tt2000 to the data structure
+	attitude.('tt2000') = tt2000;
 
 %------------------------------------%
 % Remove Duplicates                  %
