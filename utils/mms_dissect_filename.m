@@ -55,6 +55,7 @@
 %
 % History:
 %   2015-03-22      Written by Matthew Argall
+%   2016-08-30      Altered regexp to ignore OptDesc if it does not exist. - MRA
 %
 function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(filename)
 	
@@ -72,9 +73,9 @@ function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(
 	                       '([a-z-]+)_', ...                 % Instrument ID
 	                       '([a-z0-9]+)_', ...               % Instrument Mode
 	                       '([a-z0-4]+)_', ...               % Data Level
-	                       '([a-zA-Z0-9-]*)_?', ...          % Optional Descriptor
+	                       '(([a-zA-Z0-9-]*)_)?', ...        % Optional Descriptor
 	                       '(20[0-9]{2}[0-9]{2}[0-9]{2}[0-9]*)_', ...  % Start Time
-	                       '(v[0-9]+\.[0-9]+\.[0-9]+)', ...  % Version
+	                       'v([0-9]+\.[0-9]+\.[0-9]+)', ...  % Version
 	                       '\.cdf'], ...                     % Extension
 	                       'tokens');
 
@@ -94,7 +95,7 @@ function [sc, instr, mode, level, tstart, version, desc] = mms_dissect_filename(
 		desc    = parts(:,5)';
 		tstart  = parts(:,6)';
 		version = parts(:,7)';
-	
+
 	% A single file name was given.
 	else
 		sc      = parts{1};

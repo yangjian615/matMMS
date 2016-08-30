@@ -1,262 +1,126 @@
 %
-% Construct an MMS file name. The file name format is:
+% Name
+%   mms_file_search
 %
-%   scId_instrumentId_mode_dataLevel_optionalDataProductDescriptor_startTime_vX.Y.Z.cdf
+% Purpose
+%   Search for MMS data files.
 %
-% :Examples:
-%   Dissect and construct a filename
-%     filename = 'mms3_dfg_hr_l2p_duration-1h1m_20010704_v1.0.0.cdf';
-%     [sc, instr, mode, level, desc, tstart, version] = mms_dissect_filename(filenames);
-%     fname = mms_construct_filename(sc, instr, mode, level, desc, tstart, version)
-%     fname =
-%              mms3_dfg_hr_l2p_duration-1h1m_20010704_v1.0.0.cdf
+%   At the SDC, data files are initially saved in a dropbox location before
+%   being mored to their final resting place in the directory structure. This
+%   program provide a mechanism for searching in one folder or the other, or
+%   both.
 %
-% Calling Sequence:
-%   FNAME = mms_construct_filename(SC, INSTR, MODE, LEVEL)
-%     Construct an MMS file name FNAME using the spacecraft ID, SC,
-%     instrumnet identifier INSTR, telemetry mode MODE and data level
-%     LEVEL. Other mandatory components of the file name will be the
-%     wildcard character '*' and optional components will be the empty
-%     string ''.
+% Calling Sequence
+%   FILE = mms_file_search(DIR, SC, INSTR, MODE, LEVEL, TSTART);
+%     Search for a file in directory DIR with spacecraft identifier SC,
+%     instrument identifier INSTR, telemetry mode MODE, data level LEVEL,
+%     and data start time TSTART. File names of all versions are returned
+%     in FILE.
 %
-%   FNAME = mms_construct_filename(..., 'ParamName', ParamValue)
-%     Any parameter name and value described below.
+%   [__] = mms_file_search(..., 'ParamName', ParamValue);
+%     Also supply any of the parameter name-value pairs listed below.
 %
 % Parameters
-%   SC:                 in, required, type=char
-%                       mms1, mms2, mms3, mms4
-%   INSTR:              in, required, type=char
-%                       Instrument or investigation identifier
-%                           hpca
-%                           aspoc
-%                           epd
-%                           epd-eis
-%                           epd-feeps
-%                           fpi
-%                           des
-%                           dis
-%                           des-dis
-%                           fields
-%                           edi
-%                           adp
-%                           sdp
-%                           adp-sdp
-%                           afg
-%                           dfg
-%                           dsp
-%                           afg-dfg
-%                           scm
-%   MODE:               in, required, type=string
-%                       Instrument telemetry mode:
-%                           fast
-%                           slow
-%                           brst
-%                           srvy
-%   LEVEL:              in, required, type=string
-%                       Level of the data product:
-%                           l1a
-%                           l1b
-%                           l2
-%                           ql
-%                           l2pre
-%                           l2plus
-%   'Directory':        in, required, type=char
-%                       A directory to be appended to the file name.
-%   'OptDesc':          in, optional, type=char, default=''
-%                       Optional data product descriptor. Should be short
-%                           (3-8 characters). Hyphens used to separate
-%                           multiple components.
-%   'RelaxedTStart':    in, required, type=boolean, default=false
-%                       Since MMS filenames contain only 'TStart', matching
-%                           files to the time interval provided is not
-%                           perfect. Normally, the first file found will be
-%                           the closest matching file that starts /before/
-%                           'TStart'. If that is the case, the default is
-%                           to exclude if from the search results. This
-%                           behavior is not ideal, however, for DFG calibration
-%                           files, which start on 2010-10-01. Set this
-%                           parameter to true to keep the first file, regardless
-%                           of its start time.
-%   'SDCroot':          in, required, type=char, default='/nfs/'
-%                       If your directory structure models that of the SDC,
-%                           then provide its root directory.
-%   'SubDirs':          in, required, type=cell, default={'%Y', '%M'}
-%                       Date-time subdirectories, specified as MrTokens tokens
-%                           (e.g. %Y = year, %M = month, %d = day). Normally,
-%                           the SDC directory chain ends with /%Y/%M (/year/month/).
-%                           If that is not the case, use 'SubDirs' to specify the
-%                           level of subdirectories. The empty string, '',
-%                           indicates no date-time subdirectories.
-%   'TStart':           in, required, type=char
-%                       Start time of the data product, formatted as:
-%                           'yyyymmddHHMMSS'. Least significant fields can
-%                           be dropped when files start on regular hourly
-%                           or minute boundaries.
-%   'TEnd':             in, required, type=char
-%                       Start time of the data product, formatted as:
-%                           'yyyymmddhhmmss'. Least significant fields can
-%                           be dropped when files start on regular hourly
-%                           or minute boundaries.
-%   'TimeOrder':        in, required, type=char, default='%Y%M%d'
-%                       In order to compare 'TStart' and 'TEnd' with the start
-%                           time of each file, the file's start time must be
-%                           in a predictable order. Specify the date-time format
-%                           of the file names using MrTokens tokens. Most files
-%                           have [year month day], which is the default.
-%   'Version':          in, required, type=char
-%                       Version number in the form: "vX.Y.Z"
-%                           X - Interface number. Increments represent
-%                               significant changes that will break code or
-%                               require code changes in analysis software.
-%                           Y - Quality number. Represents change in
-%                               quality of the, such as calibration or
-%                               fidelity. Should not impact software.
-%                           Z - Bug fix/Revision number. Minor changes to
-%                               the contents of the file due to
-%                               reprocessing of missing data. Dependent
-%                               data products should be reprocessed.
+%   FOLDER:         in, required, type=char
+%   SC:             in, required, type=char
+%   INSTR:          in, required, type=char
+%   MODE:           in, required, type=char
+%   LEVEL:          in, required, type=char
+%   TSTART:         in, required, type=char
+%   'OptDesc':      in, optional, type=char, default=''
+%                   Optional descriptor for the file name.
+%   'Version':      in, optional, type=char, default='*'
+%                   File version number, formatted as 'X.Y.Z', where X, Y, and
+%                     Z are integers.
+%   'RootDir':      in, optional, type=logical/char, default='*'
+%                   If boolean and true, then `FOLDER` is taken to be the root of
+%                     an SDC-like directory structure. If char, then "RootDir"
+%                     is itself taken to be the root of an SDC-like directory
+%                     structure. In the latter case, results from both ROOTDIR
+%                     and FOLDER are returned.
 %
-function [files, nFiles, searchstr] = mms_file_search(sc, instr, mode, level, varargin)
+% MATLAB release(s) MATLAB 8.2.0.701 (R2013b)
+% Required Products None
+%
+% History:
+%   2016-04-01      Written by Matthew Argall
+%
+function files = mms_file_search(folder, sc, instr, mode, level, tstart, varargin)
 
-%------------------------------------%
-% Inputs                             %
-%------------------------------------%
-	tstart         = '';
-	tend           = '';
-	optdesc        = '';
-	version        = '';
-	subdirs        = '';
-	timeorder      = '';
-	directory      = '';
-	sdc_root       = '/nfs/';
-	relaxed_tstart = false;
-	nOptArgs       = length(varargin);
+	% Defaults
+	optdesc  = '';
+	version  = '*';
+	root_dir = false;
+	files    = {};
 
-	% Optional parameters
+	% Check optional parameters
+	nOptArgs = length(varargin);
 	for ii = 1 : 2 : nOptArgs
 		switch varargin{ii}
-			case 'Directory'
-				directory = varargin{ii+1};
 			case 'OptDesc'
 				optdesc = varargin{ii+1};
-			case 'RelaxedTStart'
-				relaxed_tstart = varargin{ii+1};
-			case 'SDCroot'
-				sdc_root = varargin{ii+1};
-			case 'SubDirs'
-				subdirs = varargin{ii+1};
-			case 'TStart'
-				tstart = varargin{ii+1};
-			case 'TEnd'
-				tend = varargin{ii+1};
-			case 'TimeOrder'
-				timeorder = varargin{ii+1};
 			case 'Version'
 				version = varargin{ii+1};
+			case 'RootDir'
+				root_dir = varargin{ii+1};
 			otherwise
-				error([ 'Parameter name not recognized: "' varargin{ii} '"' ]);
+				error('MMS:File_Search', 'Optional argument not recognized: "%s".', varargin{ii})
 		end
 	end
 	
-	% Time order
-	if strcmp(timeorder, '')
-		if strcmp(mode, 'brst')
-			timeorder = '%Y%M%d%H%m%S';
-		else
-			timeorder = '%Y%M%d';
-		end
-	end
-	
-	% Check time formats
-	if ~isempty(tstart)
-		assert( MrTokens_IsMatch(tstart, '%Y-%M-%dT%H:%m:%S'), ...
-		        'TStart must be an ISO-8601 string: "yyyy-mm-ddThh:mm:ss".' );
-	end
-	if ~isempty(tend)
-		assert( MrTokens_IsMatch(tend, '%Y-%M-%dT%H:%m:%S'), ...
-		        'TEnd must be an ISO-8601 string: "yyyy-mm-ddThh:mm:ss".' );
-	end
-	
-	% Subdirectories
-	if isempty(subdirs)
-		if strcmp(mode, 'brst')
-			subdirs = {'%Y', '%M', '%d'};
-		else
-			subdirs = {'%Y', '%M'};
-		end
+	% Root directory?
+	if islogical(root_dir) && root_dir == true
+		tf_root   = true;
+		data_path = folder;
+	elseif ~isempty(root_dir) && ischar(root_dir)
+		tf_root   = true;
+		data_path = root_dir;
 	else
-		% Turn char to cell for ease of use.
-		assert( ischar(subdirs) || iscell(subdirs), 'SUBDIRS must be a string or cell array of strings.' );
-		if ischar(subdirs)
-			subdirs = { subdirs };
-		end
+		tf_root   = false;
+		data_path = '';
 	end
-
-%------------------------------------%
-% Directory                          %
-%------------------------------------%
-	if ~isempty(directory)
-		sdc_dir = directory;
-	else
-		% First half of directory
-		sdc_dir  = fullfile(sdc_root, sc, instr, mode, level, optdesc);
-		
-		% Test the directory
-%		assert( exist(sdc_dir, 'dir') == 7, ['SDC directory does not exist: "' sdc_dir '".'] );
-		
-		% Date subdirectories
-		sdc_dir = fullfile( sdc_dir, subdirs{:} );
-	end
-
-%------------------------------------%
-% Find File                          %
-%------------------------------------%
+	
 	% Create the file name
-	searchstr = mms_construct_filename(sc, instr, mode, level, ...
-	                                   'Directory', sdc_dir, ...
-	                                   'OptDesc',   optdesc, ...
-	                                   'Version',   version, ...
-	                                   'TStart',    timeorder);
+	filename = mms_construct_filename( sc, instr, mode, level, ...
+	                                   'TStart', tstart,       ...
+	                                   'OptDesc', optdesc,     ...
+	                                   'Version', version );
 
-	% Search for the file.
-	[files, nFiles] = MrFile_Search(searchstr,               ...
-	                                'TStart',    tstart,    ...
-	                                'TEnd',      tend,      ...
-	                                'TimeOrder', timeorder, ...
-	                                'Closest',   true);
-
-	%
-	% Because MMS file names contain a start time, but no end time,
-	% the first file returned by MrFile_Search may not lie between
-	% TSTART and TEND. Here, we compare the date within the file name
-	% and ensure that it is within the same day as what was given
-	%
-	% This is only done if more than one files are found. One reason
-	% is that the FGM Calibration files start on 2010-10-01 and there
-	% is a single file for the entire mission. Therefore, I assume
-	% that if one file is found, it contains data that extends into
-	% your time period of interest.
-	%
-	if nFiles > 0 && ~isempty(tstart) && ~relaxed_tstart
-		% Get the start time of the first file.
-		if nFiles == 1
-			[~, ~, ~, ~, fstart] = mms_dissect_filename( files );
+	% Search in dir
+	%   - TF_ROOT == False     ==> Search only in FOLDER
+	%   - FOLER   ~= DATA_PATH ==> Search in both FOLDER and ROOTDIR
+	if ~tf_root || ~strcmp(data_path, folder)
+		% Search for files
+		files = dir( fullfile( folder, filename ) );
+		
+		% Append directory to file name
+		%   - FullFile accepts only single file and dir names ==> CellFun
+		%   - Make a copy of FOLDER for each file found
+		%   - Concatenate
+		if isempty(files)
+			files = '';
 		else
-			[~, ~, ~, ~, fstart] = mms_dissect_filename( files{1} );
+			files = strcat( folder, filesep, { files.name } );
+%			files = cellfun(@fullfile, repmat( {folder}, 1, length(files) ), { files.name }, 'UniformOutput', false);
 		end
+	end
+	
+	% Search in RootDir
+	if tf_root
+		% Create the path
+		data_path = mms_create_path(data_path, sc, instr, mode, level, tstart, optdesc);
+		
+		% Search for files
+		files2 = dir( fullfile( data_path, filename ) );
+		if ~isempty(files2)
+			files = [ files, strcat( data_path, filesep, { files2.name } ) ];
+		end
+	end
 
-		% If the files's start time does not match the requested tstart time
-		if ~strcmp( fstart(1:4), tstart(1:4) ) || ...
-		   ~strcmp( fstart(5:6), tstart(6:7) ) || ...
-		   ~strcmp( fstart(7:8), tstart(9:10) )
-		   
-			% Remove the first file.
-			nFiles = nFiles - 1;
-			if nFiles > 1
-				files = files(2:end);
-			else
-				files = '';
-			end
-		end
+	% Return single string
+	if isempty(files)
+		files = '';
+	elseif length(files) == 1
+		files = files{1};
 	end
 end

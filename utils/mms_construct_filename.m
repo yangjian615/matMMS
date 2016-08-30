@@ -127,7 +127,7 @@ function fname = mms_construct_filename(sc, instr, mode, level, varargin)
 	
 	% Use a wildcard to represent the version.
 	if isempty(version)
-		version = 'v*';
+		version = '*';
 	end
 
 	% Separate the optional descriptor from the start time.
@@ -140,7 +140,7 @@ function fname = mms_construct_filename(sc, instr, mode, level, varargin)
 %------------------------------------%
 
 	% Construct the file name.
-	fname = strcat(sc, '_', instr, '_', mode, '_', level, '_', optDesc, tstart, '_', version, '.cdf');
+	fname = strcat(sc, '_', instr, '_', mode, '_', level, '_', optDesc, tstart, '_v', version, '.cdf');
 
 	% Return a single string if only one file name was made
 	if iscell(fname) && length(fname) == 1
