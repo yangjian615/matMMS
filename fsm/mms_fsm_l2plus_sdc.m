@@ -47,15 +47,187 @@
 % History:
 %   2015-12-08      Written by Matthew Argall
 %
-function fsm_file = mms_fsm_l2plus_sdc(fgm_file, scm_file, scm_cal_file, att_file, dss_file, duration)
+function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
+% fsm_file = mms_fsm_l2plus_sdc(fgm_file, scm_file, scm_cal_file, att_file, dss_file, duration)
 
-	% Dissect the searchcoil file
-	[sc, ~, mode, ~, tstart] = mms_dissect_filename(scm_file);
-	if strcmp(mode, 'brst')
-		duration = 10;
-	else
-		duration = 150;
+	% Global path variables
+	global cal_path_root data_path_root dropbox_root hk_root log_path_root unh_data_root
+
+	% Establish data paths
+	mms_fsm_init();
+	
+	% Defaults
+	duration  = [];
+	fgm_instr = 'dfg';
+	no_log    = true;
+	
+	% Optional parameters
+	nOptArgs = length(varargin);
+	for ii = 1 : 2 : nOptArgs
+		switch varargin{ii}
+			case 'Duration'
+				duration = varargin{ii+1};
+			case 'FGMInstr'
+				fgm_instr = varargin{ii+1};
+			case 'NoLog'
+				no_log = varargin{ii+1};
+			otherwise
+				error('MMS:FSM_L2Plus:SDC', 'Optional argument not recognized: "%s"', varargin{ii})
+		end
 	end
+
+%------------------------------------%
+% Check Inputs                       %
+%------------------------------------%
+
+	% Check inputs types
+	if ~ischar(sc)
+		error('MMS:FSM_L2Plus:SDC', 'SC must be a char array.');
+	end
+	if ~ischar(mode)
+		error('MMS:FSM_L2Plus:SDC', 'MODE must be a char array.');
+	end
+	if ~ischar(tstart)
+		error('MMS:FSM_L2Plus:SDC', 'TSTART must be a char array.');
+	end
+	
+	% Examine values
+	if ~ismember({'mms1', 'mms2', 'mms3', 'mms4'}, sc)
+		error('MMS:FSM_L2Plus:SDC', 'Invalid spacecraft identifier: "%s".', sc)
+	end
+	if ~ismember({'srvy', 'brst'}, mode)
+		error('MMS:FSM_L2Plus:SDC', 'Invalid telemetry mode: "%s".', mode)
+	end
+	if ~ismember({'srvy', 'brst'}, mode)
+		error('MMS:FSM_L2Plus:SDC', 'Invalid telemetry mode: "%s".', mode)
+	end
+	
+	% Constants for output file
+	outinstr   = 'fsm';
+	outlevel   = 'l2plus';
+	outmode    = mode;
+	outoptdesc = '';
+
+%------------------------------------%
+% Create Log File                    %
+%------------------------------------%
+	% Dissect the input time
+	ahora = datestr(now(), 'YYYYMMDD_hhmmss');
+	
+	% Log file name
+	logFile = [sc '_' outinstr '_' mode '_' outlevel '_' tstart '_' ahora];
+	
+	% Parse the input time
+	tvec = mms_parse_time(tstart);
+	
+	
+	% Directory
+	if strcmp(mode, 'brst')
+		logRelPath = fullfile(sc, outinstr, outmode, outlevel, tvec{1}, tvec{2}, tvec{3});
+	else
+		logRelPath = fullfile(sc, outinstr, outmode, outlevel, tvec{1}, tvec{2});
+	end
+	
+	% Make the directory
+	if ~exist( fullfile(log_path_root, logRelPath), 'dir' )
+		mkdir(log_path_root, logRelPath);
+	end
+	
+	% Complete log file
+	logFile = fullfile(log_path_root, logRelPath, logFile);
+	
+	% Create the log file
+	if ~no_log
+		oLog = mrstdlog(logFile);
+	end
+
+%------------------------------------%
+% FGM: Find File                     %
+%------------------------------------%
+	%
+	% FGM has only srvy files, so no need to check for
+	% fast and slow.
+	%
+	fgm_file = mms_latest_file(dropbox_root, sc, fgm_instr, mode, 'l2pre', tstart, ...
+	                           'RootDir', data_path_root);
+
+%------------------------------------%
+% SCM: Find Files                    %
+%------------------------------------%
+	%
+	% As of 2015-09-01, SCM has only srvy files. Before then,
+	% it had slow and fast, but no srvy.
+	%
+	scm_file = mms_latest_file(dropbox_root, sc, 'scm', mode, 'l1a', tstart, ...
+	                           'RootDir', data_path_root);
+	
+	%
+	% SCM Cal file
+	%
+	scm_cal_dir = '/home/argall/data/mms/scm_cal';
+	
+	% Determine the flight model
+	switch sc
+		case 'mms1'
+			fm = 'scm1';
+		case 'mms2'
+			fm = 'scm2';
+		case 'mms3'
+			fm = 'scm4';
+		case 'mms4'
+			fm = 'scm3';
+		otherwise
+			error(['Invalid spacecraft ID: "' sc '".'])
+	end
+	
+	if strcmp(mode, 'brst')
+		scm_tstart = tstart;
+		scm_tend   = tstart;
+	else
+		scm_tstart = [tstart '000000'];
+		scm_tend   = [tstart '240000'];
+	end
+
+	% SCM Cal File
+	scm_ftest = fullfile(scm_cal_dir, [sc '_' fm '_caltab_%Y%M%d%H%M%S_v*.txt']);
+	[scm_cal_file, count] = MrFile_Search(scm_ftest, ...
+	                                      'Closest',      true, ...
+	                                      'TimeOrder',    '%Y%M%d%H%M%S', ...
+	                                      'TStart',       scm_tstart, ...
+	                                      'TEnd',         scm_tend, ...
+	                                      'TPattern',     '%Y%M%d%H%m%S', ...
+	                                      'VersionRegex', 'v[0-9]');
+	assert(count > 0, ['No SCM calibration file found: "' scm_ftest '".']);
+
+%------------------------------------%
+% DSS: Find File                     %
+%------------------------------------%
+	dss_file = mms_latest_file(dropbox_root, sc, 'fields', 'hk', 'l1b', tstart, ...
+	                           'OptDesc', '101', ...
+	                           'RootDir', hk_root);
+
+%------------------------------------%
+% FDOA: Find File                    %
+%------------------------------------%
+	defatt_file = mms_anc_search(dropbox_root, sc, 'defatt', tstart, 'RootDir', data_path_root);
+	
+	% No file found
+	assert(~isempty(defatt_file), 'No DEFATT file found.')
+
+%------------------------------------%
+% Process Data                       %
+%------------------------------------%
+	% Write parents to log file
+	mrfprintf('logtext', '')
+	mrfprintf('logtext', '---------------------------------')
+	mrfprintf('logtext', '| Parent Files                  |')
+	mrfprintf('logtext', '---------------------------------')
+	mrfprintf('logtext', fgm_file)
+	mrfprintf('logtext', scm_file)
+	mrfprintf('logtext', dss_file)
+	mrfprintf('logtext', defatt_file)
+	mrfprintf('logtext', '---------------------------------')
+	mrfprintf('logtext', '')
 
 %------------------------------------%
 % Read Attitude and zMPA             %
