@@ -115,11 +115,43 @@ function fname = mms_construct_filename(sc, instr, mode, level, varargin)
 				error( ['Unknown parameter "' varargin{ii} '".'] );
 		end
 	end
-	
+
 	% Use MrToken tokens or a wildcard character?
 	if isempty(tstart)
 		if tokens
-			tstart = '%Y%M%d';
+			if strcmp(mode, 'brst')
+				tstart = '%Y%M%d%H%m%S';
+			else
+				switch instr
+					% FPI
+					case 'fpi'
+						tstart = '%Y%M%d%H%m%S';
+			
+					% FSM
+					case 'fsm'
+						if ~isempty( regexp(optdesc, '^cal-(afg|dfg|scm)$') )
+							tstart = '%Y%M%d%H%m%S';
+						else
+							tstart = '%Y%M%d';
+						end
+			
+					% EDP
+					case 'edp'
+						if strcmp(optdesc, 'dce')
+							if strcmp(level, 'l2')
+								tstart = '%Y%M%d%H%m%S';
+							else
+								tstart = '%Y%M%d';
+							end
+						else
+							tstart = '%Y%M%d';
+						end
+				
+					% Everthing else
+					otherwise
+						tstart = '%Y%M%d';
+				end
+			end
 		else
 			tstart = '*';
 		end

@@ -89,12 +89,12 @@
 %                           indicates no date-time subdirectories.
 %   'TStart':           in, required, type=char
 %                       Start time of the data product, formatted as:
-%                           'yyyymmddHHMMSS'. Least significant fields can
+%                           'yyyy-mm-ddTHH:MM:SS'. Least significant fields can
 %                           be dropped when files start on regular hourly
 %                           or minute boundaries.
 %   'TEnd':             in, required, type=char
 %                       Start time of the data product, formatted as:
-%                           'yyyymmddhhmmss'. Least significant fields can
+%                           'yyyy-mm-ddTHH:MM:SS'. Least significant fields can
 %                           be dropped when files start on regular hourly
 %                           or minute boundaries.
 %   'TimeOrder':        in, required, type=char, default='%Y%M%d'
@@ -235,15 +235,15 @@ function [files, nFiles, searchstr] = mms_find_file(sc, instr, mode, level, vara
 	if ~isempty(dropbox)
 		% Reformat the file name
 		[~, base, ext] = fileparts(searchstr);
-		searchstr      = fullfile(dropbox, [base '.' ext]);
-		
+		searchstr      = fullfile(dropbox, [base ext]);
+
 		% Search in dropbox
 		[files_db, nDropbox] = MrFile_Search(searchstr,              ...
 		                                     'TStart',    tstart,    ...
 		                                     'TEnd',      tend,      ...
 		                                     'TimeOrder', timeorder, ...
 		                                     'Closest',   true);
-		
+
 		% Append to initial results
 		files = [ files, files_db ];
 	end

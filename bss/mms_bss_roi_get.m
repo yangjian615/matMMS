@@ -110,7 +110,7 @@ function t_roi = mms_bss_roi_get( tstart, tend, varargin )
 	
 	% Is TSTART a string?
 	if ischar(tstart)
-		assert( MrTokens_IsMatch(tstart, '%Y-%M-%dT%H:%m:%S'), 'TSTART not formatted correctly.');
+		assert( MrTokens_IsMatch(tstart, '%Y-%M-%dT%H:%m:%S'), 'TSTART must be formatted as yyyy-mm-ddTHH:MM:SS.');
 		t0_tt2000 = MrCDF_Epoch_Parse([tstart '.000000000'], 'CDF_TIME_TT2000');
 	elseif isa(tstart, 'int64')
 		t0_tt2000 = tstart;
@@ -121,7 +121,7 @@ function t_roi = mms_bss_roi_get( tstart, tend, varargin )
 	% Is TEND a string?
 	if ischar(tend)
 		if ~isempty(tend)
-			assert( MrTokens_IsMatch(tend, '%Y-%M-%dT%H:%m:%S'), 'TEND not formatted correctly.');
+			assert( MrTokens_IsMatch(tend, '%Y-%M-%dT%H:%m:%S'), 'TEND must be formatted as yyyy-mm-ddTHH:MM:SS.');
 			t1_tt2000 = MrCDF_Epoch_Parse([tend '.000000000'], 'CDF_TIME_TT2000');
 		end
 	elseif isa(tstart, 'int64')

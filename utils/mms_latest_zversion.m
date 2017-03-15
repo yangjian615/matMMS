@@ -61,7 +61,7 @@ function vz = mms_latest_zversion(folder, filename, varargin)
 	else
 		% Dissect the version numbers
 		[~, ~, ~, ~, ~, version] = mms_dissect_filename(fXYmatch);
-		[vx, vy, vz] = mms_parse_version(version);
+		[vx, vy, vz]             = mms_parse_version(version);
 
 		% Find maximum and add one for newest
 		if iscell(fXYmatch)
