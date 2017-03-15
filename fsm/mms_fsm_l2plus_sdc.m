@@ -25,20 +25,28 @@
 %   SC:             in, required, type=char
 %   TSTART:         in, required, type=char
 %   TEND:           in, required, type=char
-%   'Duration':     in, required, type=double
+%   'Duration':     in, optional, type=double, default=20.0
 %                   The duration of each merging interval. Sets the
 %                     frequency resolution of the final dataset.
-%   'f_max':        in, required, type=double, default=Nyquist frequency
+%   'FMax':         in, optional, type=double, default=Nyquist frequency
 %                   The maximum of the frequency range to merge.
-%   'f_min':        in, required, type=double, default=df
+%   'FMin':         in, optional, type=double, default=df
 %                   The minimum ( > 0 ) of the frequency range to merge.
-%   'fg_dir':       in, required, type=char, default=pwd();
-%                   Directory in which to find FGM data.
-%   'fg_cal_dir':   in, required, type=char, default=pwd();
+%   'FHeavySide':   in, optional, type=double, default=4.0
+%                   In the absence of a filter function for joining SCM and FGm data,
+%                       the default will be a heavy-side filter with this cut-off
+%                       frequency. FGM will be used below and SCM will be use above
+%                       this frequency.
+%   'FGMCalDir':    in, optional, type=char, default=''
 %                   Directory in which to find FGM calibration data.
-%   'sc_dir':       in, required, type=char, default=pwd();
-%                   Directory in which to find SCM data.
-%   'sc_cal_dir':   in, required, type=char, default=pwd();
+%   'NoLog':        in, optional, type=logical, default=false;
+%                   If set, status information will be written to stderr instead of
+%                       a log file.
+%   'OptDesc'       in, optional, type=char, default=''
+%                   Optional descriptor for the output file name.
+%   'SCMCalDir':    in, optional, type=char, default='/home/argall/data/lpp_scm/cal'
+%                   Directory in which to find SCM calibration data.
+%   'FGMModelDir':  in, optional, type=char, default='/home/argall/MATLAB/fischer/'
 %                   Directory in which to find SCM calibration data.
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
@@ -47,7 +55,7 @@
 % History:
 %   2015-12-08      Written by Matthew Argall
 %
-function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
+function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 % fsm_file = mms_fsm_l2plus_sdc(fgm_file, scm_file, scm_cal_file, att_file, dss_file, duration)
 
 	% Global path variables
@@ -55,12 +63,29 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 
 	% Establish data paths
 	mms_fsm_init();
+	t0     = now();
+	status = 0;
+
+%------------------------------------%
+% Defaults                           %
+%------------------------------------%
+
+	% Srvy or Brst?
+	%   - In Brst, TEND will be an optional parameter.
+	if nargin > 3 && strcmp(mode, 'brst')
+		varargin = [ tend, varargin ];
+	end
 	
 	% Defaults
-	duration  = [];
-	fgm_instr = 'dfg';
-	no_log    = true;
-	
+	duration      = 2.0;
+	f_heavyside   = 4.0;
+	fgm_instr     = 'dfg';
+	fgm_cal_dir   = '';
+	outoptdesc    = '';
+	scm_cal_dir   = '/home/argall/data/lpp_scm/cal';
+	fgm_model_dir = '/home/argall/MATLAB/fischer/';
+	tf_log        = true;
+
 	% Optional parameters
 	nOptArgs = length(varargin);
 	for ii = 1 : 2 : nOptArgs
@@ -69,15 +94,25 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 				duration = varargin{ii+1};
 			case 'FGMInstr'
 				fgm_instr = varargin{ii+1};
+			case 'FGMCalDir'
+				fgm_cal_dir = varargin{ii+1};
+			case 'FHeavySide'
+				f_heavyside = varargin{ii+1};
 			case 'NoLog'
-				no_log = varargin{ii+1};
+				tf_log = ~varargin{ii+1};
+			case 'OptDesc'
+				outoptdesc = varargin{ii+1};
+			case 'SCMCalDir'
+				scm_cal_dir = varargin{ii+1};
+			case 'FGMModelDir'
+				fgm_model_dir = varargin{ii+1};
 			otherwise
 				error('MMS:FSM_L2Plus:SDC', 'Optional argument not recognized: "%s"', varargin{ii})
 		end
 	end
 
 %------------------------------------%
-% Check Inputs                       %
+% Restrictions                       %
 %------------------------------------%
 
 	% Check inputs types
@@ -106,65 +141,179 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 	outinstr   = 'fsm';
 	outlevel   = 'l2plus';
 	outmode    = mode;
-	outoptdesc = '';
+	
+	% Convert input times to file times
+	assert( MrTokens_IsMatch(tstart, '%Y%M%d%H%m%S'), 'TSTART must be formatted as YYYYMMDDhhmmss');
+	if ~strcmp(mode, 'brst')
+		assert( MrTokens_IsMatch(tend, '%Y%M%d%H%m%S'), 'TEND must be formatted as YYYYMMDDhhmmss');
+	end
 
 %------------------------------------%
 % Create Log File                    %
 %------------------------------------%
-	% Dissect the input time
-	ahora = datestr(now(), 'YYYYMMDD_hhmmss');
+	%
+	% Set "stdlog" so that all messages sent via mrfprintf lands
+	% in the log file.
+	%
 	
-	% Log file name
-	logFile = [sc '_' outinstr '_' mode '_' outlevel '_' tstart '_' ahora];
-	
-	% Parse the input time
-	tvec = mms_parse_time(tstart);
-	
-	
-	% Directory
-	if strcmp(mode, 'brst')
-		logRelPath = fullfile(sc, outinstr, outmode, outlevel, tvec{1}, tvec{2}, tvec{3});
+	if tf_log
+		% Current time
+		ahora = datestr(now(), 'yyyymmdd_HHMMSS');
+
+		% Log file name
+		logFile = [sc '_' outinstr '_' mode '_' outlevel '_' tstart '_' ahora '.log'];
+		
+		% Build log directory
+		logDir = mms_create_path(log_path_root, sc, outinstr, mode, outlevel, tstart, outoptdesc);
+		if exist(logDir, 'dir') ~= 7
+			mkdir( logDir );
+		end
+		
+		% Set the log file
+		logFile = fullfile(logDir, logFile);
 	else
-		logRelPath = fullfile(sc, outinstr, outmode, outlevel, tvec{1}, tvec{2});
+		logFile = 'stderr';
 	end
 	
-	% Make the directory
-	if ~exist( fullfile(log_path_root, logRelPath), 'dir' )
-		mkdir(log_path_root, logRelPath);
+	% Create the log file object
+	oLog = mrstdlog(logFile);
+
+%------------------------------------%
+% Find time of ROI                   %
+%------------------------------------%
+	%
+	% TODO: In phase 2, the orbit will be more than one day long!
+	%       Calibration intervals, therefore, will also be multiple
+	%       days. How to increment the orbit?
+	%
+
+	% Brst: Read the entire file
+	% Srvy: Read all data within an orbit [slow, fast]
+	%   - Convert tt2000 to date-time string
+	%   - yyyy-mm-ddThh:mm:ss.fff[...]
+	if strcmp(mode, 'brst')
+		t_orbit = cell(1,2);
+	else
+		iso_end      = MrTimeParser(tend, '%Y%M%d%H%m%S', '%Y-%M-%dT%H:%m:%S');
+		tt2000_orbit = mms_bss_roi_get(iso_end, '', 'Orbit', true);
+		t_orbit      = MrCDF_Epoch_Encode(tt2000_orbit);
 	end
 	
-	% Complete log file
-	logFile = fullfile(log_path_root, logRelPath, logFile);
+%------------------------------------%
+% Find Files (BRST)                  %
+%------------------------------------%
 	
-	% Create the log file
-	if ~no_log
-		oLog = mrstdlog(logFile);
+	% SCM Optional Descriptor
+	switch mode
+		case 'brst'
+			optdesc_scm = 'scb';
+		case 'srvy'
+			optdesc_scm = 'scsrvy';
+		case 'fast'
+			optdesc_scm = 'scf';
+		case 'slow'
+			optdesc_scm = 'scs';
+		otherwise
+			error( ['Invalid mode: "' mode '".'] );
+	end
+	
+	% BRST
+	if strcmp(mode, 'brst')
+		% FGM L2PRE
+		f_l2pre_fgm = mms_latest_file( dropbox_root, sc, fgm_instr, mode, 'l2pre', tstart, ...
+		                               'RootDir', data_path_root);
+		
+		% FGM L1B
+		f_l1a_fgm   = mms_latest_file( dropbox_root, sc, fgm_instr, mode, 'l1a', tstart, ...
+		                               'RootDir', data_path_root);
+		
+		% SCM L1B
+		f_l1b_scm   = mms_latest_file( dropbox_root, sc, 'scm', mode, 'l1b', tstart, ...
+		                               'OptDesc', optdesc_scm, ...
+		                               'RootDir', data_path_root);
+		
+		% Make sure all files are found
+		if isempty(f_l2pre_fgm)
+			status = 101;
+			error(['No ' fgm_instr ' brst l2pre files found.']);
+		end
+		if isempty(f_l1a_fgm)
+			status = 101;
+			error(['No ' fgm_instr ' brst l1a files found.'])
+		end
+		if isempty(f_l1b_scm)
+			status = 101;
+			error(['No scm brst l1b files found.'])
+		end
+
+%------------------------------------%
+% Find SRVY Files                    %
+%------------------------------------%
+	else
+		% FGM L2Pre
+		f_l2pre_fgm = mms_find_file( sc, 'dfg', mode, 'l2pre', ...
+		                             'TStart', t_orbit{1},     ...
+		                             'TEnd',   t_orbit{2} );
+	
+		% SCM L1B
+		%   - After Sept. ##, SLOW and FAST are the same.
+		f_l1b_scm = mms_find_file( sc, 'scm', mode, 'l1b', ...
+		                           'OptDesc', optdesc_scm, ...
+		                           'TStart',  t_orbit{1},  ...
+		                           'TEnd',    t_orbit{2} );
+
+		% FGM L1A has 'brst', 'slow', 'fast' (not 'srvy')
+		if ismember(mode, {'fast', 'srvy'})
+			f_l1a_fgm = mms_find_file( sc, 'dfg', 'fast', 'l1a', ...
+			                           'TStart', t_orbit{1},     ...
+			                           'TEnd',   t_orbit{2} );
+		end
+		if ismember(mode, {'slow', 'srvy'})
+			l1a_slow_fgm = mms_find_file( sc, 'dfg', 'slow', 'l1a', ...
+			                             'TStart', t_orbit{1},      ...
+			                             'TEnd',   t_orbit{2} );
+			if isempty(f_l1a_fgm)
+				f_l1a_fgm = l1a_slow_fgm;
+			else
+				f_l1a_fgm = [f_l1a_fgm, l1a_slow_fgm];
+			end
+		end
+		
+		% Make sure all files were found
+		%   TODO: It might be better to use the second output COUNT to
+		%         ensure the correct number of files.
+		assert(~isempty(f_l2pre_fgm),  ['No ' fgm_instr ' srvy l2pre files found.']);
+		assert(~isempty(f_l1a_fgm),    ['No ' fgm_instr ' fast l1a files found.']);
+		assert(~isempty(l1a_slow_fgm), ['No ' fgm_instr ' slow l1a files found.']);
+		assert(~isempty(f_l1b_scm),    ['No scm l1b files found.']);
 	end
 
 %------------------------------------%
-% FGM: Find File                     %
+% Find NF Files                      %
 %------------------------------------%
-	%
-	% FGM has only srvy files, so no need to check for
-	% fast and slow.
-	%
-	fgm_file = mms_latest_file(dropbox_root, sc, fgm_instr, mode, 'l2pre', tstart, ...
-	                           'RootDir', data_path_root);
+	% FGM
+	fgm_nf_file = mms_find_file( sc, 'fsm', mode, 'l2plus',                  ...
+	                             'Dropbox',       dropbox_root,              ...
+	                             'OptDesc',       ['nf-' fgm_instr '-week'], ...
+	                             'SDCroot',       data_path_root,            ...
+	                             'TimeOrder',     '%Y%M%d%H%m%S',            ...
+	                             'TStart',        t_orbit{1},                ...
+	                             'TEnd',          t_orbit{2},                ...
+	                             'RelaxedTStart', true );
+	
+	% SCM
+	scm_nf_file = mms_find_file( sc, 'fsm', mode, 'l2plus',       ...
+	                             'Dropbox',       dropbox_root,   ...
+	                             'OptDesc',       'nf-scm-week',  ...
+	                             'SDCroot',       data_path_root, ...
+	                             'TimeOrder',     '%Y%M%d%H%m%S', ...
+	                             'TStart',        t_orbit{1},     ...
+	                             'TEnd',          t_orbit{2},     ...
+	                             'RelaxedTStart', true );
 
 %------------------------------------%
-% SCM: Find Files                    %
+% SCM: Find Cal Files                %
 %------------------------------------%
-	%
-	% As of 2015-09-01, SCM has only srvy files. Before then,
-	% it had slow and fast, but no srvy.
-	%
-	scm_file = mms_latest_file(dropbox_root, sc, 'scm', mode, 'l1a', tstart, ...
-	                           'RootDir', data_path_root);
-	
-	%
-	% SCM Cal file
-	%
-	scm_cal_dir = '/home/argall/data/mms/scm_cal';
 	
 	% Determine the flight model
 	switch sc
@@ -202,7 +351,9 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 %------------------------------------%
 % DSS: Find File                     %
 %------------------------------------%
-	dss_file = mms_latest_file(dropbox_root, sc, 'fields', 'hk', 'l1b', tstart, ...
+
+	% DSS files are formatted as YYYYMMDD, even in burst mode
+	dss_file = mms_latest_file(hk_root, sc, 'fields', 'hk', 'l1b', tstart(1:8), ...
 	                           'OptDesc', '101', ...
 	                           'RootDir', hk_root);
 
@@ -215,15 +366,19 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 	assert(~isempty(defatt_file), 'No DEFATT file found.')
 
 %------------------------------------%
-% Process Data                       %
+% Parent Files                       %
 %------------------------------------%
 	% Write parents to log file
 	mrfprintf('logtext', '')
 	mrfprintf('logtext', '---------------------------------')
 	mrfprintf('logtext', '| Parent Files                  |')
 	mrfprintf('logtext', '---------------------------------')
-	mrfprintf('logtext', fgm_file)
-	mrfprintf('logtext', scm_file)
+	mrfprintf('logtext', f_l1a_fgm)
+	mrfprintf('logtext', f_l2pre_fgm)
+	mrfprintf('logtext', f_l1b_scm)
+	mrfprintf('logtext', fgm_nf_file)
+	mrfprintf('logtext', scm_nf_file)
+	mrfprintf('logtext', scm_cal_file)
 	mrfprintf('logtext', dss_file)
 	mrfprintf('logtext', defatt_file)
 	mrfprintf('logtext', '---------------------------------')
@@ -232,13 +387,36 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 %------------------------------------%
 % Read Attitude and zMPA             %
 %------------------------------------%
-	[defatt, att_hdr] = mms_fdoa_read_defatt(att_file);
+	[defatt, att_hdr] = mms_fdoa_read_defatt(defatt_file);
 	zmpa              = att_hdr.zMPA(:,1);
 
 %------------------------------------%
+% Read Data                          %
+%------------------------------------%
+
+	% FGM & SCM
+	fgm = mms_fsm_fgm_read( f_l1a_fgm, f_l2pre_fgm, t_orbit );
+	scm = mms_fsm_scm_read( f_l1b_scm, t_orbit );
+	
+	% Add the model directory
+	fgm.model_dir = fgm_model_dir;
+
+%------------------------------------%
+% Read Noise Floor                   %
+%------------------------------------%
+	% Create weight function
+%	nf_fgm = mms_fsm_nf_read(fgm_nf_file);
+%	nf_scm = mms_fsm_nf_read(scm_nf_file);
+
+%	[~, ts_tt2000] = mms_parse_time(tstart);
+%	w              = mms_fsm_nf_weight(nf_fgm, nf_scm, ts_tt2000);
+
+	w = [];
+	
+%------------------------------------%
 % Process Data                       %
 %------------------------------------%
-	[t_fsm, b_omb] = mms_fsm_l2plus_create(fgm_file, scm_file, scm_cal_file, zmpa, duration);
+	[t_fsm, b_omb] = mms_fsm_l2plus_create( fgm, scm, duration, w);
 
 %------------------------------------%
 % SMPA & BCS                         %
@@ -285,15 +463,12 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, varargin)
 % Write to File                      %
 %------------------------------------%
 	% Parent files
-try
-	parents      = { fgm_file scm_file scm_cal_file att_file{:} dss_file };
+	parents      = [ f_l1a_fgm f_l2pre_fgm f_l1b_scm scm_cal_file defatt_file dss_file ];
 	[~, parents] = cellfun(@fileparts, parents, 'UniformOutput', false);
-catch ME
-	keyboard
-end
 
 	% Create a data structure
 	data = struct( 'tt2000', t_fsm',  ...
+	               'b',      single( sqrt( sum( b_dmpa.^2 ) ) ), ...
 	               'b_bcs',  single(b_bcs)',  ...
 	               'b_dmpa', single(b_dmpa)', ...
 	               'b_gse',  single(b_gse)',  ...
@@ -302,5 +477,30 @@ end
 	clear t_fsm b_bcs b_smpa b_gse b_gsm
 
 	% Write the file
-	fsm_file = mms_fsm_l2plus_write( parents, data );
+	fsm_file = mms_fsm_l2plus_write( sc, mode, tstart, data, ...
+	                                 'OptDesc', outoptdesc,  ...
+	                                 'Parents', parents );
+
+%------------------------------------%
+% Record Output                      %
+%------------------------------------%
+	% Processing time
+	dt      = (now() - t0) * 86400.0;
+	dt_text = sprintf('%dh %dm %0.2fs', floor(dt/3600.0), floor(mod(dt, 3600.0) / 60.0), mod(dt, 60));
+	
+	% Results
+	mrfprintf('logtext', '');
+	mrfprintf('logtext', '-----------------------------------');
+	mrfprintf('logtext', '| RESULTS                         |');
+	mrfprintf('logtext', '-----------------------------------');
+	mrfprintf('logtext', fsm_file);
+	mrfprintf('logtext', 'Processing time: %s', dt_text);
+	mrfprintf('logtext', '');
+
+%------------------------------------%
+% Clean Up                           %
+%------------------------------------%
+
+	% Close the log file by returning to stderr
+	oLog = mrstdlog('stderr');
 end

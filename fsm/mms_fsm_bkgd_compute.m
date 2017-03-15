@@ -50,7 +50,7 @@
 % History:
 %   2016-05-31      Written by Matthew Argall
 %
-function [bkgd_fgm, bkgd_scm] = mms_fsm_bkgd_compute(fgm, scm, T)
+function [bkgd_fgm, bkgd_scm, bkgd_cross] = mms_fsm_bkgd_compute(fgm, scm, T)
 
 %------------------------------------%
 % Find Unique Flag Values            %
@@ -113,6 +113,7 @@ function [bkgd_fgm, bkgd_scm] = mms_fsm_bkgd_compute(fgm, scm, T)
 		nIntervals = size(iFGM, 2);
 		temp_fgm   = struct([]);
 		temp_scm   = struct([]);
+		temp_x     = struct([]);
 		for jj = 1 : nIntervals
 			% Subinterval to be processed
 			i0_fgm = ifgm(1) + iFGM(1,jj) - 1;
@@ -128,23 +129,25 @@ function [bkgd_fgm, bkgd_scm] = mms_fsm_bkgd_compute(fgm, scm, T)
 	
 			% Intepolate FGM to SCM
 			b_fgm_interp      = zeros(3, i1_scm-i0_scm+1);
-			b_fgm_interp(1,:) = interp1(t_fgm_ssm, fgm.b_omb(1, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
-			b_fgm_interp(2,:) = interp1(t_fgm_ssm, fgm.b_omb(2, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
-			b_fgm_interp(3,:) = interp1(t_fgm_ssm, fgm.b_omb(3, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
+			b_fgm_interp(1,:) = interp1(t_fgm_ssm, fgm.b(1, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
+			b_fgm_interp(2,:) = interp1(t_fgm_ssm, fgm.b(2, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
+			b_fgm_interp(3,:) = interp1(t_fgm_ssm, fgm.b(3, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
 	
 		%------------------------------------%
 		% Compute Spectral Components        %
 		%------------------------------------%
 			
 			% Compute amplitude, phase, power
-			temp_fgm_jj = mms_fsm_bkgd_spectra(t_fgm_ssm, fgm.b_omb(:,i0_fgm:i1_fgm), T);
+%			temp_fgm_jj = mms_fsm_bkgd_spectra(t_fgm_ssm, fgm.b(:,i0_fgm:i1_fgm), T);
 			temp_fgm_jj = mms_fsm_bkgd_spectra(t_scm_ssm, b_fgm_interp, T);
 			temp_scm_jj = mms_fsm_bkgd_spectra(t_scm_ssm, scm.b(:,i0_scm:i1_scm), T);
 			
 			% Gain, Offset, Power Ratio
-			temp_scm_jj.('gain')        = temp_fgm_jj.('amp') ./ temp_scm_jj.('amp');
-			temp_scm_jj.('phase_shift') = temp_fgm_jj.('phase') - temp_scm_jj.('phase');
-			temp_scm_jj.('psd_rat')     = temp_fgm_jj.('psd') ./ temp_scm_jj.('psd');
+			temp_x_jj.('t')           = temp_scm_jj.t;
+			temp_x_jj.('f')           = temp_scm_jj.f;
+			temp_x_jj.('gain')        = temp_fgm_jj.('amp') ./ temp_scm_jj.('amp');
+			temp_x_jj.('phase_shift') = temp_fgm_jj.('phase') - temp_scm_jj.('phase');
+			temp_x_jj.('psd_rat')     = temp_fgm_jj.('psd') ./ temp_scm_jj.('psd');
 	
 		%------------------------------------%
 		% Histogram Spectral Components      %
@@ -156,21 +159,28 @@ function [bkgd_fgm, bkgd_scm] = mms_fsm_bkgd_compute(fgm, scm, T)
 				% Histogram spectral components
 				temp_fgm_jj = mms_fsm_bkgd_histogram(temp_fgm_jj);
 				temp_scm_jj = mms_fsm_bkgd_histogram(temp_scm_jj);
-
+				temp_x_jj   = mms_fsm_bkgd_histogram(temp_x_jj);
+				
 				% Finalize structure
 				%  - Convert time back to TT2000
 				%  - Include flag
-				temp_fgm_jj.t             = MrCDF_sse2epoch(temp_fgm_jj.t, t_ref);
-				temp_scm_jj.t             = MrCDF_sse2epoch(temp_scm_jj.t, t_ref);
+				temp_fgm_jj.('t')         = MrCDF_sse2epoch(temp_fgm_jj.t, t_ref);
 				temp_fgm_jj.('flag')      = repmat( flag_fgm(ii), 1, length(temp_fgm_jj.t) );
-				temp_scm_jj.('flag')      = repmat( flag_fgm(ii), 1, length(temp_scm_jj.t) );
 				temp_fgm_jj.('hist_flag') = flag_fgm(ii);
+				
+				temp_scm_jj.('t')         = MrCDF_sse2epoch(temp_scm_jj.t, t_ref);
+				temp_scm_jj.('flag')      = repmat( flag_fgm(ii), 1, length(temp_scm_jj.t) );
 				temp_scm_jj.('hist_flag') = flag_fgm(ii);
+				
+				temp_x_jj.('t')           = MrCDF_sse2epoch(temp_x_jj.t, t_ref);
+				temp_x_jj.('flag')        = repmat( flag_fgm(ii), 1, length(temp_fgm_jj.t) );
+				temp_x_jj.('hist_flag')   = flag_fgm(ii);
 				
 				% Sum Histogram Occurrence over Multiple Intervals
 				if isempty(temp_fgm)
-					temp_fgm = temp_fgm_jj;
-					temp_scm = temp_scm_jj;
+					temp_fgm   = temp_fgm_jj;
+					temp_scm   = temp_scm_jj;
+					temp_cross = temp_x_jj;
 				else
 					temp_fgm.('amp_hist')   = temp_fgm.('amp_hist')   + temp_fgm_jj.('amp_hist');
 					temp_fgm.('phase_hist') = temp_fgm.('phase_hist') + temp_fgm_jj.('phase_hist');
@@ -180,9 +190,9 @@ function [bkgd_fgm, bkgd_scm] = mms_fsm_bkgd_compute(fgm, scm, T)
 					temp_scm.('phase_hist') = temp_scm.('phase_hist') + temp_scm_jj.('phase_hist');
 					temp_scm.('psd_hist')   = temp_scm.('psd_hist')   + temp_scm_jj.('psd_hist');
 					
-					temp_scm.('gain_hist')        = temp_scm.('gain_hist')        + temp_scm_jj.('gain_hist');
-					temp_scm.('phase_shift_hist') = temp_scm.('phase_shift_hist') + temp_scm_jj.('phase_shift_hist');
-					temp_scm.('psd_rat_hist')     = temp_scm.('psd_rat_hist')     + temp_scm_jj.('psd_rat_hist');
+					temp_cross.('gain_hist')        = temp_cross.('gain_hist')        + temp_x_jj.('gain_hist');
+					temp_cross.('phase_shift_hist') = temp_cross.('phase_shift_hist') + temp_x_jj.('phase_shift_hist');
+					temp_cross.('psd_rat_hist')     = temp_cross.('psd_rat_hist')     + temp_x_jj.('psd_rat_hist');
 				end
 			end
 			
@@ -193,38 +203,42 @@ function [bkgd_fgm, bkgd_scm] = mms_fsm_bkgd_compute(fgm, scm, T)
 	% Determine Noise Floor              %
 	%------------------------------------%
 		% Amplitude, Power, Phase
-		temp_fgm.('amp_floor')   = mms_fsm_bkgd_noisefloor( temp_fgm.('amp_hist'),   temp_fgm.('amp_bins')   );
-		temp_fgm.('phase_floor') = mms_fsm_bkgd_noisefloor( temp_fgm.('phase_hist'), temp_fgm.('phase_bins') );
-		temp_fgm.('psd_floor')   = mms_fsm_bkgd_noisefloor( temp_fgm.('psd_hist'),   temp_fgm.('psd_bins')   );
+%		temp_fgm.('amp_floor')   = mms_fsm_bkgd_noisefloor( temp_fgm.('amp_hist'),   temp_fgm.('amp_bins')   );
+%		temp_fgm.('phase_floor') = mms_fsm_bkgd_noisefloor( temp_fgm.('phase_hist'), temp_fgm.('phase_bins') );
+%		temp_fgm.('psd_floor')   = mms_fsm_bkgd_noisefloor( temp_fgm.('psd_hist'),   temp_fgm.('psd_bins')   );
 		
-		temp_scm.('amp_floor')   = mms_fsm_bkgd_noisefloor( temp_scm.('amp_hist'),   temp_scm.('amp_bins')   );
-		temp_scm.('phase_floor') = mms_fsm_bkgd_noisefloor( temp_scm.('phase_hist'), temp_scm.('phase_bins') );
-		temp_scm.('psd_floor')   = mms_fsm_bkgd_noisefloor( temp_scm.('psd_hist'),   temp_scm.('psd_bins')   );
+%		temp_scm.('amp_floor')   = mms_fsm_bkgd_noisefloor( temp_scm.('amp_hist'),   temp_scm.('amp_bins')   );
+%		temp_scm.('phase_floor') = mms_fsm_bkgd_noisefloor( temp_scm.('phase_hist'), temp_scm.('phase_bins') );
+%		temp_scm.('psd_floor')   = mms_fsm_bkgd_noisefloor( temp_scm.('psd_hist'),   temp_scm.('psd_bins')   );
 
-		temp_scm.('gain_floor')        = mms_fsm_bkgd_noisefloor( temp_scm.('gain_hist'),        temp_scm.('gain_bins')   );
-		temp_scm.('phase_shift_floor') = mms_fsm_bkgd_noisefloor( temp_scm.('phase_shift_hist'), temp_scm.('phase_shift_bins') );
-		temp_scm.('psd_rat_floor')     = mms_fsm_bkgd_noisefloor( temp_scm.('psd_rat_hist'),     temp_scm.('psd_rat_bins')     );
+%		temp_scm.('gain_floor')        = mms_fsm_bkgd_noisefloor( temp_scm.('gain_hist'),        temp_scm.('gain_bins')   );
+%		temp_scm.('phase_shift_floor') = mms_fsm_bkgd_noisefloor( temp_scm.('phase_shift_hist'), temp_scm.('phase_shift_bins') );
+%		temp_scm.('psd_rat_floor')     = mms_fsm_bkgd_noisefloor( temp_scm.('psd_rat_hist'),     temp_scm.('psd_rat_bins')     );
 	
 	%------------------------------------%
 	% Save Data from Multiple Flags      %
 	%------------------------------------%
 		if ii == 1
-			bkgd_fgm = temp_fgm;
-			bkgd_scm = temp_scm;
+			bkgd_fgm   = temp_fgm;
+			bkgd_scm   = temp_scm;
+			bkgd_cross = temp_cross;
 		else
-			bkgd_fgm = [bkgd_fgm temp_fgm];
-			bkgd_scm = [bkgd_scm temp_scm];
+			bkgd_fgm   = [bkgd_fgm    temp_fgm];
+			bkgd_scm   = [bkgd_scm    temp_scm];
+			bkgd_cross = [bkgd_crosss temp_cross];
 		end
 		
-		clear temp_fgm temp_scm
+		clear temp_fgm temp_scm temp_cross
 	end
 
 %------------------------------------%
 % Concatenate Multiple Tags          %
 %------------------------------------%
 	% FGM and SCM should have the same number of structure array elements
+	%   - Concatenate along the time or hist_flag dimension
 	if length(bkgd_fgm) > 1
-		bkgd_fgm = MrCatStruct(bkgd_fgm, [2,0,2,2,2,2,0,2,0,2,0,2,2,2,2,2]);
-		bkgd_scm = MrCatStruct(bkgd_scm, [2,0,2,2,2,2,2,2,2,0,2,0,2,0,2,0,2,0,2,0,2,2,2,2,2,2,2,2]);
+		bkgd_fgm   = MrCatStruct(bkgd_fgm,   [2,0,2,2,2,2,0,2,0,2,0,2,2]);
+		bkgd_scm   = MrCatStruct(bkgd_scm,   [2,0,2,2,2,2,0,2,0,2,0,2,2]);
+		bkgd_cross = MrCatStruct(bkgd_cross, [2,0,2,2,2,2,0,2,0,2,0,2,2]);
 	end
 end

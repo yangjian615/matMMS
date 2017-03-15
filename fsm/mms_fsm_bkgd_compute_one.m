@@ -13,12 +13,22 @@
 %     wave forms to compute the amplitude, power, and phase over a sliding
 %     window of duration T seconds. Append the results to the input structures.
 %
+%   BKGD = mms_fsm_bkgd_compute(__, FIT_METHOD)
+%     Specify the method for fitting data. Options are: {'area', 'gauss', 'bigauss'}.
+%
+%   BKGD = mms_fsm_bkgd_compute(__, FC)
+%     Give the corner frequency at which to begin fitting. This is usually the
+%     corner frequency of a high-pass filter. This argument is used when FIT_METHOD
+%     is "bigouss".
+%
 % Parameters
 %   DATA            in, required, type = struct
 %                   Contains fields:
 %                       't' - Time (TT2000)
 %                       'b' - 3-component magnetic field
 %   T               in, required, type = double
+%   FIT_METHOD      in, optional, type = string
+%   FC              in, optional, type = double, default = 0.5
 %
 % Returns
 %   BKGD            out, required, type=struct
@@ -40,8 +50,17 @@
 %
 % History:
 %   2016-08-14      Written by Matthew Argall
+%   2016-09-19      Added the FIT_METHOD parameter. - MRA
+%   2016-09-26      Added the FC parameter. - MRA
 %
-function bkgd = mms_fsm_bkgd_compute_one(data, T)
+function bkgd = mms_fsm_bkgd_compute_one(data, T, fit_method, fc)
+	
+	if nargin() < 3
+		fit_method = 'bigauss'
+	end
+	if nargin() < 4
+		fc = [];
+	end
 
 %------------------------------------%
 % Find Unique Flag Values            %
@@ -54,7 +73,7 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T)
 	flag       = flag(isort);
 
 %------------------------------------%
-% Cycle Throught Each FGM Flag       %
+% Cycle Throught Each Flag           %
 %------------------------------------%
 	for ii = 1 : length(flag)
 		% Indices associated with the current flag
@@ -76,18 +95,42 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T)
 			% Subinterval to be processed
 			i0 = idx(1) + iInt(1,jj) - 1;
 			i1 = idx(1) + iInt(2,jj) - 1;
-			
-			% Convert time to seconds since midnight
-			%   - Doubles needed for interpolation
-			t_ref = data.t( i0 );
-			t_ssm = MrCDF_epoch2sse( data.t( i0:i1 ), t_ref);
+	
+		%------------------------------------%
+		% FGM Freq Compensation              %
+		%------------------------------------%
+			if strcmp(data.instr, 'scm')
+				% Extract the data
+				t = data.t(i0:i1);
+				b = data.b(:,i0:i1);
+			else
+				% Find the model
+				range = bitget(flag(ii), 2);
+				mode  = bitget(flag(ii), 3);
+				fs    = fgm.sr(i0);
+				model = mms_fsm_fgm_load_model(data.model_dir, data.sc, data.instr, range, mode);
+				delay = mms_fsm_fgm_delay( data.sc, data.instr, fs, mode);
+				
+				% Apply frequency compensation
+				[t, b] = mms_fsm_fgm_compensate( model, data.t(i0:i1)', data.b(:,i0:i1)', ...
+				                                 delay, fs, fsnew );
+				
+				% Transpose back
+				t = t';
+				b = b';
+			end
 	
 		%------------------------------------%
 		% Compute Spectral Components        %
 		%------------------------------------%
 			
+			% Convert time to seconds since midnight
+			%   - Doubles needed for interpolation
+			t_ref = t(1);
+			t_ssm = MrCDF_epoch2sse( t, t_ref);
+			
 			% Compute amplitude, phase, power
-			temp_jj = mms_fsm_bkgd_spectra(t_ssm, data.b(:,i0:i1), T);
+			temp_jj = mms_fsm_bkgd_spectra(t_ssm, b, T);
 	
 		%------------------------------------%
 		% Histogram Spectral Components      %
@@ -123,9 +166,21 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T)
 	% Determine Noise Floor              %
 	%------------------------------------%
 		% Amplitude, Power, Phase
-		temp.('amp_floor')   = mms_fsm_bkgd_noisefloor( temp.('amp_hist'),   temp.('amp_bins')   );
-		temp.('phase_floor') = mms_fsm_bkgd_noisefloor( temp.('phase_hist'), temp.('phase_bins') );
-		temp.('psd_floor')   = mms_fsm_bkgd_noisefloor( temp.('psd_hist'),   temp.('psd_bins')   );
+		if strcmp(fit_method, 'area')
+			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_area( temp.('amp_hist'),   temp.('amp_bins')   );
+			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_area( temp.('phase_hist'), temp.('phase_bins') );
+			temp.('psd_floor')   = mms_fsm_bkgd_fit_area( temp.('psd_hist'),   temp.('psd_bins')   );
+		elseif strcmp(fit_method, 'gauss')
+			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_gauss( temp.('amp_hist'),   temp.('f'), temp.('amp_bins')   );
+			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_gauss( temp.('phase_hist'), temp.('f'), temp.('phase_bins') );
+			temp.('psd_floor')   = mms_fsm_bkgd_fit_gauss( temp.('psd_hist'),   temp.('f'), temp.('psd_bins')   );
+		elseif strcmp(fit_method, 'bigauss')
+			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_bigauss( temp.('amp_hist'),   temp.('f'), temp.('amp_bins'),   fc );
+			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_bigauss( temp.('phase_hist'), temp.('f'), temp.('phase_bins'), fc );
+			temp.('psd_floor')   = mms_fsm_bkgd_fit_bigauss( temp.('psd_hist'),   temp.('f'), temp.('psd_bins'),   fc );
+		else
+			error( ['Unknown fit method: "' fit_method '".'] );
+		end
 	
 	%------------------------------------%
 	% Save Data from Multiple Flags      %

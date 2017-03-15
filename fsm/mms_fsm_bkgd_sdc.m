@@ -17,7 +17,7 @@
 %     compute noise floor parameters, and write the results to 
 %     FILE_FGM and FILE_SCM. TSTART and TEND are intended to outline
 %     an orbit of data, starting with slow survy, and ending after
-%     fast survey.
+%     fast survey. They should be formatted as yyyy-mm-ddTHH:MM:SS.
 %
 %   FG_QL = mms_fg_read_ql(__, 'ParamName', ParamValue)
 %     Any parameter name-value pairs given below may be used with any of
@@ -30,13 +30,18 @@
 %   TEND            in, optional, type = char, default = ''
 %   'Duration'      in, optional, type = double, default = 20.0
 %                   Number of seconds per calibration interval.
-%   'fgmInstr'      in, optional, type = double, default = 'dfg'
+%   'FGMInstr'      in, optional, type = double, default = 'dfg'
 %                   FGM instrument to use. Options are {'afg' | 'dfg'}
-%   'noLog'         in, optional, type = boolean, default = false
+%   'NoLog'         in, optional, type = boolean, default = false
 %                   If true, error messages are printed to the console instead of
 %                       a log file.
+%   'CornerFreq'    in, optional, type = boolean, default = 0.5
+%                   Corner frequency at which to high-pass filter the data. This is
+%                       also the frequency at which curve fitting of the distribution
+%                       begins.
 %
 % Returns
+%   STATUS          out, required, type=integer
 %   FGM_FILE        out, required, type=string
 %   SCM_FILE        out, required, type=string
 %
@@ -46,7 +51,7 @@
 % History:
 %   2016-07-15      Written by Matthew Argall
 %
-function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargin)
+function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargin)
 
 	% Declare global attributes
 	global cal_path_root data_path_root dropbox_root hk_root log_path_root unh_data_root
@@ -66,9 +71,12 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 	end
 
 	% Defaults
-	T         = 20.0;
-	fgm_instr = 'dfg';
-	tf_log    = true;
+	T             = 20.0;
+	fgm_instr     = 'dfg';
+	fgm_model_dir = '/home/argall/MATLAB/fischer/';
+	tf_log        = true;
+	status        = 0;
+	fc            = 0.5;
 	
 	% Optional parameters
 	nOptArgs = length(varargin);
@@ -76,10 +84,14 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 		switch varargin{ii}
 			case 'Duration'
 				T = varargin{ii+1};
-			case 'fgmInstr'
+			case 'FGMInstr'
 				fgm_instr = varargin{ii+1};
-			case 'noLog'
+			case 'FGMModelDir'
+				fgm_model_dir = varargin{ii+1};
+			case 'NoLog'
 				tf_log = ~varargin{ii+1};
+			case 'CornerFreq'
+				fc = varargin{ii+1};
 			otherwise
 				error( ['Unrecognized optional parameter: "' varargin{ii} '".'] );
 		end
@@ -90,9 +102,12 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 	assert( ismember(mode, {'srvy', 'brst'}), 'MODE must be "srvy" or "brst".' )
 
 	% Constants
-	instr   = 'fsm';
-	level   = 'l2plus';
-	optdesc = [fgm_instr '-scm'];
+	instr        = 'fsm';
+	level        = 'l2plus';
+	optdesc      = 'cal';
+	outdesc_fgm  = ['cal-' fgm_instr];
+	outdesc_scm  = 'cal-scm';
+	outdesc_gain = ['cal-' fgm_instr '-scm'];
 	
 	% Convert input times to file times
 	fstart = MrTimeParser(tstart, '%Y-%M-%dT%H:%m:%S', '%Y%M%d%H%m%S');
@@ -124,7 +139,7 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 		% Set the log file
 		logFile = fullfile(logDir, logFile);
 	else
-		logFile = 'stdlog';
+		logFile = 'stderr';
 	end
 	
 	% Get the log file object
@@ -144,7 +159,7 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 	%   - Convert tt2000 to date-time string
 	%   - yyyy-mm-ddThh:mm:ss.fff[...]
 	if strcmp(mode, 'brst')
-		t_orbit = {};
+		t_orbit = {'', ''};
 	else
 		tt2000_orbit = mms_bss_roi_get(tend, '', 'Orbit', true);
 		t_orbit      = MrCDF_Epoch_Encode(tt2000_orbit);
@@ -180,9 +195,18 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 		                               'RootDir', data_path_root);
 		
 		% Make sure all files are found
-		assert(~isempty(f_l2pre_fgm), ['No ' fgm_instr ' brst l2pre files found.']);
-		assert(~isempty(f_l1a_fgm),   ['No ' fgm_instr ' brst l1a files found.']);
-		assert(~isempty(f_l1b_scm),   ['No scm brst l1b files found.']);
+		if isempty(f_l2pre_fgm)
+			status = 101;
+			error(['No ' fgm_instr ' brst l2pre files found.']);
+		end
+		if isempty(f_l1a_fgm)
+			status = 101;
+			error(['No ' fgm_instr ' brst l1a files found.'])
+		end
+		if isempty(f_l1b_scm)
+			status = 101;
+			error(['No scm brst l1b files found.'])
+		end
 
 %------------------------------------%
 % Find SRVY Files                    %
@@ -241,15 +265,20 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 %------------------------------------%
 % Read Data                          %
 %------------------------------------%
-	% Fast Survey
-	fgm = mms_fsm_bkgd_fgm_read( f_l1a_fgm, f_l2pre_fgm, t_orbit );
-	scm = mms_fsm_bkgd_scm_read( f_l1b_scm, t_orbit );
+	fgm = mms_fsm_fgm_read( f_l1a_fgm, f_l2pre_fgm, t_orbit, fc );
+	scm = mms_fsm_scm_read( f_l1b_scm, t_orbit, fc );
+	
+	% Add model directory to structure
+	fgm.model_dir = fgm_model_dir;
 
 %------------------------------------%
 % Compute Background                 %
 %------------------------------------%
-	fgm = mms_fsm_bkgd_compute_one(fgm, T);
-	scm = mms_fsm_bkgd_compute_one(scm, T);
+
+	[~, ~, bkgd_cross] = mms_fsm_bkgd_compute(fgm, scm, T);
+
+%	fgm = mms_fsm_bkgd_compute_one(fgm, T, 'bigauss');
+%	scm = mms_fsm_bkgd_compute_one(scm, T, 'bigauss');
 
 %------------------------------------%
 % Write to File                      %
@@ -271,10 +300,13 @@ function [file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend, varargi
 	end
 
 	% Output data
-	file_fgm = mms_fsm_l2plus_cal_dfg_write(sc, mode, fstart, fgm, ...
-	                                        'Parents', parents);
-	file_scm = mms_fsm_l2plus_cal_scm_write(sc, mode, fstart, scm, ...
-	                                        'Parents', parents);
+keyboard
+	file_fgm = mms_fsm_bkgd_write_cross( sc, mode, outdesc_gain, fstart, bkgd_cross, ...
+	                                     'Parents', parents);
+%	file_fgm = mms_fsm_bkgd_write(sc, mode, outdesc_fgm, fstart, fgm, ...
+%	                              'Parents', parents);
+%	file_scm = mms_fsm_bkgd_write(sc, mode, outdesc_scm, fstart, scm, ...
+%	                              'Parents', parents);
 
 %------------------------------------%
 % Record Output                      %

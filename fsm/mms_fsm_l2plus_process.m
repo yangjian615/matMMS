@@ -184,13 +184,11 @@ function fsm_files = mms_fsm_l2plus_process(sc, mode, date_start, date_end)
 		                                      'TEnd',         tend, ...
 		                                      'VersionRegex', 'v[0-9]');
 		assert(count > 0, ['No SCM calibration file found: "' scm_ftest '".']);
-	
-
+		
 	%------------------------------------%
 	% Process Data                       %
 	%------------------------------------%
 		fsm_files = mms_fsm_l2plus_sdc(fgm_file, scm_file, scm_cal_file, att_file, dss_file);
-		
 		
 		disp(['Merged ' fsm_files])
 	end

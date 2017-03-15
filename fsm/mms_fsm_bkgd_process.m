@@ -30,9 +30,9 @@
 %   TEND            in, optional, type = char, default = ''
 %   'Duration'      in, optional, type = double, default = 20.0
 %                   Number of seconds per calibration interval.
-%   'fgmInstr'      in, optional, type = double, default = 'dfg'
+%   'FGMInstr'      in, optional, type = double, default = 'dfg'
 %                   FGM instrument to use. Options are {'afg' | 'dfg'}
-%   'noLog'         in, optional, type = boolean, default = false
+%   'NoLog'         in, optional, type = boolean, default = false
 %                   If true, no log file will be created.
 %
 % Returns
@@ -53,17 +53,29 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 	% Initialize
 	mms_fsm_init();
 	
-	% Inputs
-	tf_log    = false;
+	% Defaults
+	tf_log    = true;
 	fgm_instr = 'dfg';
 	
-	% Constants
-	instr = 'fsm';
-	level = 'l2plus';
+	nOptArgs = length(varargin);
+	for ii = 1 : 2 : nOptArgs
+		switch varargin{ii}
+			case 'NoLog'
+				tf_log = ~varargin{ii+1};
+			case 'FGMInstr'
+				fgm_instr = varargin{ii+1};
+			otherwise
+				% Do nothing. Pass others on to *_sdc()
+		end
+	end
 
 %------------------------------------%
 % Check Inputs                       %
 %------------------------------------%
+	
+	% Constants
+	instr = 'fsm';
+	level = 'l2plus';
 
 	assert( min( ismember(sc,   {'mms1', 'mms2', 'mms3', 'mms4'}) ) == 1, 'Invalid spacecraft.' );
 	assert( min( ismember(mode, {'slow', 'fast', 'srvy', 'brst'}) ) == 1, 'Invalid mode.' );
@@ -92,19 +104,20 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 %------------------------------------%
 % Create Log File                    %
 %------------------------------------%
-	
 	% Name of log file
 	if tf_log 
 		% Calculate the current time
+		%   - Append a random number in case processes start at same time
 		date = datestr( now(), 'yyyymmdd' );
 		time = datestr( now(), 'HHMMSS' );
+		rnum = sprintf( '%06i', fix( rand(1,1,'single')*1e6 ) );
 		
 		% Name of log file
 		logDir = fullfile(log_path_root, 'batch_logs');
 		if exist(logDir, 'dir') ~= 7
 			mkdir(logDir);
 		end
-		fLog = fullfile(logDir, ['mms_fsm_bkgd_' date '_' time '.log']);
+		fLog = fullfile(logDir, ['mms_fsm_bkgd_' date '_' time '_' rnum '.log']);
 	else
 		fLog = 'stderr';
 	end
@@ -175,6 +188,13 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 			% File start times
 			[~, ~, ~, ~, fgm_fstart] = mms_dissect_filename(fgm_files);
 			[~, ~, ~, ~, scm_fstart] = mms_dissect_filename(scm_files);
+			
+			if ischar(fgm_fstart)
+				fgm_fstart = { fgm_fstart };
+			end
+			if ischar(scm_fstart)
+				scm_fstart = { scm_fstart };
+			end
 
 			% Take only unique values
 			times = unique( [ fgm_fstart scm_fstart ] );
@@ -198,13 +218,10 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 			% Attempt to create the files
 			try
 				if strcmp(mode{jj}, 'brst')
-					[fgm_file, scm_file] = mms_fsm_bkgd_sdc(sc{ii}, mode{jj}, times{kk});
+					[fstat, fgm_file, scm_file] = mms_fsm_bkgd_sdc(sc{ii}, mode{jj}, times{kk}, varargin{:});
 				else
-					[fgm_file, scm_file] = mms_fsm_bkgd_sdc(sc{ii}, mode{jj}, times{1,kk}, times{2,kk});
+					[fstat, fgm_file, scm_file] = mms_fsm_bkgd_sdc(sc{ii}, mode{jj}, times{1,kk}, times{2,kk}, varargin{:});
 				end
-				
-				% End processing
-				fstat = 0;
 			
 			% Capture any errors
 			catch ME
@@ -215,9 +232,9 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 				oLog.AddError(ME);
 			end
 
-	%------------------------------------%
-	% Results                            %
-	%------------------------------------%
+		%------------------------------------%
+		% Results                            %
+		%------------------------------------%
 			% Save results
 			f1              = now();
 			count           = count + 1;
@@ -232,6 +249,7 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 			oLog.AddText( ['    SCM Output: ' scm_file] );
 			oLog.AddText( ['    Status:     ' num2str(fstat)] );
 			oLog.AddText( ['    Proc Time:  ' dt] );
+			oLog.AddText( '-----------------------------------------------------------' );
 		end
 	end
 	end
@@ -244,7 +262,7 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 	status = status(1:count);
 	
 	% Output information
-	nWarn    = sum( find( status <  100 ) );
+	nWarn    = sum( find( status > 0 & status <  100 ) );
 	nErr     = sum( find( status >= 100 ) );
 	dt       = (f1 - t0) * 86400.0;
 	dt_total = sprintf( '%dh %dm %0.2fs', floor(dt/3600.0), floor(mod(dt, 3600.0) / 60.0), mod(dt, 60.0) );
@@ -256,10 +274,15 @@ function [] = mms_fsm_bkgd_process(sc, mode, tstart, tend, varargin)
 	oLog.AddText( 'EXECUTIVE SUMMARY:' );
 	oLog.AddText( ['    Number of Files:    ' num2str(count) ] );
 	oLog.AddText( ['    Number of Warnings: ' num2str(nWarn) ] );
-	oLog.AddText( ['    Number of Errors:   ' num2str(count) ] );
+	oLog.AddText( ['    Number of Errors:   ' num2str(nErr)  ] );
 	oLog.AddText( ['    Total Time Elapsed: ' dt_total  ] );
 	oLog.AddText(  '    Status   Name' );
-	oLog.AddText(  sprintf('    %3i      %s  %s', files{:}) );
+	
+	% Add each file
+	for ii = 1 : count
+		oLog.AddText(  sprintf('    %3i      %s  %s', status(ii), files{:,ii}) );
+	end
+	
 	oLog.AddText( '////////////////////////////////////////////////////' );
 	oLog.AddText( '////////////////////////////////////////////////////' );
 end

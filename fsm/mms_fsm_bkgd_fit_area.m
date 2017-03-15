@@ -1,6 +1,6 @@
 %
 % Name
-%   mms_fsm_bkgd_noisefloor
+%   mms_fsm_bkgd_fit_area
 %
 % Purpose
 %   Find the average occurrence within a distribution of signal values. Consider
@@ -23,17 +23,17 @@
 %
 % History:
 %   2016-05-31      Written by Matthew Argall
+%   2016-09-14      Renamed from mms_fsm_bkgd_noisefloor to mms_fsm_bkgd_fit_area - MRA
 %
-function h_floor = mms_fsm_bkgd_noisefloor(h, bins)
+function h_floor = mms_fsm_bkgd_fit_area(h, bins)
 	% Size of the histogram
 	h   = double( squeeze(h) );
 	szh = size(h);
 
 	% Compute area:
 	%   - Of each bin (Occurrence * bin value)
-	%   - Accumulated over frequency
-	%   - Total
-	%   - Relative
+	%   - Total area at each frequency
+	%   - Relative area at each frequency
 	dBin     = median( diff( bins ) );
 	area     = h .* dBin;
 	area_rel = cumsum(area, 2) ./ repmat( sum(area, 2), 1, szh(2), 1 );
@@ -49,15 +49,12 @@ function h_floor = mms_fsm_bkgd_noisefloor(h, bins)
 	%   - We want indices into the entire array.
 	%   - nRows*nColumns*(iDepth-1) + nRows*(iColumn-1) + iRow
 	%   - abs( area_rel(idx) - 0.5 ) should approx equal pct [the ~ value above]
-try
 	irow   = repmat([1:3]', 1, 1, szh(3));
 	idepth = repmat( reshape( 1:szh(3), 1, 1, szh(3) ), 3, 1, 1 );
 	idx_lo = szh(1)*szh(2)*(idepth-1) + szh(1) * max( (ipct-2), 0 )    + irow;
 	idx    = szh(1)*szh(2)*(idepth-1) + szh(1) *      (ipct-1)         + irow;
 	idx_hi = szh(1)*szh(2)*(idepth-1) + szh(1) * min( ipct, szh(2)-1 ) + irow;
-catch ME
-	keyboard
-end
+
 	% Clear data
 	clear irow idepth
 
