@@ -1,5 +1,5 @@
 #!/bin/bash
-#mms_fsm_fgm_l2.sh
+#mms_fsm_l3_rotate.sh
 # Usage:
 #  For daily srvy output (combines available slow, fast and f128)
 # mms_fg_l2pre.sh obs instr srvy YYYYMMDD
@@ -43,29 +43,18 @@
 #
 # Output files created:
 #  Log file (unless it is not possible to create a log file!)
-#  L2pre file
+#  L3 file
 
-if [ $# -ne 4 ] && [ $# -ne 5 ];then
-  echo 'mms_fsm_fgm_l2: incorrect # of arguments' > /dev/stderr
+if [ $# -ne 1 ] && [ $# -ne 2 ];then
+  echo 'mms_fsm_l3_rotate: incorrect # of arguments' > /dev/stderr
   echo 'error'
   exit 129
 fi
 
-# Parse the inputs
-obs=${1}
-instr=${2}
-mode=${3}
-time=${4}
-year=${time:0:4}
-month=${time:4:2}
-
-# Time stamp for log file
-date=`date -u +%Y%m%d_%H%M%S`
-
 # Log file name
 #  - If no log file is given, redirect to stdout
-if [ $# -eq 5 ]; then
-	logpath=${5}
+if [ $# -eq 2 ]; then
+	logpath=${2}
 else
 	logpath=/dev/stderr
 fi
@@ -74,20 +63,9 @@ fi
 # Ken's method of creating a log-file
 #
 
-# "${obs}_${instr}_${mode}_l2pre_${time}_v0.0.0_${date}.log"
-# logpath=${LOG_PATH_ROOT}/${obs}/${instr}/${mode}/l2pre/${year}/${month}
-# mkdir -p $logpath
-# code=$?
-# if [ $code -ne 0 ] ; then 
-#   echo 'error'
-#   exit 128
-# fi
-# logpath=${logpath}/${logfile}
-# echo $logpath
-
 cat > $logpath <<EOF
 =========================
-Log file for mms_fsm_fgm_l2
+Log file for mms_fsm_l3_rotate
 Log Filename:     $logpath
 Runtime:          $date
 Pwd:              `pwd`
@@ -99,18 +77,13 @@ $0 $@
 IDL_PATH:         $IDL_PATH
 IDL_DIR:          $IDL_DIR
 calling IDL:
-$IDL_DIR/bin/idl mms_fsm_fgm_l2 -args $@
+$IDL_DIR/bin/idl mms_fsm_l3_rotate -args $@
 =========================
 EOF
 
-$IDL_DIR/bin/idl mms_fsm_fgm_l2 -args $@ 2>> $logpath <<EOF
+$IDL_DIR/bin/idl mms_fsm_l3_rotate -args $@ 2>> $logpath <<EOF
   exit, status=127 ; prevents IDL hanging if the batch file can't be found
 EOF
-
-#l2_file="$($IDL_DIR/bin/idl mms_fgm_l2_omb_script -args $@ 2>> $logpath <<EOF
-#  exit, status=127 ; prevents IDL hanging if the batch file can't be found
-#EOF
-#)"
 
 code=$?
 

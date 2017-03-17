@@ -65,9 +65,58 @@ function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
 
 	% Read the L1A files
 	[pfmode, t_packet] = mms_fsm_fgm_read_l1a(l1a_files, trange);
+
+%------------------------------------%
+% Create L2 Temporary Data           %
+%------------------------------------%
+	% Get the log file
+	oLog    = mrstdlog();
+	logfile = oLog.filename;
+	tf_log  = isempty( regexp(logfile, '^(std|log)') );
+
+	% l2_files
+	if ischar(l2pre_files)
+		[sc, instr, mode, ~, tstart] = mms_dissect_filename(l2pre_files);
+	else
+		[sc, instr, mode, ~, tstart] = mms_dissect_filename(l2pre_files{1});
+	end
+	
+	mrfprintf( 'logtext', '=====================================' );
+	mrfprintf( 'logtext', '| Calling IDL to Create L2 Data     |' );
+	mrfprintf( 'logtext', '=====================================' );
+	
+	%
+	% Create FGM L2 data in OMB
+	%
+	cmd = ['/home/argall/MATLAB/MMS/fsm/mms_fsm_fgm_l2.sh ' sc ' ' instr ' ' mode ' ' tstart];
+	if tf_log
+		cmd = [cmd ' ' logfile];
+	end
+	
+	% Call IDL
+	[status, cmdout] = system(cmd);
+
+	% Parse results
+	%   - Both the the log file and the data file are returned.
+	l2_file = regexp(cmdout, '\n', 'split');
+	il2     = find( ~cellfun(@isempty, l2_file), 1, 'last' );
+	l2_file = l2_file{il2};
+	
+	% system will capture output from both stdout and stderr
+	%   - If no log file is defined, redirect to stdout
+	if ~tf_log
+		mrfprintf( 'stdout', '%s', cmdout );
+	end
+	
+	% Check status
+	assert( status <= 100, 'Error processing L2 data.' );
+	
+	mrfprintf( 'logtext', '========================================' );
+	mrfprintf( 'logtext', '| Returning to MATLAB to Process FSM   |' );
+	mrfprintf( 'logtext', '========================================' );
 	
 	% Read the L2Pre files
-	[b_bcs, range, rate, t] = mms_fsm_fgm_read_l2pre(l2pre_files, trange);
+	[b_omb, hirange, rate, t] = mms_fsm_fgm_read_l2temp(l2_file, trange);
 
 %------------------------------------%
 % Categorize Data                    %
