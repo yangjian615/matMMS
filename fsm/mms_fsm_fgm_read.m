@@ -75,15 +75,11 @@ function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
 	tf_log  = isempty( regexp(logfile, '^(std|log)') );
 
 	% l2_files
-	if ischar(l2pre_files)
-		[sc, instr, mode, ~, tstart] = mms_dissect_filename(l2pre_files);
+	if ischar(l1a_files)
+		[sc, instr, mode, ~, tstart] = mms_dissect_filename(l1a_files);
 	else
-		[sc, instr, mode, ~, tstart] = mms_dissect_filename(l2pre_files{1});
+		[sc, instr, mode, ~, tstart] = mms_dissect_filename(l1a_files{1});
 	end
-	
-	mrfprintf( 'logtext', '=====================================' );
-	mrfprintf( 'logtext', '| Calling IDL to Create L2 Data     |' );
-	mrfprintf( 'logtext', '=====================================' );
 	
 	%
 	% Create FGM L2 data in OMB
@@ -93,6 +89,13 @@ function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
 		cmd = [cmd ' ' logfile];
 	end
 	
+	mrfprintf( 'logtext', '\n\n' );
+	mrfprintf( 'logtext', '=====================================' );
+	mrfprintf( 'logtext', '| Calling IDL to Create L2 Data     |' );
+	mrfprintf( 'logtext', '=====================================' );
+	mrfprintf( 'logtext', '%s', cmd );
+	mrfprintf( 'logtext', '\n\n' );
+
 	% Call IDL
 	[status, cmdout] = system(cmd);
 
@@ -111,12 +114,17 @@ function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
 	% Check status
 	assert( status <= 100, 'Error processing L2 data.' );
 	
+	mrfprintf( 'logtext',  '\n\n' );
 	mrfprintf( 'logtext', '========================================' );
 	mrfprintf( 'logtext', '| Returning to MATLAB to Process FSM   |' );
 	mrfprintf( 'logtext', '========================================' );
+	mrfprintf( 'logtext',  '\n\n' );
 	
 	% Read the L2Pre files
 	[b_omb, hirange, rate, t] = mms_fsm_fgm_read_l2temp(l2_file, trange);
+	
+	% Delete the temporary L2 file
+	delete(l2_file);
 
 %------------------------------------%
 % Categorize Data                    %
@@ -178,14 +186,6 @@ function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
 %------------------------------------%
 % Metadata                           %
 %------------------------------------%
-	
-	% Dissect the file name so that we can carry information along
-	% with the data.
-	if iscell(l2pre_files)
-		[sc, instr, mode] = mms_dissect_filename( l2pre_files{1} );
-	else
-		[sc, instr, mode] = mms_dissect_filename( l2pre_files );
-	end
 	
 	% Add to data structure
 	fgm.sc      = sc;

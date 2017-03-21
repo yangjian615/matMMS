@@ -1,23 +1,23 @@
 %
 % Name
-%   mms_fsm_create_l1b
+%   mms_fsm_l3_sdc
 %
 % Purpose
 %   Merge MMS fluxgate and search coil magnetometer data in the frequency
 %   domain.
 %
 % Calling Sequence
-%   [B_MERGED, T_MERGED] = mms_fsm_merge(SC. TSTART, TEND);
+%   [B_MERGED, T_MERGED] = mms_fsm_l3_sdc(SC. TSTART, TEND);
 %     Given the MMS spacecraft number SC (e.g. 'mms1'), and a time
 %     interval, [TSTART, TEND), gather all of the required search coil and
 %     fluxgate magnetometer data and merge them into a single dataset
 %     B_MERGED with time stamps T_MERGED.
 %
-%   [..., B_FG, T_FG] = mms_fsm_merge(__);
+%   [..., B_FG, T_FG] = mms_fsm_l3_sdc(__);
 %     Also return the calibrated FGM magnetic field B_FG and its time
 %     stamps T_FG.
 %
-%   [..., B_SC, T_SC] = mms_fsm_merge(__);
+%   [..., B_SC, T_SC] = mms_fsm_l3_sdc(__);
 %     Also return the *UN*calibrated SCM magnetic field B_SC and its time
 %     stamps T_SC.
 %
@@ -55,8 +55,7 @@
 % History:
 %   2015-12-08      Written by Matthew Argall
 %
-function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
-% fsm_file = mms_fsm_l2plus_sdc(fgm_file, scm_file, scm_cal_file, att_file, dss_file, duration)
+function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 
 	% Global path variables
 	global cal_path_root data_path_root dropbox_root hk_root log_path_root unh_data_root
@@ -65,6 +64,9 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 	mms_fsm_init();
 	t0     = now();
 	status = 0;
+	
+	% Create a temporary error logging object
+	oLog = MrLogFile('stderr');
 
 %------------------------------------%
 % Defaults                           %
@@ -117,36 +119,53 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 
 	% Check inputs types
 	if ~ischar(sc)
-		error('MMS:FSM_L2Plus:SDC', 'SC must be a char array.');
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', 'SC must be a char array.', status);
+		return
 	end
 	if ~ischar(mode)
-		error('MMS:FSM_L2Plus:SDC', 'MODE must be a char array.');
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', 'MODE must be a char array.', status);
+		return
 	end
 	if ~ischar(tstart)
-		error('MMS:FSM_L2Plus:SDC', 'TSTART must be a char array.');
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', 'TSTART must be a char array.', status);
+		return
 	end
 	
-	% Examine values
-	if ~ismember({'mms1', 'mms2', 'mms3', 'mms4'}, sc)
-		error('MMS:FSM_L2Plus:SDC', 'Invalid spacecraft identifier: "%s".', sc)
+	% SC
+	if ~ismember(sc, {'mms1', 'mms2', 'mms3', 'mms4'})
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', 'Invalid spacecraft identifier: "%s".', sc)
+		return
 	end
-	if ~ismember({'srvy', 'brst'}, mode)
-		error('MMS:FSM_L2Plus:SDC', 'Invalid telemetry mode: "%s".', mode)
+	
+	% MODE
+	if ~ismember(mode, {'srvy', 'brst'})
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', sprintf('Invalid telemetry mode: "%s".', mode), status)
+		return
 	end
-	if ~ismember({'srvy', 'brst'}, mode)
-		error('MMS:FSM_L2Plus:SDC', 'Invalid telemetry mode: "%s".', mode)
+	
+	% TSTART
+	if ~MrTokens_IsMatch(tstart, '%Y%M%d%H%m%S')
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', 'TSTART must be formatted as YYYYMMDDhhmmss', status);
+		return
+	end
+	
+	% TEND
+	if ~strcmp(mode, 'brst') && ~MrTokens_IsMatch(tend, '%Y%M%d%H%m%S')
+		status = 100;
+		oLog.AddError('MMS:FSM_L3_SDC:BadInput', 'TEND must be formatted as YYYYMMDDhhmmss', status);
+		return
 	end
 	
 	% Constants for output file
 	outinstr   = 'fsm';
-	outlevel   = 'l2plus';
+	outlevel   = 'l3';
 	outmode    = mode;
-	
-	% Convert input times to file times
-	assert( MrTokens_IsMatch(tstart, '%Y%M%d%H%m%S'), 'TSTART must be formatted as YYYYMMDDhhmmss');
-	if ~strcmp(mode, 'brst')
-		assert( MrTokens_IsMatch(tend, '%Y%M%d%H%m%S'), 'TEND must be formatted as YYYYMMDDhhmmss');
-	end
 
 %------------------------------------%
 % Create Log File                    %
@@ -231,19 +250,22 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 		f_l1b_scm   = mms_latest_file( dropbox_root, sc, 'scm', mode, 'l1b', tstart, ...
 		                               'OptDesc', optdesc_scm, ...
 		                               'RootDir', data_path_root);
-		
+
 		% Make sure all files are found
 		if isempty(f_l2pre_fgm)
 			status = 101;
-			error(['No ' fgm_instr ' brst l2pre files found.']);
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' brst l2pre files found.'], status );
+			return
 		end
 		if isempty(f_l1a_fgm)
 			status = 101;
-			error(['No ' fgm_instr ' brst l1a files found.'])
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' brst l1a files found.'], status);
+			return
 		end
 		if isempty(f_l1b_scm)
 			status = 101;
-			error(['No scm brst l1b files found.'])
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', 'No scm brst l1b files found.', status );
+			return
 		end
 
 %------------------------------------%
@@ -282,10 +304,26 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 		% Make sure all files were found
 		%   TODO: It might be better to use the second output COUNT to
 		%         ensure the correct number of files.
-		assert(~isempty(f_l2pre_fgm),  ['No ' fgm_instr ' srvy l2pre files found.']);
-		assert(~isempty(f_l1a_fgm),    ['No ' fgm_instr ' fast l1a files found.']);
-		assert(~isempty(l1a_slow_fgm), ['No ' fgm_instr ' slow l1a files found.']);
-		assert(~isempty(f_l1b_scm),    ['No scm l1b files found.']);
+		if isempty(f_l2pre_fgm)
+			status = 101;
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' srvy l2pre files found.'], status );
+			return
+		end
+		if isempty(f_l1a_fgm)
+			status = 101;
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' fast l1a files found.'], status );
+			return
+		end
+		if isempty(l1a_slow_fgm)
+			status = 101;
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' slow l1a files found.'], status );
+			return
+		end
+		if isempty(f_l1b_scm)
+			status = 101;
+			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', 'No scm l1b files found.', status );
+			return
+		end
 	end
 
 %------------------------------------%
@@ -326,7 +364,7 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 		case 'mms4'
 			fm = 'scm3';
 		otherwise
-			error(['Invalid spacecraft ID: "' sc '".'])
+			error(['Invalid spacecraft ID: "' sc '".']);
 	end
 	
 	if strcmp(mode, 'brst')
@@ -346,7 +384,12 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 	                                      'TEnd',         scm_tend, ...
 	                                      'TPattern',     '%Y%M%d%H%m%S', ...
 	                                      'VersionRegex', 'v[0-9]');
-	assert(count > 0, ['No SCM calibration file found: "' scm_ftest '".']);
+	
+	if count == 0
+		status = 101;
+		oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No SCM calibration file found: "' scm_ftest '".'], status );
+		return
+	end
 
 %------------------------------------%
 % DSS: Find File                     %
@@ -362,8 +405,11 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 %------------------------------------%
 	defatt_file = mms_anc_search(dropbox_root, sc, 'defatt', tstart, 'RootDir', data_path_root);
 	
-	% No file found
-	assert(~isempty(defatt_file), 'No DEFATT file found.')
+	if isempty(defatt_file)
+		status = 101;
+		oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', 'No DEFATT file found.', status );
+		return
+	end
 
 %------------------------------------%
 % Parent Files                       %
@@ -449,9 +495,12 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 		cmd = [cmd ' ' logFile];
 	end
 	
-	mrfprintf( 'logtext', '=====================================' );
-	mrfprintf( 'logtext', '| Calling IDL to Rotate Data        |' );
-	mrfprintf( 'logtext', '=====================================' );
+	mrfprintf( 'logtext',  '\n\n' );
+	mrfprintf( 'logtext',  '=====================================' );
+	mrfprintf( 'logtext',  '| Calling IDL to Rotate Data        |' );
+	mrfprintf( 'logtext',  '=====================================' );
+	mrfprintf( 'logtext', '%s', cmd );
+	mrfprintf( 'logtext', '\n\n' );
 	
 	% Call IDL
 	[status, cmdout] = system(cmd);
@@ -462,9 +511,11 @@ function status = mms_fsm_l2plus_sdc(sc, mode, tstart, tend, varargin)
 		mrfprintf( 'stdout', '%s', cmdout );
 	end
 	
+	mrfprintf( 'logtext',  '\n\n' );
 	mrfprintf( 'logtext', '=====================================' );
 	mrfprintf( 'logtext', '| Returning to MATLAB               |' );
 	mrfprintf( 'logtext', '=====================================' );
+	mrfprintf( 'logtext',  '\n\n' );
 	
 	% Check status
 	assert( status <= 100, 'Error rotating L3 data.' );

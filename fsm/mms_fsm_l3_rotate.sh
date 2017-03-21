@@ -46,9 +46,9 @@
 #  L3 file
 
 if [ $# -ne 1 ] && [ $# -ne 2 ];then
-  echo 'mms_fsm_l3_rotate: incorrect # of arguments' > /dev/stderr
-  echo 'error'
-  exit 129
+	echo 'mms_fsm_l3_rotate: incorrect # of arguments' > /dev/stderr
+	echo 'error'
+	exit 129
 fi
 
 # Log file name
@@ -63,7 +63,7 @@ fi
 # Ken's method of creating a log-file
 #
 
-cat > $logpath <<EOF
+cat >> $logpath <<EOF
 =========================
 Log file for mms_fsm_l3_rotate
 Log Filename:     $logpath

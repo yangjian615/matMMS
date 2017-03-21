@@ -85,7 +85,7 @@ fi
 # logpath=${logpath}/${logfile}
 # echo $logpath
 
-cat > $logpath <<EOF
+cat >> $logpath <<EOF
 =========================
 Log file for mms_fsm_fgm_l2
 Log Filename:     $logpath
