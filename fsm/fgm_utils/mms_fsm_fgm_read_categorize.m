@@ -26,12 +26,11 @@
 %                       't'      - TT2000 epoch times
 %                       'b'      - Magnetic field in DMPA coordinates
 %                       'flag'   - Bit flag indicating operational mode:
-%                                    1: unset = Slow      set = Fast/Brst
-%                                    2: unset = Lo-Range  set = Hi-Range
-%                                    3: unset = Deck64    set = Deck32     (dfg)
-%                                    3: unset = ADCA      set = ADCB       (afg)
-%                                    4: unset = ---       set = Pre-Perigee
-%                                    5: unset = ---       set = Post-Perigee
+%                                    1: unset = Slow           set = Fast/Brst
+%                                    2: unset = Lo-Range       set = Hi-Range
+%                                    3: unset = Deck64         set = Deck32     (dfg)
+%                                    3: unset = ADCA           set = ADCB       (afg)
+%                                    4: unset = Post-Perigee   set = Pre-Perigee
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -136,10 +135,10 @@ function fgm = mms_fsm_fgm_read_categorize( t_packet, t, b_omb, rate, range, pfm
 %------------------------------------%
 	
 	% Set bit:
+	%   - 0 = Post-Perigee
 	%   - 4 = Pre-Perigee
-	%   - 5 = Post-Perigee
-	flag( 1:iHi0-1     ) = bitset( flag(1:iHi0-1),     4 );
-	flag( iHi1+1:nSlow ) = bitset( flag(iHi1+1:nSlow), 5 );
+	flag( 1:iHi0-1     ) = bitset( flag(1:iHi0-1),     4, 0 );
+	flag( iHi1+1:nSlow ) = bitset( flag(iHi1+1:nSlow), 4, 1 );
 
 %------------------------------------%
 % DEC 32 & 64 (bit 3)                %

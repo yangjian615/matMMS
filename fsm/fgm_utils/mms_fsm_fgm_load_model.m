@@ -6,16 +6,15 @@
 %   Find a MAT file containing a filter model for FGM and load the model.
 %
 % Calling Sequence
-%   MODEL = mms_fsm_fgm_load_model(ROOT, SC, INSTR, RANGE, MODE)
-%     Load one of David Fischer's filter models that lives in directory ROOT.
-%     The model applies to MMS spacecraft SC, instrument INSTR, and operating
-%     mode MODE, and field range RANGE. Values for MODE and RANGE are:
+%   MODEL = mms_fsm_fgm_load_model(SC, INSTR, RANGE, MODE)
+%     Load one of David Fischer's filter models. The model applies to MMS 
+%     spacecraft SC, instrument INSTR, and operating mode MODE, and field
+%     range RANGE. Values for MODE and RANGE are:
 %       RANGE                  MODE
 %         0 = Lo-Range          0 = ADCA (afg)   DEC64 (dfg)
 %         1 = Hi-Range          1 = ADCB (afg)   DEC32 (dfg)
 %
 % Parameters
-%   ROOT            in, required, type = char
 %   SC              in, required, type = char
 %   INSTR           in, required, type = char
 %   RANGE           in, required, type = int8
@@ -29,8 +28,9 @@
 %
 % History:
 %   2017-01-31      Adapted from David Fischer's merge_snippet.m - MRA
+%   2017-03-25      Removed the ROOT parameter, as the models are in the same MATLAB library. - MRA
 %
-function model = mms_fsm_fgm_model(root, sc, instr, range, mode)
+function model = mms_fsm_fgm_load_model(sc, instr, range, mode)
 	
 	% Create the compensation model file name
 	%   - File name strings have FS=128 always
@@ -41,11 +41,13 @@ function model = mms_fsm_fgm_model(root, sc, instr, range, mode)
 	% Pre-pend the file path
 	%   - Remove a leading subdirectory
 	[path, name, ext] = fileparts( fmodel );
-	if nargin() == 5
-		fmodel = fullfile( root, [name ext] );
-	else
-		fmodel = [name ext];
-	end
+	fmodel = fullfile( fileparts(mfilename('fullpath')), '..', '..', '..', 'fischer', [name ext] );
+
+%	if nargin() == 5
+%		fmodel = fullfile( root, [name ext] );
+%	else
+%		fmodel = [name ext];
+%	end
 	
 	% Check if model exists
 	if exist(fmodel, 'file') == 2

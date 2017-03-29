@@ -6,11 +6,12 @@
 %   Read FGM data.
 %
 % Calling Sequence
-%   DATA = mms_fsm_fgm_read( L1A_FILES, L2PRE_FILES, TRANGE )
-%     Read FGM L1A and L2Pre files with names given by L1A_FILES and L2PRE_FILES,
-%     respectively. L1A files are used to categorize L2Pre data into the following
-%     categories: 1) slow/fast srvy, 2) hi/lo-range 3) pre/post perigee 4) deck 32/64.
-%     It is then returned in the data structure DATA.
+%   DATA = mms_fsm_fgm_read( L1A_FILES, TRANGE )
+%     Read FGM L1A files with names given by L1A_FILES. L2 magnetic field data in OMB
+%     coordinates is obtained by passing L1A data into Ken Brommund's L2 data processing
+%     routines in IDL. Data is then sorted into categories and returned in the structure
+%     DATA. Categories are: 1) slow/fast srvy, 2) hi/lo-range 3) pre/post perigee
+%     4) DEC 32/64.
 %
 %   DATA = mms_fsm_fgm_read( ..., TRANGE )
 %     If survey data is being read, the TRANGE specifies the time range of a single
@@ -53,7 +54,7 @@
 %                     defaults to the empty array. - MRA
 %   2017-01-30      Add 'sc', 'instr', 'mode', and 'optdesc' fields to the output. - MRA
 %
-function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
+function fgm = mms_fsm_fgm_read( l1a_files, trange, fc )
 
 	if nargin() < 4
 		fc = [];
@@ -84,7 +85,7 @@ function fgm = mms_fsm_fgm_read( l1a_files, l2pre_files, trange, fc )
 	%
 	% Create FGM L2 data in OMB
 	%
-	cmd = ['/home/argall/MATLAB/MMS/fsm/mms_fsm_fgm_l2.sh ' sc ' ' instr ' ' mode ' ' tstart];
+	cmd = [ fileparts(mfilename('fullpath')) '/mms_fsm_fgm_l2.sh ' sc ' ' instr ' ' mode ' ' tstart];
 	if tf_log
 		cmd = [cmd ' ' logfile];
 	end

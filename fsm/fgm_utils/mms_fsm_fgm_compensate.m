@@ -68,7 +68,7 @@ function [time, data] = mms_fsm_fgm_compensate(model, time, data, delay, fs, fsn
 %------------------------------------%
 
 	% Upsample to the target product sampling frequency (1kHz) without antialising filter
-	mrfprintf('logtext', ['    Upsampling from ',num2str(fs),' Hz to ',num2str(fsnew),' Hz without aliasing filter'])
+	mrfprintf('logtext', ['    Upsampling from ',num2str(fs),' Hz to ',num2str(fstemp),' Hz without aliasing filter'])
 	[time, data] = mms_resample( time, data, fs, fstemp, 0, 'upsample');
 
 	% Alternative: with antialiasing...
@@ -78,11 +78,12 @@ function [time, data] = mms_fsm_fgm_compensate(model, time, data, delay, fs, fsn
 	% [time, data] = mms_resample( time, data, fsnew, fsnew, xfgfs/2);
 
 	% Apply instrument models
-	mrfprintf( 'logtext', ['    Compensating @', num2str(fsnew)] );
+	mrfprintf( 'logtext', ['    Compensating @', num2str(fstemp) ' Hz.'] );
 	data = compensate_xfg( data, model );
 	
 	% Upsample beyond 1024 S/s
 	if fsout ~= 0
+		mrfprintf( 'logtext', ['    Resampling from ' num2str(fstemp) ' Hz to ', num2str(fsout) ' Hz.'] );
 		[time, data] = mms_resample( time, data, fstemp, fsout);
 	end
 
