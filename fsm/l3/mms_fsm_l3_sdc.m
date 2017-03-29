@@ -238,10 +238,6 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 	
 	% BRST
 	if strcmp(mode, 'brst')
-		% FGM L2PRE
-		f_l2pre_fgm = mms_latest_file( dropbox_root, sc, fgm_instr, mode, 'l2pre', tstart, ...
-		                               'RootDir', data_path_root);
-		
 		% FGM L1B
 		f_l1a_fgm   = mms_latest_file( dropbox_root, sc, fgm_instr, mode, 'l1a', tstart, ...
 		                               'RootDir', data_path_root);
@@ -252,11 +248,6 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 		                               'RootDir', data_path_root);
 
 		% Make sure all files are found
-		if isempty(f_l2pre_fgm)
-			status = 101;
-			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' brst l2pre files found.'], status );
-			return
-		end
 		if isempty(f_l1a_fgm)
 			status = 101;
 			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' brst l1a files found.'], status);
@@ -272,11 +263,6 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 % Find SRVY Files                    %
 %------------------------------------%
 	else
-		% FGM L2Pre
-		f_l2pre_fgm = mms_find_file( sc, 'dfg', mode, 'l2pre', ...
-		                             'TStart', t_orbit{1},     ...
-		                             'TEnd',   t_orbit{2} );
-	
 		% SCM L1B
 		%   - After Sept. ##, SLOW and FAST are the same.
 		f_l1b_scm = mms_find_file( sc, 'scm', mode, 'l1b', ...
@@ -304,11 +290,6 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 		% Make sure all files were found
 		%   TODO: It might be better to use the second output COUNT to
 		%         ensure the correct number of files.
-		if isempty(f_l2pre_fgm)
-			status = 101;
-			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' srvy l2pre files found.'], status );
-			return
-		end
 		if isempty(f_l1a_fgm)
 			status = 101;
 			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No ' fgm_instr ' fast l1a files found.'], status );
@@ -324,71 +305,6 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 			oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', 'No scm l1b files found.', status );
 			return
 		end
-	end
-
-%------------------------------------%
-% Find NF Files                      %
-%------------------------------------%
-	% FGM
-	fgm_nf_file = mms_find_file( sc, 'fsm', mode, 'l2plus',                  ...
-	                             'Dropbox',       dropbox_root,              ...
-	                             'OptDesc',       ['nf-' fgm_instr '-week'], ...
-	                             'SDCroot',       data_path_root,            ...
-	                             'TimeOrder',     '%Y%M%d%H%m%S',            ...
-	                             'TStart',        t_orbit{1},                ...
-	                             'TEnd',          t_orbit{2},                ...
-	                             'RelaxedTStart', true );
-	
-	% SCM
-	scm_nf_file = mms_find_file( sc, 'fsm', mode, 'l2plus',       ...
-	                             'Dropbox',       dropbox_root,   ...
-	                             'OptDesc',       'nf-scm-week',  ...
-	                             'SDCroot',       data_path_root, ...
-	                             'TimeOrder',     '%Y%M%d%H%m%S', ...
-	                             'TStart',        t_orbit{1},     ...
-	                             'TEnd',          t_orbit{2},     ...
-	                             'RelaxedTStart', true );
-
-%------------------------------------%
-% SCM: Find Cal Files                %
-%------------------------------------%
-	
-	% Determine the flight model
-	switch sc
-		case 'mms1'
-			fm = 'scm1';
-		case 'mms2'
-			fm = 'scm2';
-		case 'mms3'
-			fm = 'scm4';
-		case 'mms4'
-			fm = 'scm3';
-		otherwise
-			error(['Invalid spacecraft ID: "' sc '".']);
-	end
-	
-	if strcmp(mode, 'brst')
-		scm_tstart = tstart;
-		scm_tend   = tstart;
-	else
-		scm_tstart = [tstart '000000'];
-		scm_tend   = [tstart '240000'];
-	end
-
-	% SCM Cal File
-	scm_ftest = fullfile(scm_cal_dir, [sc '_' fm '_caltab_%Y%M%d%H%M%S_v*.txt']);
-	[scm_cal_file, count] = MrFile_Search(scm_ftest, ...
-	                                      'Closest',      true, ...
-	                                      'TimeOrder',    '%Y%M%d%H%M%S', ...
-	                                      'TStart',       scm_tstart, ...
-	                                      'TEnd',         scm_tend, ...
-	                                      'TPattern',     '%Y%M%d%H%m%S', ...
-	                                      'VersionRegex', 'v[0-9]');
-	
-	if count == 0
-		status = 101;
-		oLog.AddError( 'MMS:FSM_L3_SDC:NoFileFound', ['No SCM calibration file found: "' scm_ftest '".'], status );
-		return
 	end
 
 %------------------------------------%
@@ -420,13 +336,7 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 	mrfprintf('logtext', '| Parent Files                  |')
 	mrfprintf('logtext', '---------------------------------')
 	mrfprintf('logtext', f_l1a_fgm)
-%	mrfprintf('logtext', f_l2pre_fgm)
 	mrfprintf('logtext', f_l1b_scm)
-%	mrfprintf('logtext', fgm_nf_file)
-%	mrfprintf('logtext', scm_nf_file)
-%	mrfprintf('logtext', scm_cal_file)
-%	mrfprintf('logtext', dss_file)
-%	mrfprintf('logtext', defatt_file)
 	mrfprintf('logtext', '---------------------------------')
 	mrfprintf('logtext', '')
 
@@ -441,35 +351,22 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 %------------------------------------%
 
 	% FGM & SCM
-	fgm = mms_fsm_fgm_read( f_l1a_fgm, f_l2pre_fgm, t_orbit );
+	fgm = mms_fsm_fgm_read( f_l1a_fgm, t_orbit );
 	scm = mms_fsm_scm_read( f_l1b_scm, t_orbit );
 	
 	% Add the model directory
 	fgm.model_dir = fgm_model_dir;
 
 %------------------------------------%
-% Read Noise Floor                   %
-%------------------------------------%
-	% Create weight function
-%	nf_fgm = mms_fsm_nf_read(fgm_nf_file);
-%	nf_scm = mms_fsm_nf_read(scm_nf_file);
-
-%	[~, ts_tt2000] = mms_parse_time(tstart);
-%	w              = mms_fsm_nf_weight(nf_fgm, nf_scm, ts_tt2000);
-
-	w = [];
-	
-%------------------------------------%
 % Process Data                       %
 %------------------------------------%
-	[t_fsm, b_omb] = mms_fsm_l3_create( fgm, scm, duration, w);
-
+	[t_fsm, b_omb] = mms_fsm_l3_create( fgm, scm, duration, []);
 	
 %------------------------------------%
 % Write to File                      %
 %------------------------------------%
 	% Parent files
-	parents      = { f_l1a_fgm f_l2pre_fgm f_l1b_scm scm_cal_file };
+	parents      = { f_l1a_fgm f_l1b_scm };
 	[~, parents] = cellfun(@fileparts, parents, 'UniformOutput', false);
 
 	% Create a data structure
@@ -490,7 +387,7 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 	%
 	% Create FGM L2 data in OMB
 	%
-	cmd = ['/home/argall/MATLAB/MMS/fsm/mms_fsm_l3_rotate.sh ' fsm_file];
+	cmd = [ fileparts(mfilename('fullpath')) filesep() 'mms_fsm_l3_rotate.sh ' fsm_file];
 	if tf_log
 		cmd = [cmd ' ' logFile];
 	end
@@ -518,7 +415,10 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 	mrfprintf( 'logtext',  '\n\n' );
 	
 	% Check status
-	assert( status <= 100, 'Error rotating L3 data.' );
+	if status >= 100
+		mrfprintf( 'logerr', 'Error rotating L3 data.' );
+		return
+	end
 
 %------------------------------------%
 % Record Output                      %

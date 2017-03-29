@@ -171,7 +171,7 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 			mode  = bitget(flag_fgm(ii), 3);
 			fs    = fgm.sr(i0_fgm);
 			fsnew = scm.sr(i0_scm);
-			model = mms_fsm_fgm_load_model(fgm.model_dir, fgm.sc, fgm.instr, range, mode);
+			model = mms_fsm_fgm_load_model(fgm.sc, fgm.instr, range, mode);
 			delay = mms_fsm_fgm_delay( fgm.sc, fgm.instr, fs, mode);
 
 			% Apply frequency compensation
