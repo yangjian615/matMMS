@@ -73,7 +73,6 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 	% Defaults
 	T             = 20.0;
 	fgm_instr     = 'dfg';
-	fgm_model_dir = '/home/argall/MATLAB/fischer/';
 	tf_log        = true;
 	status        = 0;
 	fc            = 0.5;
@@ -181,42 +180,32 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 	
 	% BRST
 	if strcmp(mode, 'brst')
-		% FGM L2PRE
-		f_l2pre_fgm = mms_latest_file( dropbox_root, sc, fgm_instr, mode, 'l2pre', fstart, ...
-		                               'RootDir', data_path_root);
-		
-		% FGM L1B
+		% FGM L1A
 		f_l1a_fgm   = mms_latest_file( dropbox_root, sc, fgm_instr, mode, 'l1a', fstart, ...
 		                               'RootDir', data_path_root);
 		
 		% SCM L1B
-		f_l1b_scm   = mms_latest_file( dropbox_root, sc, 'scm', mode, 'l1b', fstart, ...
+		scm_dropbox = '/nfs/fsm/temp/lpp';
+		f_l1b_scm   = mms_latest_file( scm_dropbox, sc, 'scm', mode, 'l1b', fstart, ...
 		                               'OptDesc', scm_optdesc, ...
 		                               'RootDir', data_path_root);
 		
 		% Make sure all files are found
-		if isempty(f_l2pre_fgm)
-			status = 101;
-			error(['No ' fgm_instr ' brst l2pre files found.']);
-		end
 		if isempty(f_l1a_fgm)
 			status = 101;
-			error(['No ' fgm_instr ' brst l1a files found.'])
+			mrfprintf('logerr', ['No ' fgm_instr ' brst l1a files found.'])
+			return
 		end
 		if isempty(f_l1b_scm)
 			status = 101;
-			error(['No scm brst l1b files found.'])
+			mrfprintf('logerr', ['No scm brst l1b files found.'])
+			return
 		end
 
 %------------------------------------%
 % Find SRVY Files                    %
 %------------------------------------%
 	else
-		% FGM L2Pre
-		f_l2pre_fgm = mms_find_file( sc, 'dfg', mode, 'l2pre', ...
-		                             'TStart', t_orbit{1},     ...
-		                             'TEnd',   t_orbit{2} );
-	
 		% SCM L1B
 		%   - After Sept. ##, SLOW and FAST are the same.
 		f_l1b_scm = mms_find_file( sc, 'scm', mode, 'l1b', ...
@@ -244,7 +233,6 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 		% Make sure all files were found
 		%   TODO: It might be better to use the second output COUNT to
 		%         ensure the correct number of files.
-		assert(~isempty(f_l2pre_fgm),  ['No ' fgm_instr ' srvy l2pre files found.']);
 		assert(~isempty(f_l1a_fgm),    ['No ' fgm_instr ' fast l1a files found.']);
 		assert(~isempty(l1a_slow_fgm), ['No ' fgm_instr ' slow l1a files found.']);
 		assert(~isempty(f_l1b_scm),    ['No scm l1b files found.']);
@@ -258,18 +246,14 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 	oLog.AddText('| PARENT FILES                    |');
 	oLog.AddText('-----------------------------------');
 	oLog.AddText(f_l1a_fgm);
-	oLog.AddText(f_l2pre_fgm);
 	oLog.AddText(f_l1b_scm);
 	oLog.AddText('');
 
 %------------------------------------%
 % Read Data                          %
 %------------------------------------%
-	fgm = mms_fsm_fgm_read( f_l1a_fgm, f_l2pre_fgm, t_orbit, fc );
+	fgm = mms_fsm_fgm_read( f_l1a_fgm, t_orbit, fc );
 	scm = mms_fsm_scm_read( f_l1b_scm, t_orbit, fc );
-	
-	% Add model directory to structure
-	fgm.model_dir = fgm_model_dir;
 
 %------------------------------------%
 % Compute Background                 %
@@ -277,17 +261,17 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 
 	[~, ~, bkgd_cross] = mms_fsm_bkgd_compute(fgm, scm, T);
 
-%	fgm = mms_fsm_bkgd_compute_one(fgm, T, 'bigauss');
-%	scm = mms_fsm_bkgd_compute_one(scm, T, 'bigauss');
+	fgm = mms_fsm_bkgd_compute_one(fgm, T);
+	scm = mms_fsm_bkgd_compute_one(scm, T);
 
 %------------------------------------%
 % Write to File                      %
 %------------------------------------%
 	% Parent files
 	if ischar(f_l1a_fgm)
-		files = {f_l1a_fgm, f_l2pre_fgm, f_l1b_scm};
+		files = {f_l1a_fgm, f_l1b_scm};
 	else
-		files = [f_l1a_fgm, f_l2pre_fgm, f_l1b_scm];
+		files = [f_l1a_fgm, f_l1b_scm];
 	end
 	[~, fnames, ext] = cellfun(@fileparts, files, 'UniformOutput', false);
 	parents          = strcat(fnames, ext);
@@ -300,13 +284,12 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 	end
 
 	% Output data
-keyboard
-	file_fgm = mms_fsm_bkgd_write_cross( sc, mode, outdesc_gain, fstart, bkgd_cross, ...
-	                                     'Parents', parents);
-%	file_fgm = mms_fsm_bkgd_write(sc, mode, outdesc_fgm, fstart, fgm, ...
-%	                              'Parents', parents);
-%	file_scm = mms_fsm_bkgd_write(sc, mode, outdesc_scm, fstart, scm, ...
-%	                              'Parents', parents);
+	file_fgm = mms_fsm_bkgd_write( sc, mode, outdesc_fgm, fstart, fgm, ...
+	                               'Parents', parents );
+	file_scm = mms_fsm_bkgd_write( sc, mode, outdesc_scm, fstart, scm, ...
+	                               'Parents', parents );
+	file_gain = mms_fsm_bkgd_write_cross( sc, mode, outdesc_gain, fstart, bkgd_cross, ...
+	                                      'Parents', parents);
 
 %------------------------------------%
 % Record Output                      %
@@ -322,6 +305,7 @@ keyboard
 	mrfprintf('logtext', '-----------------------------------');
 	mrfprintf('logtext', file_fgm);
 	mrfprintf('logtext', file_scm);
+	mrfprintf('logtext', file_gain);
 	mrfprintf('logtext', 'Processing time: %s', dt_text);
 	mrfprintf('logtext', '');
 	

@@ -120,18 +120,52 @@ function [bkgd_fgm, bkgd_scm, bkgd_cross] = mms_fsm_bkgd_compute(fgm, scm, T)
 			i1_fgm = ifgm(1) + iFGM(2,jj) - 1;
 			i0_scm = i0      + iSCM(1,jj) - 1;
 			i1_scm = i0      + iSCM(2,jj) - 1;
+	
+		%------------------------------------%
+		% FGM Freq Compensation              %
+		%------------------------------------%
+			%
+			% TODO: Separate brst & srvy data
+			%
+			
+			% Find the model
+			range = bitget(flag(ii), 2);
+			mode  = bitget(flag(ii), 3);
+			fs    = fgm.sr(i0);
+			fsnew = scm.sr(i0_scm);
+			model = mms_fsm_fgm_load_model( fgm.sc, fgm.instr, range, mode );
+			delay = mms_fsm_fgm_delay( fgm.sc, fgm.instr, fs, mode);
+			
+			% Apply frequency compensation
+			[t_fgm, b_fgm] = mms_fsm_fgm_compensate( model, fgm.t(i0_fgm:i1_fgm)', fgm.b(:,i0_fgm:i1_fgm)', ...
+			                                         delay, fs, fsnew );
+			
+			% Transpose back
+			t_ref     = t_fgm(1);
+			t_fgm_ssm = MrCDF_epoch2ssm(t_fgm', t_ref);
+			b_fgm     = b_fgm';
+	
+		%------------------------------------%
+		% SCM Data                           %
+		%------------------------------------%
+			t_scm_ssm = MrCDF_epoch2ssm( scm.t( i0_scm:i1_scm ), t_ref );
+			b_scm     = scm.b(:, i0_scm:i1_scm);
+	
+		%------------------------------------%
+		% Interpolate                        %
+		%------------------------------------%
 			
 			% Convert time to seconds since midnight
 			%   - Doubles needed for interpolation
-			t_ref     = scm.t( i0_scm );
-			t_fgm_ssm = MrCDF_epoch2sse( fgm.t( i0_fgm:i1_fgm ), t_ref);
-			t_scm_ssm = MrCDF_epoch2sse( scm.t( i0_scm:i1_scm ), t_ref);
+%			t_ref     = scm.t( i0_scm );
+%			t_fgm_ssm = MrCDF_epoch2sse( fgm.t( i0_fgm:i1_fgm ), t_ref);
+%			t_scm_ssm = MrCDF_epoch2sse( scm.t( i0_scm:i1_scm ), t_ref);
 	
 			% Intepolate FGM to SCM
-			b_fgm_interp      = zeros(3, i1_scm-i0_scm+1);
-			b_fgm_interp(1,:) = interp1(t_fgm_ssm, fgm.b(1, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
-			b_fgm_interp(2,:) = interp1(t_fgm_ssm, fgm.b(2, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
-			b_fgm_interp(3,:) = interp1(t_fgm_ssm, fgm.b(3, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
+%			b_fgm_interp      = zeros(3, i1_scm-i0_scm+1);
+%			b_fgm_interp(1,:) = interp1(t_fgm_ssm, fgm.b(1, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
+%			b_fgm_interp(2,:) = interp1(t_fgm_ssm, fgm.b(2, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
+%			b_fgm_interp(3,:) = interp1(t_fgm_ssm, fgm.b(3, i0_fgm:i1_fgm), t_scm_ssm, 'linear', 'extrap');
 	
 		%------------------------------------%
 		% Compute Spectral Components        %
@@ -139,8 +173,8 @@ function [bkgd_fgm, bkgd_scm, bkgd_cross] = mms_fsm_bkgd_compute(fgm, scm, T)
 			
 			% Compute amplitude, phase, power
 %			temp_fgm_jj = mms_fsm_bkgd_spectra(t_fgm_ssm, fgm.b(:,i0_fgm:i1_fgm), T);
-			temp_fgm_jj = mms_fsm_bkgd_spectra(t_scm_ssm, b_fgm_interp, T);
-			temp_scm_jj = mms_fsm_bkgd_spectra(t_scm_ssm, scm.b(:,i0_scm:i1_scm), T);
+			temp_fgm_jj = mms_fsm_bkgd_spectra(t_scm_ssm, b_fgm, T);
+			temp_scm_jj = mms_fsm_bkgd_spectra(t_scm_ssm, b_scm, T);
 			
 			% Gain, Offset, Power Ratio
 			temp_x_jj.('t')           = temp_scm_jj.t;

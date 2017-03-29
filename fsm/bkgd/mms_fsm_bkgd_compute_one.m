@@ -27,7 +27,6 @@
 %                       't' - Time (TT2000)
 %                       'b' - 3-component magnetic field
 %   T               in, required, type = double
-%   FIT_METHOD      in, optional, type = string
 %   FC              in, optional, type = double, default = 0.5
 %
 % Returns
@@ -52,15 +51,10 @@
 %   2016-08-14      Written by Matthew Argall
 %   2016-09-19      Added the FIT_METHOD parameter. - MRA
 %   2016-09-26      Added the FC parameter. - MRA
+%   2016-09-26      Removed the FIT_METHOD and FC parameters until best fitting
+%                       method is determined. - MRA
 %
-function bkgd = mms_fsm_bkgd_compute_one(data, T, fit_method, fc)
-	
-	if nargin() < 3
-		fit_method = 'bigauss'
-	end
-	if nargin() < 4
-		fc = [];
-	end
+function bkgd = mms_fsm_bkgd_compute_one(data, T)
 
 %------------------------------------%
 % Find Unique Flag Values            %
@@ -107,13 +101,12 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T, fit_method, fc)
 				% Find the model
 				range = bitget(flag(ii), 2);
 				mode  = bitget(flag(ii), 3);
-				fs    = fgm.sr(i0);
-				model = mms_fsm_fgm_load_model(data.model_dir, data.sc, data.instr, range, mode);
+				fs    = data.sr(i0);
+				model = mms_fsm_fgm_load_model( data.sc, data.instr, range, mode );
 				delay = mms_fsm_fgm_delay( data.sc, data.instr, fs, mode);
 				
 				% Apply frequency compensation
-				[t, b] = mms_fsm_fgm_compensate( model, data.t(i0:i1)', data.b(:,i0:i1)', ...
-				                                 delay, fs, fsnew );
+				[t, b] = mms_fsm_fgm_compensate( model, data.t(i0:i1)', data.b(:,i0:i1)', delay, fs );
 				
 				% Transpose back
 				t = t';
@@ -166,21 +159,21 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T, fit_method, fc)
 	% Determine Noise Floor              %
 	%------------------------------------%
 		% Amplitude, Power, Phase
-		if strcmp(fit_method, 'area')
-			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_area( temp.('amp_hist'),   temp.('amp_bins')   );
-			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_area( temp.('phase_hist'), temp.('phase_bins') );
-			temp.('psd_floor')   = mms_fsm_bkgd_fit_area( temp.('psd_hist'),   temp.('psd_bins')   );
-		elseif strcmp(fit_method, 'gauss')
-			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_gauss( temp.('amp_hist'),   temp.('f'), temp.('amp_bins')   );
-			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_gauss( temp.('phase_hist'), temp.('f'), temp.('phase_bins') );
-			temp.('psd_floor')   = mms_fsm_bkgd_fit_gauss( temp.('psd_hist'),   temp.('f'), temp.('psd_bins')   );
-		elseif strcmp(fit_method, 'bigauss')
-			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_bigauss( temp.('amp_hist'),   temp.('f'), temp.('amp_bins'),   fc );
-			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_bigauss( temp.('phase_hist'), temp.('f'), temp.('phase_bins'), fc );
-			temp.('psd_floor')   = mms_fsm_bkgd_fit_bigauss( temp.('psd_hist'),   temp.('f'), temp.('psd_bins'),   fc );
-		else
-			error( ['Unknown fit method: "' fit_method '".'] );
-		end
+%		if strcmp(fit_method, 'area')
+%			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_area( temp.('amp_hist'),   temp.('amp_bins')   );
+%			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_area( temp.('phase_hist'), temp.('phase_bins') );
+%			temp.('psd_floor')   = mms_fsm_bkgd_fit_area( temp.('psd_hist'),   temp.('psd_bins')   );
+%		elseif strcmp(fit_method, 'gauss')
+%			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_gauss( temp.('amp_hist'),   temp.('f'), temp.('amp_bins')   );
+%			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_gauss( temp.('phase_hist'), temp.('f'), temp.('phase_bins') );
+%			temp.('psd_floor')   = mms_fsm_bkgd_fit_gauss( temp.('psd_hist'),   temp.('f'), temp.('psd_bins')   );
+%		elseif strcmp(fit_method, 'bigauss')
+%			temp.('amp_floor')   = zeros(1,0); % mms_fsm_bkgd_fit_bigauss( temp.('amp_hist'),   temp.('f'), temp.('amp_bins'),   fc );
+%			temp.('phase_floor') = zeros(1,0); % mms_fsm_bkgd_fit_bigauss( temp.('phase_hist'), temp.('f'), temp.('phase_bins'), fc );
+%			temp.('psd_floor')   = mms_fsm_bkgd_fit_bigauss( temp.('psd_hist'),   temp.('f'), temp.('psd_bins'),   fc );
+%		else
+%			error( ['Unknown fit method: "' fit_method '".'] );
+%		end
 	
 	%------------------------------------%
 	% Save Data from Multiple Flags      %
@@ -208,7 +201,7 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T, fit_method, fc)
 			names = fieldnames(bkgd);
 			for ii = 1 : length(bkgd) - 1
 				for jj = 1 : length( names )
-					if ismember(names{jj}, {'amp', 'phase', 'psd', 'amp_hist', 'phase_hist', 'psd_hist', 'amp_floor', 'phase_floor', 'psd_floor'})
+					if ismember(names{jj}, {'amp', 'phase', 'psd', 'amp_hist', 'phase_hist', 'psd_hist'}) %, 'amp_floor', 'phase_floor', 'psd_floor'})
 						% Array extension size (frequency is the last dimension)
 						dims      = size( bkgd(ii).(names{jj}) );
 						dims(end) = nFast - nSlow;
@@ -224,6 +217,7 @@ function bkgd = mms_fsm_bkgd_compute_one(data, T, fit_method, fc)
 		end
 
 		% Concatenate the fields
-		bkgd = MrCatStruct(bkgd, [2,0,2,2,2,2,0,2,0,2,0,2,2,2,2,2]);
+		bkgd = MrCatStruct(bkgd, [2,0,2,2,2,2,0,2,0,2,0,2,2]);
+%		bkgd = MrCatStruct(bkgd, [2,0,2,2,2,2,0,2,0,2,0,2,2,2,2,2]);
 	end
 end
