@@ -63,7 +63,7 @@ function scm = mms_fsm_scm_read_vFGM(file, fgm, trange, fc)
 	[b_123, t] = mms_fsm_scm_read_l1b(file, trange);
 	
 	% Categorize the data
-	scm = mms_fsm_scm_read_categorize(t, b_123, fgm);
+	scm = mms_fsm_scm_read_categorize_vFGM(t, b_123, fgm);
 	
 	% Clear the data
 	clear t b_123

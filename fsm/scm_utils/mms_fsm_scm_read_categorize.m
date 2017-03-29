@@ -6,8 +6,8 @@
 %   Read SCM data and sort it into fast and slow survey portions.
 %
 % Calling Sequence
-%   DATA = mms_fsm_scm_read_categorize(T, B, FGM)
-%     Categorize SCM magnetic field data by deck (32/64) and by mode (slow/fast/brst).
+%   DATA = mms_fsm_scm_read_categorize(T, B)
+%     Categorize SCM magnetic field data by mode (slow/fast/brst).
 %     Use FGM information obtained from mms_fsm_bkgd_fgm_read to apply the deck 32/64
 %     flag to SCM data.
 %
@@ -22,7 +22,6 @@
 %                       'b'      - Magnetic field in 123 coordinates
 %                       'flag'   - Flag indicating operational mode:
 %                                    1: unset = Slow    set = Fast
-%                                    6: unset = Deck32  set = Deck64
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -33,7 +32,7 @@
 %   2016-10-01      Renamed from mms_fsm_bkgd_scm_read_categorize to mms_fsm_scm_read_categorize. - MRA
 %   2016-10-21      Removed the FGM parameter (SCM is not affected by DAC 32/64). - MRA
 %
-function data = mms_fsm_scm_read_categorize(t, b, fgm)
+function data = mms_fsm_scm_read_categorize(t, b)
 
 %------------------------------------%
 % Isolate Orbit                      %
