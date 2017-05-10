@@ -14,9 +14,9 @@
 %***************************************************************************
 
 % Load data from mat file
-fgm_file    = '/nfs/fsm/temp/mms1_fsm_brst_l2plus_cal-dfg_20150901121114_v2.0.0.cdf';
-scm_file    = '/nfs/fsm/temp/mms1_fsm_brst_l2plus_cal-scm_20150901121114_v2.0.0.cdf';
-theFlag_fgm = 5;
+fgm_file    = '/nfs/fsm/temp/mms4_fsm_brst_l2plus_cal-dfg_20150920063324_v2.0.0.cdf';
+scm_file    = '/nfs/fsm/temp/mms4_fsm_brst_l2plus_cal-scm_20150920063324_v2.0.0.cdf';
+theFlag_fgm = 1;
 theFlag_scm = 1;
 png_dir     = '/home/argall/figures/merging/'; % '/home/argall/figures/merging/';
 
@@ -25,6 +25,7 @@ png_dir     = '/home/argall/figures/merging/'; % '/home/argall/figures/merging/'
 [sc, instr, mode, level, tstart, ~, optdesc] = mms_dissect_filename(fgm_file);
 fgm_instr = regexp(optdesc, '-', 'split');
 fgm_instr = fgm_instr{2};
+outdesc   = [optdesc '-scm'];
 
 % LPP Noise Floor
 lpp_noise = mms_lpp_read_floor();
@@ -121,7 +122,7 @@ ax.YScale        = 'log';
 h = colorbar();
 h.YLabel.String  = 'PSD (nT^{2}/Hz)';
 ax.Position      = inPos(idx,:);
-title( ['PSD Bx ' upper(fgm_instr) fgm_title] );
+title( [upper(sc) ' PSD Bx ' upper(fgm_instr) fgm_title] );
 
 % FGM BY
 idx = 3;
@@ -168,7 +169,7 @@ ax.YScale        = 'log';
 h = colorbar();
 h.YLabel.String  = 'PSD (nT^{2}/Hz)';
 ax.Position      = inPos(idx,:);
-title( 'PSD Bx SCM' );
+title( [upper(sc) ' PSD Bx SCM'] );
 
 % SCM BY
 idx = 4;
@@ -230,7 +231,7 @@ ax.YScale        = 'log';
 h = colorbar();
 h.YLabel.String  = 'Occurrence';;
 ax.Position      = inPos(idx,:);
-title( ['PSD Bx ' upper(fgm_instr) fgm_title] );
+title( [upper(sc) ' PSD Bx ' upper(fgm_instr) fgm_title] );
 
 hold on
 plot( f_iwf, nf_iwf(1,:), '--r', 'LineWidth', 1.5 );
@@ -291,7 +292,7 @@ ax.YScale        = 'log';
 h = colorbar();
 h.YLabel.String  = 'Occurrence';
 ax.Position      = inPos(idx,:);
-title( 'PSD Bx SCM' )
+title( [upper(sc) ' PSD Bx SCM'] )
 
 hold on
 plot( f_lpp, nf_lpp(1,:), '--r', 'LineWidth', 1.5 );
@@ -345,13 +346,13 @@ hold off
 if ~isempty(png_dir)
 	% Distributions
 	set( fig1, 'PaperPositionMode', 'auto');
-	filename = fullfile( png_dir, [sc '_fsm_' mode '_' level '_' optdesc '-psd_' tstart '.png'] );
+	filename = fullfile( png_dir, [sc '_fsm_' mode '_' level '_' outdesc '-psd_' tstart '.png'] );
 	print( fig1, filename, '-dpng', '-r300' );
 	disp( ['Saving file to: "' filename '".'] );
 	
 	% Cuts
 	set( fig2, 'PaperPositionMode', 'auto');
-	filename = fullfile( png_dir, [sc '_fsm_' mode '_' level '_' optdesc '-hist_' tstart '.png'] );
+	filename = fullfile( png_dir, [sc '_fsm_' mode '_' level '_' outdesc '-hist_' tstart '.png'] );
 	print( fig2, filename, '-dpng', '-r300' );
 	disp( ['Saving file to: "' filename '".'] );
 end

@@ -259,8 +259,10 @@ function [status, file_fgm, file_scm] = mms_fsm_bkgd_sdc(sc, mode, tstart, tend,
 % Compute Background                 %
 %------------------------------------%
 
+	% Gain and phase delay
 	[~, ~, bkgd_cross] = mms_fsm_bkgd_compute(fgm, scm, T);
-
+	
+	% Single-instrument power distribution
 	fgm = mms_fsm_bkgd_compute_one(fgm, T);
 	scm = mms_fsm_bkgd_compute_one(scm, T);
 

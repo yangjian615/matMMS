@@ -61,7 +61,7 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 	end
 	nShift  = 0.25;
 	nfilter = 8192;
-	ndelay  = nfilter/2;
+	ndelay  = nfilter;
 	fc      = 4.0;
 
 %------------------------------------%
@@ -69,7 +69,7 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 %------------------------------------%
 	nPts   = length( scm.t );
 	t_fill = MrCDF_Epoch_Compute( [9999, 12, 31, 0, 0, 0] );
-	t_fsm  = repmat( t_fill, 1, nPts );
+	t_fsm  = scm.t; % repmat( t_fill, 1, nPts );
 	b_fsm  = NaN( 3, nPts );
 	
 %------------------------------------%
@@ -150,11 +150,6 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 			i1_scm = i0      + iSCM(2,jj) - 1;
 
 		%------------------------------------%
-		% Interpolate FGM to SCM             %
-		%------------------------------------%
-		
-
-		%------------------------------------%
 		% Apply the Model                    %
 		%------------------------------------%
 			%
@@ -173,13 +168,14 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 			fsnew = scm.sr(i0_scm);
 			model = mms_fsm_fgm_load_model(fgm.sc, fgm.instr, range, mode);
 			delay = mms_fsm_fgm_delay( fgm.sc, fgm.instr, fs, mode);
-
+			
 			% Apply frequency compensation
 			[t_fgm, b_fgm] = mms_fsm_fgm_compensate( model, fgm.t(i0_fgm:i1_fgm)', fgm.b(:,i0_fgm:i1_fgm)', ...
 			                                         delay, fs, fsnew );
 			
 			% Fix delay between FGM & SCM
 			[t_fgm, b_fgm, t_scm, b_scm] = mms_fsm_align_time( model, t_fgm, b_fgm, scm.t(i0_scm:i1_scm)', scm.b(:,i0_scm:i1_scm)', fsnew );
+			i0_scm = find( scm.t(i0_scm:i1_scm) == t_scm(1), 1, 'first' ) + i0_scm - 1;
 			i1_scm = i0_scm + length(t_scm) - 1;
 	
 		%------------------------------------%
@@ -187,6 +183,9 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 		%------------------------------------%
 			% Merge the data
 			for kk = 1 : 3
+				% Filter
+				%   - The function removes points added by the convolution
+				%   - The filter length is 2*nfilter -- two filters are convolved together
 				b_fsm_temp = MrFilter_Merge( b_fgm(:,kk)', b_scm(:,kk)', 1/fsnew, 4.0, 7.0, nfilter, 'blackman' );
 %				b_fsm_fgm = MrFilter_WinSinc( b_fgm(:,kk)', 1/fsnew, fc, nfilter+1, nfilter, 'blackman', 'low' );
 %				b_fsm_scm = MrFilter_WinSinc( b_scm(:,kk)', 1/fsnew, fc, nfilter+1, nfilter, 'blackman', 'high' );
@@ -195,14 +194,19 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 				b_fsm_temp = b_fsm_temp(ndelay+1:end);
 %				b_fsm_fgm = b_fsm_fgm(ndelay+1:end);
 %				b_fsm_scm = b_fsm_scm(ndelay+1:end);
-
+				
+				% Remove settling time
+				b_fsm_temp(1:ndelay) = NaN;
+				
 				% Store the signal
+%				b_fsm(kk,i0_scm:i1_scm) = b_fsm_temp;
 				b_fsm(kk,i0_scm:i1_scm-ndelay) = b_fsm_temp;
 %				b_fsm(kk,i0_scm:i1_scm-ndelay) = b_fsm_fgm + b_fsm_scm;
 			end
-			
+
 			% Time array
-			t_fsm( i0_scm:i1_scm-ndelay ) = t_scm(1:end-ndelay)';
+%			t_fsm( i0_scm:i1_scm ) = t_scm(1:end)';
+%			t_fsm( i0_scm:i1_scm-ndelay ) = t_scm(1:end-ndelay)';
 			
 			clear b_fsm_temp
 %			clear b_fsm_fgm b_fsm_scm
@@ -220,7 +224,7 @@ function [t_fsm, b_fsm] = mms_fsm_l3_create( fgm, scm, duration, weight)
 	end
 
 	% Remove data not included in the merging process
-	igood = find( t_fsm ~= t_fill );
-	t_fsm = t_fsm(igood);
-	b_fsm = b_fsm(:,igood);
+%	igood = find( t_fsm ~= t_fill );
+%	t_fsm = t_fsm(igood);
+%	b_fsm = b_fsm(:,igood);
 end

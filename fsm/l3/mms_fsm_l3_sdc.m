@@ -360,7 +360,7 @@ function status = mms_fsm_l3_sdc(sc, mode, tstart, tend, varargin)
 %------------------------------------%
 % Process Data                       %
 %------------------------------------%
-	[t_fsm, b_omb] = mms_fsm_l3_create( fgm, scm, duration, []);
+	[t_fsm, b_omb] = mms_fsm_l3_create( fgm, scm, duration, [] );
 	
 %------------------------------------%
 % Write to File                      %

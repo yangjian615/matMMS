@@ -4,8 +4,8 @@
 # Process a list of burst or survey files.
 #
 #   Calling Sequence
-#     bash mms_fsm_l3_process_list.sh list
-#     bash mms_fsm_l3_process_list.sh list log_file
+#     bash mms_fsm_l3_process_list.sh list_file
+#     bash mms_fsm_l3_process_list.sh list_file log_file
 #
 # Inputs
 #   LIST:       in, required

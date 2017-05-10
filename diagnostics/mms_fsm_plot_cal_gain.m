@@ -3,7 +3,7 @@
 %   mms_fsm_plot_cal_psd_hist
 %
 % Purpose
-%   
+%   Plot gain compa
 %
 % MATLAB release(s) MATLAB 7.14.0.739 (R2012a)
 % Required Products None
@@ -14,8 +14,8 @@
 %***************************************************************************
 
 % Load data from mat file
-file    = '/nfs/fsm/temp/mms1_fsm_brst_l2plus_cal-dfg-scm_20150901121114_v0.0.0.cdf';
-theFlag = 5;
+file    = '/nfs/fsm/temp/mms4_fsm_brst_l2plus_cal-dfg-scm_20150920063324_v0.0.0.cdf';
+theFlag = 1;
 png_dir = '/home/argall/figures/merging/'; % '/home/argall/figures/merging/';
 
 
@@ -103,7 +103,7 @@ gain_hist  = permute( squeeze( gain_hist(:, :, iflag, :) ), [2,1,3] );
 phase_hist = permute( squeeze( phase_hist(:, :, iflag, :) ), [2,1,3] );
 	
 %------------------------------------%
-% Plot PSD                           %
+% Plot Gain                          %
 %------------------------------------%
 
 % Create a figure
@@ -137,7 +137,7 @@ ax.YScale        = 'log';
 h = colorbar();
 h.YLabel.String  = 'Log_{10}(Gain)';
 ax.Position      = inPos(idx,:);
-title( ['Gain Bx ' upper(fgm_instr) '/SCM' fgm_title] );
+title( [upper(sc) ' Gain Bx ' upper(fgm_instr) '/SCM' fgm_title] );
 
 % GAIN BY
 idx = 3;
@@ -183,7 +183,7 @@ ax.YScale       = 'log';
 h = colorbar();
 h.YLabel.String = 'Occurrence';
 ax.Position     = inPos(idx,:);
-title( ['Gain Bx ' upper(fgm_instr) '/SCM' fgm_title] );
+title( [upper(sc) ' Gain Bx ' upper(fgm_instr) '/SCM' fgm_title] );
 
 % Gain Hist BY
 idx = 4;
@@ -217,7 +217,7 @@ title( ['Gain Bz ' upper(fgm_instr) '/SCM' fgm_title] );
 
 
 %------------------------------------%
-% Plot Histogram                     %
+% Plot Phase                         %
 %------------------------------------%
 
 % Create a figure
@@ -245,7 +245,7 @@ ax.YScale        = 'log';
 h = colorbar();
 h.YLabel.String  = '\Delta\theta (deg)';
 ax.Position      = inPos(idx,:);
-title( ['\DeltaPhase Bx ' upper(fgm_instr) fgm_title] );
+title( [upper(sc) ' \DeltaPhase Bx ' upper(fgm_instr) fgm_title] );
 
 % Phase BY
 idx = 3;
@@ -295,7 +295,7 @@ ax.YLabel.String = '\Delta\theta';
 h = colorbar();
 h.YLabel.String  = 'Occurrence';
 ax.Position      = inPos(idx,:);
-title( ['\DeltaPhase Bx ' upper(fgm_instr) '-SCM' fgm_title] )
+title( [upper(sc) ' \DeltaPhase Bx ' upper(fgm_instr) '-SCM' fgm_title] )
 
 % Phase Hist BY
 idx = 4;
