@@ -1,0 +1,5 @@
+I. Version Information
+
+v0.0.0 - First working version.
+v0.1.0 - Added |B| as variable. Updated metadata information.
+v1.0.0 - Merging of FGM and SCM data is performed in the time domain via convolution with a "step-filter" that takes into account characteristics of the FGM and SCM noise floors. Input data for FGM is obtained via Ken Brommund's IDL routines, is of level-2 quality, and is in OMB coordinates. Data are rotated from OMB into geophysical coordinates again using Ken Brommund's IDL routines.

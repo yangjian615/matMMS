@@ -70,6 +70,7 @@ t      = fgm_l2pre.tt2000;
 b_bcs  = fgm_l2pre.b_bcs(1:3,:);
 b_dmpa = fgm_l2pre.b_dmpa(1:3,:);
 b_gse  = fgm_l2pre.b_gse(1:3,:);
+b_gsm  = fgm_l2pre.b_gsm(1:3,:);
 clear fgm_l2pre
 
 %------------------------------------%
@@ -97,6 +98,19 @@ b_unh_gei = mrvector_rotate(dmpa2gei, b_unh_dmpa);
 [mjd, utc] = tt2000toMJDutc(t');
 xgei2gse   = gei2gse(mjd, utc);
 b_unh_gse  = mrvector_rotate(xgei2gse, b_unh_gei);
+
+%------------------------------------%
+% B_GSE ---> B_GSM                   %
+%------------------------------------%
+
+% Get the IGRF coefficients
+file      = '/home/argall/MATLAB/HapgoodRotations/igrf_coeffs.txt';
+coef      = read_igrf_coeffs(file, 2015);
+g10       = coef(1);
+g11       = coef(2);
+h11       = coef(3);
+xgse2gsm  = gse2gsm(g10, g11, h11, mjd, utc);
+b_unh_gsm = mrvector_rotate(xgse2gsm, b_unh_gse);
 
 %------------------------------------%
 % DMPA Results                       %
@@ -154,6 +168,36 @@ datetick();
 % Z-component
 subplot(3,1,3)
 plot( t_dn, b_gse(3,:), t_dn, b_unh_gse(3,:) );
+xlabel( 'Time UTC' );
+ylabel( {'Bz', '(nT)'} );
+datetick();
+
+%------------------------------------%
+% GSM Results                        %
+%------------------------------------%
+% Convert time to datenumber to use the datetick function.
+t_dn     = MrCDF_epoch2datenum(t');
+f_gsm = figure();
+
+% X-component
+subplot(3,1,1)
+plot( t_dn, b_gsm(1,:), t_dn, b_unh_gsm(1,:) );
+title([ upper(sc) ' ' upper(instr) ' GSM ' tstart(1:10)] );
+xlabel( 'Time UTC' );
+ylabel( {'Bx', '(nT)'} );
+datetick();
+legend('FGM', 'UNH');
+
+% Y-component
+subplot(3,1,2)
+plot( t_dn, b_gsm(2,:), t_dn, b_unh_gsm(2,:) );
+xlabel( 'Time UTC' );
+ylabel( {'By', '(nT)'} );
+datetick();
+
+% Z-component
+subplot(3,1,3)
+plot( t_dn, b_gsm(3,:), t_dn, b_unh_gsm(3,:) );
 xlabel( 'Time UTC' );
 ylabel( {'Bz', '(nT)'} );
 datetick();

@@ -46,11 +46,11 @@ function fname = mms_req_scmdespun(sc, instr, mode, tstart, tend, outdir)
 	% Default inputs
 	sc      = 'mms4';
 	instr   = 'scm';
-	mode    = 'srvy';
+	mode    = 'brst';
 	level   = 'l1a';
-	optdesc = 'scm';
-	tstart  = '2015-08-15T08:30:00';
-	tend    = '2015-08-15T09:30:00';
+	optdesc = 'scb';
+	tstart  = '2015-08-15T13:03:34';
+	tend    = '2015-08-15T13:05:23';
 	
 	% Output directory
 	if nargin() < 6
@@ -122,10 +122,10 @@ function fname = mms_req_scmdespun(sc, instr, mode, tstart, tend, outdir)
 
 	% Create GEI data
 	[tt2000, b_gse, ~, b_dmpa, ~, ~, b_bcs]                       ...
-		= mms_sc_create_l2(fname_scm, scm_cal_file, tstart, tend, ...
-		                   'Attitude', attitude,                  ...
-		                   'SunPulse', sunpulse,                  ...
-		                   'zMPA',     zMPA);
+		= mms_scm_l2_create(fname_scm, scm_cal_file, tstart, tend, ...
+		                    'Attitude', attitude,                  ...
+		                    'SunPulse', sunpulse,                  ...
+		                    'zMPA',     zMPA);
 	
 %------------------------------------%
 % Save a mat file                    %
